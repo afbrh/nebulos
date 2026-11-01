@@ -22,14 +22,15 @@ object FourByThree {
     /** Screens at or below this width/height ratio count as 4:3-ish (4:3 = 1.333; 16:10 = 1.6; 16:9 = 1.78). */
     const val SCREEN_THRESHOLD = 1.5f
 
+    private val SMG1 = Regex("^RMG[EPJK]01$")
     private val SMG2 = Regex("^SB4[EPJK]01$")
     private val NSMBW = Regex("^SMN[EPJK]01$")
     private val OTHER_M = Regex("^R3O[EPJK]01$")
     private val PRIME_TRILOGY = Regex("^R3M[EPJK]01$")
 
-    /** Games with a 4:3 option: Super Mario Galaxy 2, New Super Mario Bros. Wii, Metroid: Other M, Metroid Prime Trilogy. */
+    /** Games with a 4:3 option: Super Mario Galaxy, Super Mario Galaxy 2, New Super Mario Bros. Wii, Metroid: Other M, Metroid Prime Trilogy. */
     fun supports(id: String?): Boolean = id != null &&
-        (SMG2.matches(id) || NSMBW.matches(id) || OTHER_M.matches(id) || PRIME_TRILOGY.matches(id))
+        (SMG1.matches(id) || SMG2.matches(id) || NSMBW.matches(id) || OTHER_M.matches(id) || PRIME_TRILOGY.matches(id))
 
     /** A game-specific code that is added while 4:3 is on. [name] is also how it is found again to be removed. */
     class Gecko(val name: String, val lines: List<String>)

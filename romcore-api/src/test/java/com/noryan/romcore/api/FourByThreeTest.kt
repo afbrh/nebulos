@@ -5,8 +5,8 @@ import org.junit.Test
 
 class FourByThreeTest {
     @Test fun supportedGames() {
-        for (id in listOf("SB4E01", "SB4P01", "SMNE01", "SMNP01", "R3OE01", "R3OP01", "R3ME01", "R3MP01")) assertTrue(id, FourByThree.supports(id))
-        for (id in listOf(null, "", "RMGE01", "GZLE01", "R3OE02", "SB4E02", "GMSE01")) assertFalse(id.toString(), FourByThree.supports(id))
+        for (id in listOf("RMGE01", "RMGP01", "SB4E01", "SB4P01", "SMNE01", "SMNP01", "R3OE01", "R3OP01", "R3ME01", "R3MP01")) assertTrue(id, FourByThree.supports(id))
+        for (id in listOf(null, "", "RMGE02", "GZLE01", "R3OE02", "SB4E02", "GMSE01")) assertFalse(id.toString(), FourByThree.supports(id))
     }
 
     @Test fun onlyUsaOtherMNeedsAGeckoCode() {
