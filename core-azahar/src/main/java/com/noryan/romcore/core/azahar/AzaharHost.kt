@@ -36,6 +36,17 @@ object AzaharHost {
     private var hooks: RomCoreCoreHost.Hooks? = null
     private var backGuard: OnBackPressedCallback? = null
 
+    // ---- per-game "4:3 Fill" (AzaharFourThree) ----
+    private var gameKey = ""
+    private var titleId: String? = null
+    /** This game's 4:3 Fill choice (live: the Screen Layout row flips it and the emulator picks it up on the next draw). */
+    @Volatile var fillOn = false
+        private set
+    private fun store(ctx: Context) = AzaharFourThree.prefsStore(ctx)
+    fun setFill(ctx: Context, on: Boolean) { fillOn = on; AzaharFourThree.setEnabled(store(ctx), gameKey, on) }
+    /** The layout in force for this game. */
+    fun currentMode(ctx: Context) = AzaharFourThree.effectiveMode(fillOn, AzaharScreenLayouts.loadMode(ctx))
+
     // ---- before Activity.onCreate: directory + layout configuration --------------------------------------------
     fun prepare(a: EmulationActivity) {
         val i = a.intent
@@ -56,6 +67,11 @@ object AzaharHost {
         EmulationMenuSettings.showOverlay = false
         EmulationMenuSettings.drawerLockMode = DrawerLayout.LOCK_MODE_LOCKED_CLOSED
         EmulationMenuSettings.swapScreens = false
+
+        titleId = i.getStringExtra(AzaharCore.EXTRA_TITLEID)
+        gameKey = AzaharFourThree.gameKey(titleId, i.getStringExtra(AzaharCore.EXTRA_ROM) ?: "")
+        val (sw, sh) = windowSize(a)
+        fillOn = AzaharFourThree.isEnabled(store(a), gameKey, titleId, sw, sh)
 
         val first = a.getSharedPreferences("romcore_azahar_state", Context.MODE_PRIVATE)
         if (!first.getBoolean("defaults_v1", false)) {
@@ -85,6 +101,8 @@ object AzaharHost {
     private fun writeScreenLayout(ctx: Context, mode: AzaharScreenLayouts.Mode, bottomFocus: Boolean) {
         val (w, h) = windowSize(ctx)
         val l = AzaharScreenLayouts.compute(mode, bottomFocus, w, h)
+        // The emulator draws the top screen as a native 4:3 picture exactly while the 4:3 Fill layout is in force.
+        runCatching { NativeLibrary.setFourThreeFill(mode == AzaharScreenLayouts.Mode.FILL) }
         put(IntSetting.SCREEN_LAYOUT, CUSTOM_LAYOUT)
         put(IntSetting.LANDSCAPE_TOP_X, l.topSlot.x); put(IntSetting.LANDSCAPE_TOP_Y, l.topSlot.y)
         put(IntSetting.LANDSCAPE_TOP_WIDTH, l.topSlot.width); put(IntSetting.LANDSCAPE_TOP_HEIGHT, l.topSlot.height)
@@ -124,7 +142,7 @@ object AzaharHost {
                 // One display: RomCore's own layouts (Screen Layout menu row, L3 swap) as exact custom rectangles.
                 customLayout = true
                 put(BooleanSetting.ENABLE_SECONDARY_DISPLAY, false); put(IntSetting.ORIENTATION_OPTION, landscape)
-                writeScreenLayout(ctx, AzaharScreenLayouts.loadMode(ctx), false)
+                writeScreenLayout(ctx, currentMode(ctx), false)
             }
             AzaharCore.ScreenMode.SIDE_BY_SIDE -> {
                 put(IntSetting.SCREEN_LAYOUT, 3)
@@ -155,7 +173,7 @@ object AzaharHost {
         RomCoreBridge.ready = {
             h.onGameReady()
             // The emulator read config.ini before prepare() could rewrite the layout: re-apply it now that the game is running.
-            a.runOnUiThread { runCatching { applyScreenLayout(a, AzaharScreenLayouts.loadMode(a), false) } }
+            a.runOnUiThread { runCatching { applyScreenLayout(a, currentMode(a), false) } }
         }
         RomCoreBridge.flushPending()
 

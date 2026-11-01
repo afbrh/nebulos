@@ -27,6 +27,8 @@ object AzaharCore : CoreDescriptor {
 
     internal const val EXTRA_USERDIR = "romcore.azahar.userdir"
     internal const val EXTRA_MODE = "romcore.azahar.mode"
+    internal const val EXTRA_ROM = "romcore.azahar.rom"
+    internal const val EXTRA_TITLEID = "romcore.azahar.titleid"
     internal const val EXTRA_MARK = "romcore.azahar.session"
     private const val PREFS = "romcore_azahar_cfg"
     private const val EMU_ACTIVITY = "org.citra.citra_emu.activities.EmulationActivity"
@@ -82,6 +84,8 @@ object AzaharCore : CoreDescriptor {
             putExtra("game", game)
             putExtra("romcore.title", game.title)
             putExtra(EXTRA_MARK, true)
+            putExtra(EXTRA_ROM, request.romPath)
+            AzaharPatches.titleId(request.romPath)?.let { putExtra(EXTRA_TITLEID, it) }
             putExtra(EXTRA_MODE, screenMode(ctx).name)
             putExtra(EXTRA_USERDIR, ensureUserDir(ctx).absolutePath)
             if (ctx !is Activity) addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

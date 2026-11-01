@@ -35,7 +35,7 @@ class AzaharSession(private val activity: Activity) : CoreSession, StateSlotProv
     } catch (_: Throwable) { false }
 
     // ---- screen layout: "Single Screen" / "Stacked" (see AzaharScreenLayouts); L3 or R3 tapped alone swaps the screens ---------------------
-    private var layoutMode = AzaharScreenLayouts.loadMode(activity)
+    private var layoutMode = AzaharHost.currentMode(activity)
     private var bottomFocus = false
     private val swapShortcut = com.noryan.romcore.api.SwapScreensShortcut(activity, "romcore_azahar_state") {
         if (AzaharHost.customLayout) { bottomFocus = !bottomFocus; AzaharHost.applyScreenLayout(activity, layoutMode, bottomFocus) }
@@ -48,12 +48,15 @@ class AzaharSession(private val activity: Activity) : CoreSession, StateSlotProv
     override val optionLabel = "Screen Layout"
     override val optionAvailable get() = AzaharHost.customLayout
     override fun optionValue(): String = layoutMode.label
-    override fun cycleOption(): Boolean = setMode(layoutMode.next())
-    override fun cycleOptionBack(): Boolean = setMode(layoutMode.previous())
-    private fun setMode(m: AzaharScreenLayouts.Mode): Boolean {
-        layoutMode = m
-        AzaharScreenLayouts.saveMode(activity, m)
-        AzaharHost.applyScreenLayout(activity, m, bottomFocus)
+    override fun cycleOption(): Boolean = setMode(true)
+    override fun cycleOptionBack(): Boolean = setMode(false)
+    /** Single / Stacked / Stacked Full are global; "4:3 Fill" is this game's own switch (AzaharFourThree). All apply live. */
+    private fun setMode(forward: Boolean): Boolean {
+        val st = AzaharFourThree.step(layoutMode, AzaharScreenLayouts.loadMode(activity), forward)
+        layoutMode = st.mode
+        AzaharHost.setFill(activity, st.fillOn)
+        AzaharScreenLayouts.saveMode(activity, st.global)
+        AzaharHost.applyScreenLayout(activity, st.mode, bottomFocus)
         return true
     }
 

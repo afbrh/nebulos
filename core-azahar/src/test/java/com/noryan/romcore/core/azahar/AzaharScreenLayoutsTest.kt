@@ -36,12 +36,13 @@ class AzaharScreenLayoutsTest {
 
     @Test fun modesCycleBothWays() {
         for (m in Mode.values()) { assertEquals(m, m.next().previous()); assertEquals(m, m.previous().next()) }
-        assertEquals(3, Mode.values().size)
+        assertEquals(4, Mode.values().size)
+        assertEquals(Mode.FILL, Mode.STACKED_FULL.next())
         assertEquals(Mode.STACKED, Mode.values().first { it.label == "Stacked" })
     }
 
     @Test fun screensKeepTheirAspectRatios() {
-        for ((w, h) in listOf(1280 to 960, 1920 to 1080, 1080 to 1920, 800 to 480, 1600 to 1200)) for (mode in Mode.values()) for (swap in listOf(false, true)) {
+        for ((w, h) in listOf(1280 to 960, 1920 to 1080, 1080 to 1920, 800 to 480, 1600 to 1200)) for (mode in Mode.values().filter { it != Mode.FILL }) for (swap in listOf(false, true)) {
             val l = AzaharScreenLayouts.compute(mode, swap, w, h)
             for ((r, sw) in listOf(l.topSlot to (if (swap) 320 else 400), l.bottomSlot to (if (swap) 400 else 320))) {
                 assertTrue("$w x $h $mode $swap $r", Math.abs(r.width * 240 - r.height * sw) <= sw)   // within 1 px
@@ -55,6 +56,24 @@ class AzaharScreenLayoutsTest {
             assertTrue("$w x $h $mode $swap: $r", r.x >= 0 && r.y >= 0 && r.x + r.width <= w && r.y + r.height <= h)
             val bigW = if (swap) 320 else 400
             if (mode == Mode.STACKED && w >= bigW && h >= 480) assertEquals("$w x $h $mode $swap: scale", 0, r.width % bigW)
+        }
+    }
+
+    @Test fun fillIsTheWholeWindowOnA43Screen() {
+        val t = AzaharScreenLayouts.compute(Mode.FILL, false, 1280, 960)
+        assertEquals(Rect(0, 0, 1280, 960), t.topSlot)             // top screen: native 4:3 picture, whole window
+        assertTrue(t.bottomSlot.x >= 1280)                         // other screen parked off the window
+        val b = AzaharScreenLayouts.compute(Mode.FILL, true, 1280, 960)
+        assertEquals(Rect(0, 0, 1280, 960), b.topSlot)             // swapped: bottom screen (4:3) fills the window
+        assertTrue(b.bottomSlot.x >= 1280)
+    }
+
+    @Test fun fillIsAFittedCentred43BoxElsewhere() {
+        assertEquals(Rect(160, 0, 960, 720), AzaharScreenLayouts.compute(Mode.FILL, false, 1280, 720).topSlot)
+        assertEquals(Rect(0, 555, 1080, 810), AzaharScreenLayouts.compute(Mode.FILL, true, 1080, 1920).topSlot)
+        for ((w, h) in listOf(1920 to 1080, 800 to 480, 1600 to 1200, 1080 to 1920)) {
+            val r = AzaharScreenLayouts.compute(Mode.FILL, false, w, h).topSlot
+            assertTrue("$w x $h $r", r.x >= 0 && r.y >= 0 && r.x + r.width <= w && r.y + r.height <= h && Math.abs(r.width * 3 - r.height * 4) <= 4)
         }
     }
 }

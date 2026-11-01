@@ -10,6 +10,10 @@ import android.content.Context
  *    the other screen is parked off the window. 1280x960: top 1280x768, bottom 1280x960.
  *  - [Mode.STACKED]: whole-number scales. The big screen at the largest whole-number scale that fits above the other screen at 1x,
  *    centred at the top, and the other screen at 1x centred below it. 1280x960: top 3x = 1200x720 over the bottom 320x240.
+ *  - [Mode.FILL]: "4:3 fill" for 4:3 windows (the Retroid Pocket Nova). The shown screen gets the largest 4:3 box that fits the
+ *    window, centred (the whole window when it is 4:3): the emulator draws the top screen as a native 4:3 picture in this mode
+ *    (see AzaharFourThree), the bottom screen is 4:3 anyway. The other screen is parked off the window. This is a PER-GAME choice
+ *    (AzaharFourThree), never the saved global mode ([loadMode] / [saveMode] never return / store it).
  *  - [Mode.STACKED_FULL]: the big screen scaled up to fill the window left to right, touching the top; the other screen takes
  *    the space left below it, as large as that allows. 1280x960: top 1280x768 over the bottom 256x192.
  *
@@ -18,11 +22,11 @@ import android.content.Context
  * is always the big/shown screen's rectangle and [Layout.bottomSlot] the other one's.
  */
 object AzaharScreenLayouts {
-    enum class Mode { SINGLE, STACKED, STACKED_FULL;
+    enum class Mode { SINGLE, STACKED, STACKED_FULL, FILL;
         fun next() = values()[(ordinal + 1) % values().size]
         fun previous() = values()[(ordinal + values().size - 1) % values().size]
-        val label get() = when (this) { SINGLE -> "Single Screen"; STACKED -> "Stacked"; STACKED_FULL -> "Stacked Full" }
-        internal val key get() = when (this) { SINGLE -> "single"; STACKED -> "stacked"; STACKED_FULL -> "stacked_full" }
+        val label get() = when (this) { SINGLE -> "Single Screen"; STACKED -> "Stacked"; STACKED_FULL -> "Stacked Full"; FILL -> "4:3 Fill" }
+        internal val key get() = when (this) { SINGLE -> "single"; STACKED -> "stacked"; STACKED_FULL -> "stacked_full"; FILL -> "fill" }
     }
     data class Rect(val x: Int, val y: Int, val width: Int, val height: Int)
     data class Layout(val topSlot: Rect, val bottomSlot: Rect)
@@ -36,6 +40,7 @@ object AzaharScreenLayouts {
         val otherW = if (bottomFocus) TOP_W else BOTTOM_W
         return when (mode) {
             Mode.SINGLE -> Layout(fitIn(0, 0, w, h, bigW), Rect(w, 0, otherW, H))   // the hidden screen sits just right of the window
+            Mode.FILL -> Layout(fourByThreeBox(w, h), Rect(w, 0, otherW, H))
             Mode.STACKED -> {
                 val k = minOf(w / bigW, (h - H) / H)
                 if (k >= 1) {
@@ -46,6 +51,12 @@ object AzaharScreenLayouts {
             // The split line is where the top screen would end if it filled the width (192 px left on 1280x960), never more than 80%.
             Mode.STACKED_FULL -> split(w, h, bigW, otherW, minOf(w * H / TOP_W, h * 4 / 5))
         }
+    }
+
+    /** The largest 4:3 rectangle inside the window, centred (the window itself when it is 4:3). */
+    internal fun fourByThreeBox(w: Int, h: Int): Rect {
+        val bw = minOf(w, h * 4 / 3); val bh = bw * 3 / 4
+        return Rect((w - bw) / 2, (h - bh) / 2, bw, bh)
     }
 
     /** The big screen fitted into the first [bigH] rows, the other into the rest; both centred across the width, touching the split. */
@@ -63,9 +74,10 @@ object AzaharScreenLayouts {
     private const val KEY = "screen_layout"
     fun loadMode(ctx: Context): Mode {
         val saved = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null)
-        return Mode.values().firstOrNull { it.key == saved } ?: Mode.STACKED
+        return Mode.values().firstOrNull { it.key == saved && it != Mode.FILL } ?: Mode.STACKED
     }
     fun saveMode(ctx: Context, m: Mode) {
+        if (m == Mode.FILL) return      // per game, see AzaharFourThree
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, m.key).apply()
     }
 }
