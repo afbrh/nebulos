@@ -100,7 +100,8 @@ object RomCoreCoreHost {
          */
         private fun startAutoLoad(): Boolean {
             val resuming = activity.intent?.extras?.let { x -> x.keySet().any { k -> k.contains("resume", ignoreCase = true) && x.get(k) == true } } == true
-            if (resuming || !statesWork || (session as? NativeBootState)?.bootedIntoState == true) return false
+            val fresh = activity.intent?.getBooleanExtra(EXTRA_FRESH_START, false) == true   // home screen: "launch without loading save"
+            if (resuming || fresh || !statesWork || (session as? NativeBootState)?.bootedIntoState == true) return false
             val slots = session as? StateSlotProvider ?: return false
             if (!runCatching { slots.slotInfo(QUICK_SLOT).exists }.getOrDefault(false)) return false
             autoLoading = true

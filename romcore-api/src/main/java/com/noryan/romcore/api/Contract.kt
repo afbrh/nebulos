@@ -105,6 +105,9 @@ data class SubCore(
     val license: String,
 )
 
+/** Intent extra (Boolean): launch the game fresh, without auto-loading the Save State slot. Set by the home screen's hold-A prompt. */
+const val EXTRA_FRESH_START = "romcore.fresh_start"
+
 /** [subCoreId]: a [SubCore.id] of the descriptor to run, or null = the descriptor's own choice for this ROM. */
 data class LaunchRequest(val romPath: String, val romUri: String?, val system: System, val resumeState: Boolean = false,
                          val subCoreId: String? = null)

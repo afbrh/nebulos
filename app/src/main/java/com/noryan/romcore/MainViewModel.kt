@@ -459,7 +459,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun coreFor(g: GameEntity): CoreChoice? = CoreRouter.choose(g, prefs)
 
-    fun launch(ctx: Context, g: GameEntity, resume: Boolean = false) {
+    fun launch(ctx: Context, g: GameEntity, resume: Boolean = false, fresh: Boolean = false) {
         if (launching.value) return
         val choice = coreFor(g)
         val core = choice?.core
@@ -490,6 +490,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 withTimeoutOrNull(8000) { saveJob?.join() }
                 val gameKey = withContext(Dispatchers.IO) { SaveRoot.gameKey(ctx, g.realPath ?: g.uri) }
                 val intent = SaveRoot.stamp(ctx, RomCoreCrashGuard.stamp(core.launchIntent(ctx, req), core.id, g.title), gameKey)
+                if (fresh) intent.putExtra(com.noryan.romcore.api.EXTRA_FRESH_START, true)
                 crashNotice.value = null
                 withContext(Dispatchers.IO) { dao.markPlayed(g.id, java.lang.System.currentTimeMillis()) }
                 if (ctx !is android.app.Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

@@ -138,7 +138,8 @@ class DolphinActivity : Activity(), NativeLibrary.EmulationHost, SurfaceHolder.C
         if (!ready || !booted.compareAndSet(false, true)) return
         val path = intent.getStringExtra(EXTRA_PATH) ?: return
         val resume = intent.getBooleanExtra(EXTRA_RESUME_STATE, false) && session.hasResumeState()
-        val boot = if (resume) session.resumeStatePath() else session.quickStatePath()   // straight into the saved moment, no fresh boot first
+        val fresh = intent.getBooleanExtra(com.noryan.romcore.api.EXTRA_FRESH_START, false)
+        val boot = if (resume) session.resumeStatePath() else if (fresh) null else session.quickStatePath()   // straight into the saved moment, no fresh boot first
         session.bootedIntoState = boot != null
         NativeLibrary.SetIsBooting()
         emuThread = Thread({

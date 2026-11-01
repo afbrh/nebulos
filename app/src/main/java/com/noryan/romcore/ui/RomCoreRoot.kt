@@ -301,6 +301,10 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
     LaunchedEffect(expanded) { if (expanded != null) runCatching { optFocus.requestFocus() } }
     var addOpen by remember(collectionId) { mutableStateOf<Long?>(null) }
     var coreOpen by remember(collectionId) { mutableStateOf<Long?>(null) }
+    var freshFor by remember(collectionId) { mutableStateOf<Long?>(null) }   // hold A on a game: "Launch without loading save?"
+    val freshFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(freshFor) { if (freshFor != null) runCatching { freshFocus.requestFocus() } }
+    BackHandler(enabled = freshFor != null) { freshFor = null }
     val games = if (collectionId == null) all else CollectionRules.gamesOf(all, members[collectionId].orEmpty())
     val cols = collections.orEmpty()
     if (collectionId == null && games.isEmpty()) {
@@ -320,16 +324,39 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
         items(games, key = { it.id }) { g ->
             val sys = sysOf(g)
             val core = remember(g, tick, all.size, g.coreOverride) { vm.coreFor(g) }
+            val holdFired = remember { booleanArrayOf(false) }
             Column {
                 // A / tap launches the game; Y opens its options (Game Options).
                 FocusLine(
                     (if (g.favorite) "* " else "") + g.title + if (core == null) " (NO CORE)" else "",
-                    Modifier.onKeyEvent { e ->
-                        if (e.type == KeyEventType.KeyUp && e.key == Key.ButtonY) { expanded = if (expanded == g.id) null else g.id; addOpen = null; coreOpen = null; true } else false
+                    Modifier.onPreviewKeyEvent { e ->
+                        // A: tap = launch (as before); hold (~0.6 s) = ask "Launch without loading save?" instead.
+                        if (e.key == Key.ButtonA) {
+                            val ne = e.nativeKeyEvent
+                            if (e.type == KeyEventType.KeyDown) {
+                                if (ne.repeatCount == 0) holdFired[0] = false
+                                else if (!holdFired[0] && ne.eventTime - ne.downTime >= 600) { holdFired[0] = true; expanded = null; addOpen = null; coreOpen = null; freshFor = g.id }
+                            } else if (e.type == KeyEventType.KeyUp) {
+                                if (!holdFired[0]) { expanded = null; addOpen = null; coreOpen = null; freshFor = null; vm.launch(ctx, g) }
+                                holdFired[0] = false
+                            }
+                            true
+                        } else false
+                    }.onKeyEvent { e ->
+                        if (e.type == KeyEventType.KeyUp && e.key == Key.ButtonY) { expanded = if (expanded == g.id) null else g.id; addOpen = null; coreOpen = null; freshFor = null; true } else false
                     },
                     dim = core == null,
                     onClick = { expanded = null; addOpen = null; coreOpen = null; vm.launch(ctx, g) }
                 )
+                if (freshFor == g.id) {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopStart) {
+                        Column(Modifier.padding(start = 16.dp, top = 4.dp, bottom = 10.dp).widthIn(max = 296.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("LAUNCH WITHOUT LOADING SAVE?", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            OptionButton("YES, START FRESH", Modifier.focusRequester(freshFocus)) { freshFor = null; vm.launch(ctx, g, fresh = true) }
+                            OptionButton("NO") { freshFor = null }
+                        }
+                    }
+                }
                 if (expanded == g.id) {
                     val cands = sys?.let { CoreRouter.candidatesFor(it, g.gameId, title = g.title) }.orEmpty()
                     val auto = sys?.let { CoreRouter.autoChoice(it, g.title, gameId = g.gameId) }
