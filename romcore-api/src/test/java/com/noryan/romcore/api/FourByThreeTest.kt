@@ -37,7 +37,7 @@ class FourByThreeTest {
     @Test fun nsmbwRev2GetsGuardedCodeAndItIsRemovable() {
         assertTrue(FourByThree.needsGecko("SMNE01"))
         val on = FourByThree.apply("", "SMNE01", on = true)
-        assertTrue(on.contains("201C4240 886505FB") && on.contains("E0000000 80008000") && on.contains("RomCore 4:3 Fill Screen") && on.contains("C2254478 00000009") && on.indexOf("809F00A8 00000000") < on.indexOf("E0000000 80008000"))
+        assertTrue(on.contains("201C4240 886505FB") && on.contains("E0000000 80008000") && on.contains("RomCore 4:3 Fill Screen") && on.contains("C2254478 00000009") && on.contains("C2254474 0000000B") && on.indexOf("809F00A8 00000000") < on.indexOf("E0000000 80008000"))
         assertEquals("", FourByThree.apply(on, "SMNE01", on = false))
     }
 
