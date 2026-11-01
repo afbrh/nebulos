@@ -11,7 +11,7 @@ class FourByThreeTest {
 
     @Test fun onlyUsaOtherMNeedsAGeckoCode() {
         assertTrue(FourByThree.needsGecko("R3OE01"))
-        for (id in listOf("R3OP01", "R3OJ01", "SB4E01", "SMNE01", "SMNP01", "R3ME01")) assertFalse(id, FourByThree.needsGecko(id))
+        for (id in listOf("R3OP01", "R3OJ01", "SB4E01", "SMNP01", "SMNJ01", "SMNK01", "R3ME01")) assertFalse(id, FourByThree.needsGecko(id))
     }
 
     @Test fun screenShapeDefault() {
@@ -31,7 +31,14 @@ class FourByThreeTest {
         val on = FourByThree.apply("[Core]\nCPUCore = 1\n", "R3OE01", on = true)
         assertTrue(on.contains("Widescreen = False") && on.contains("[Gecko_Enabled]"))
         assertEquals("[Core]\nCPUCore = 1\n", FourByThree.apply(on, "R3OE01", on = false))
-        assertEquals("", FourByThree.apply("[Wii]\nWidescreen = False\n", "SMNE01", on = false))
+        assertEquals("", FourByThree.apply("[Wii]\nWidescreen = False\n", "SB4E01", on = false))
+    }
+
+    @Test fun nsmbwRev2GetsGuardedCodeAndItIsRemovable() {
+        assertTrue(FourByThree.needsGecko("SMNE01"))
+        val on = FourByThree.apply("", "SMNE01", on = true)
+        assertTrue(on.contains("201C4240 886505FB") && on.contains("E0000000 80008000") && on.contains("RomCore 4:3 Fill Screen"))
+        assertEquals("", FourByThree.apply(on, "SMNE01", on = false))
     }
 
     @Test fun applyingTwiceIsStable() {

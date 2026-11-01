@@ -9,8 +9,8 @@ import android.content.Context
  * bars above and below). Two mechanisms, applied per game through its own Dolphin game INI before the game boots:
  *  - every supported game: `[Wii] Widescreen = False`. Dolphin writes a per-game override into the Wii system settings at boot,
  *    so the game itself renders 4:3 and fills the screen. Works for games that honour the console's aspect setting.
- *  - New Super Mario Bros. Wii (NTSC-U): the game letterboxes its own 16:9 picture in 4:3 mode, so a community Gecko code
- *    (Dolphin forum, Brandondorf9999) removes those borders.
+ *  - New Super Mario Bros. Wii (NTSC-U rev 2): the game letterboxes its own 16:9 picture in 4:3 mode, so a Gecko code (the
+ *    revision-2 subset of the Dolphin Wiki "4:3 Support" code) fills the screen in levels. The world map stays letterboxed.
  *  - Metroid: Other M (NTSC-U): the game is built for 16:9 only, so in 4:3 it keeps 16:9 and adds bars. A community Gecko code
  *    (Dolphin Wiki, "Remove 4:3 Borders") widens the vertical field of view instead. The HUD and FMVs stay 16:9-stretched.
  *
@@ -38,11 +38,13 @@ object FourByThree {
     /** Games that need a code on top of the system setting (NTSC-U discs only: the codes patch absolute addresses). */
     fun geckoFor(id: String?): Gecko? = when (id) {
         "R3OE01" -> Gecko(OTHER_M_NAME, OTHER_M_GECKO)
+        "SMNE01" -> Gecko(NSMBW_NAME, NSMBW_GECKO)
         else -> null
     }
     fun needsGecko(id: String?) = geckoFor(id) != null
     private const val OTHER_M_NAME = "RomCore 4:3 Remove Borders [Dolphin Wiki]"
-    private val GECKO_NAMES = setOf(OTHER_M_NAME)
+    private const val NSMBW_NAME = "RomCore 4:3 Fill Screen [Dolphin Wiki NTSC-U 4:3, rev2 port]"
+    private val GECKO_NAMES = setOf(OTHER_M_NAME, NSMBW_NAME)
 
     /**
      * What Dolphin calls the code: it cuts the `$` title at the first `[` (the rest is the creator). The `[Gecko_Enabled]` list is
@@ -59,6 +61,16 @@ object FourByThree {
         "C213ECF0 0000000D", "886D9042 2C030000", "40820028 3E803F40", "92828B10 3E803F80", "92828B0C 38600001",
         "986D9042 38600000", "98620000 48000030", "8A628BEF 2C130001", "41820008 98620000", "88620000 2C030000",
         "4182FFC4 3E803F80", "92828B10 3E803F80", "92828B0C 886D9042", "60000000 00000000",
+    )
+
+    /** New Super Mario Bros. Wii NTSC-U rev 2 only (first line is a revision guard: word at 0x801C4240 must be 886505FB). Port of the Dolphin Wiki "4:3 Support" code. */
+    val NSMBW_GECKO: List<String> = listOf(
+        "201C4240 886505FB",
+        "C20946D0 00000004", "48000009 3F3B13B1", "7C6802A6 C0830000", "EC212024 EFFF0132", "EC220072 00000000",
+        "0442C59C 3F400000", "0400713C 38000000", "0408A400 38600001", "040E259C 38000001",
+        "020E25AE 0000A9E0", "020E25B2 0000000C", "040E27DC 38000001",
+        "0442E700 3FAAAAAB", "0442E6FC 42965B3A",
+        "E0000000 80008000",
     )
 
     fun defaultOn(widthPx: Int, heightPx: Int): Boolean {
