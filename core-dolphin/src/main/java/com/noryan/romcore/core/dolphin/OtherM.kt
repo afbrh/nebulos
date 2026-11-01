@@ -113,7 +113,7 @@ object OtherM {
         val cfg = File(userDir, "Config").apply { mkdirs() }
         val ini = File(cfg, "WiimoteNew.ini")
         val marker = File(cfg, ACTIVE_MARKER)
-        if (matches(gameId)) {
+        if (matches(gameId) || NewSuperMarioBrosWii.matches(gameId)) {   // NSMBW also wants the sideways remote without Nunchuk
             DolphinDefaults.mergeIni(ini, SIDEWAYS_INI)
             marker.writeText("1")
         } else if (marker.exists()) {
