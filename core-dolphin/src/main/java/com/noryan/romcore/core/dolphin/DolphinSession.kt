@@ -135,8 +135,8 @@ class DolphinSession(
     override fun toggle(): Boolean = WindWakerFps.setEnabled(context, !WindWakerFps.isEnabled(context))
     private var otherM: OtherM.Profile? = null
     private var lastOtherM: OtherM.Out? = null
-    private val nsmbJump = HashSet<Pad>()   // New Super Mario Bros. Wii: A and B both = Wii 2 (jump)
-    private val nsmbRun = HashSet<Pad>()    // X and Y both = Wii 1 (run / fireball)
+    private val nsmbJump = HashSet<Pad>()   // New Super Mario Bros. Wii: A and B both = Wii B (jump, Nunchuk style)
+    private val nsmbRun = HashSet<Pad>()    // X and Y both = Wii A (run / fireball)
     private var galaxy: Galaxy.Profile? = null
     private var lastGalaxy: Galaxy.Out? = null
     // Galaxy's Star Pointer is sticky: the right stick MOVES it and it stays where you leave it (R recentres it), unlike the
@@ -251,8 +251,8 @@ class DolphinSession(
         if (otherM != null) { otherM!!.button(pad, pressed); if (ready) applyOtherM(); return }
         if (wii && NewSuperMarioBrosWii.matches(gameId)) {
             when (pad) {
-                Pad.A, Pad.B -> { if (pressed) nsmbJump.add(pad) else nsmbJump.remove(pad); put(ControlId.WIIMOTE_TWO_BUTTON, if (nsmbJump.isEmpty()) 0.0 else 1.0); return }
-                Pad.X, Pad.Y -> { if (pressed) nsmbRun.add(pad) else nsmbRun.remove(pad); put(ControlId.WIIMOTE_ONE_BUTTON, if (nsmbRun.isEmpty()) 0.0 else 1.0); return }
+                Pad.A, Pad.B -> { if (pressed) nsmbJump.add(pad) else nsmbJump.remove(pad); put(ControlId.WIIMOTE_B_BUTTON, if (nsmbJump.isEmpty()) 0.0 else 1.0); return }
+                Pad.X, Pad.Y -> { if (pressed) nsmbRun.add(pad) else nsmbRun.remove(pad); put(ControlId.WIIMOTE_A_BUTTON, if (nsmbRun.isEmpty()) 0.0 else 1.0); return }
                 else -> {}
             }
         }
