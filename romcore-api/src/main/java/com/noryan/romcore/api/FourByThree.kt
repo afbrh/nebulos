@@ -10,7 +10,7 @@ import android.content.Context
  *  - every supported game: `[Wii] Widescreen = False`. Dolphin writes a per-game override into the Wii system settings at boot,
  *    so the game itself renders 4:3 and fills the screen. Works for games that honour the console's aspect setting.
  *  - New Super Mario Bros. Wii (NTSC-U rev 2): the game letterboxes its own 16:9 picture in 4:3 mode, so a Gecko code (the
- *    revision-2 subset of the Dolphin Wiki "4:3 Support" code) fills the screen in levels. The world map stays letterboxed.
+ *    revision-2 subset of the Dolphin Wiki "4:3 Support" code) fills the screen in levels, the world map and menus.
  *  - Metroid: Other M (NTSC-U): the game is built for 16:9 only, so in 4:3 it keeps 16:9 and adds bars. A community Gecko code
  *    (Dolphin Wiki, "Remove 4:3 Borders") widens the vertical field of view instead. The HUD and FMVs stay 16:9-stretched.
  *
@@ -70,6 +70,9 @@ object FourByThree {
         "0442C59C 3F400000", "0400713C 38000000", "0408A400 38600001", "040E259C 38000001",
         "020E25AE 0000A9E0", "020E25B2 0000000C", "040E27DC 38000001",
         "0442E700 3FAAAAAB", "0442E6FC 42965B3A",
+        "040B54B0 38600001", "040B54B4 4E800020", "04006D34 38600000", "0400706C 38600000",
+        "C2254478 00000007", "48000009 3FB3A62D", "7D6802A6 819F00B0", "3D403FE9 614A8B3A", "7C0C5000 40820014",
+        "C13F0030 C10B0000", "ED290232 D13F0044", "809F00A8 00000000",
         "E0000000 80008000",
     )
 
