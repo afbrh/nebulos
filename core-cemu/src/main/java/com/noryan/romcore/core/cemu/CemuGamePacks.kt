@@ -10,7 +10,7 @@ import java.io.File
  * Bundled Cemu graphic packs. Packs only activate for their own titleIds, so installing/enabling is harmless for other games.
  * "RomCore_TPHD_4x3" = Zelda: Twilight Princess HD rendered natively at 4:3 (derived from the official TPHD Resolution pack).
  * "RomCore_TPHD_60fps" = TPHD 60 fps (30 Hz logic, every step drawn twice, in-between frame interpolates model + camera matrices).
- * It is switched on once per install (when the zip is (re)extracted) so the user can turn it off in the graphic pack list.
+ * Both are switched on at every launch.
  * Run in the :cemu process after CemuApplication init and BEFORE vm.initializeEmulation() (the title must not be running).
  */
 internal object CemuGamePacks {
@@ -40,14 +40,10 @@ internal object CemuGamePacks {
                     if (PRESET in p.presets && p.activePreset != PRESET) p.activePreset = PRESET
                 }
             }
-        // Cemu only persists settings.xml on a clean exit, so an activation made in a session that was killed is lost; the marker is
-        // only written once a launch has actually activated the pack, and is wiped with the dir on re-extraction.
-        val on60 = File(dir, ".romcore_60fps_on")
-        if (fresh || !on60.exists()) NativeGraphicPacks.getGraphicPackBasicInfos()
+        // Like 4:3, enabled on every launch: Cemu only persists settings.xml on a clean exit, so a once-only activation is lost
+        // whenever the first session is killed (and a manual opt-out would be just as unreliable).
+        NativeGraphicPacks.getGraphicPackBasicInfos()
             .firstOrNull { it.virtualPath.contains("Twilight Princess HD") && it.virtualPath.endsWith("60fps") }
-            ?.let { info ->
-                if (!info.enabled) NativeGraphicPacks.setGraphicPackActive(info.id, true)
-                on60.writeText("1")
-            }
+            ?.let { info -> if (!info.enabled) NativeGraphicPacks.setGraphicPackActive(info.id, true) }
     }
 }
