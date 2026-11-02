@@ -43,9 +43,16 @@ object AzaharHost {
     @Volatile var fillOn = false
         private set
     private fun store(ctx: Context) = AzaharFourThree.prefsStore(ctx)
-    fun setFill(ctx: Context, on: Boolean) { fillOn = on; AzaharFourThree.setEnabled(store(ctx), gameKey, on) }
+    /** This game's "4:3 Fill + PiP" choice (only used while [fillOn]). */
+    @Volatile var pipOn = false
+        private set
+    fun setFill(ctx: Context, on: Boolean, pip: Boolean = false) {
+        fillOn = on; pipOn = pip
+        AzaharFourThree.setEnabled(store(ctx), gameKey, on)
+        if (on) AzaharFourThree.setPipEnabled(store(ctx), gameKey, pip)
+    }
     /** The layout in force for this game. */
-    fun currentMode(ctx: Context) = AzaharFourThree.effectiveMode(fillOn, AzaharScreenLayouts.loadMode(ctx))
+    fun currentMode(ctx: Context) = AzaharFourThree.effectiveMode(fillOn, AzaharScreenLayouts.loadMode(ctx), pipOn)
 
     // ---- before Activity.onCreate: directory + layout configuration --------------------------------------------
     fun prepare(a: EmulationActivity) {
@@ -72,6 +79,7 @@ object AzaharHost {
         gameKey = AzaharFourThree.gameKey(titleId, i.getStringExtra(AzaharCore.EXTRA_ROM) ?: "")
         val (sw, sh) = windowSize(a)
         fillOn = AzaharFourThree.isEnabled(store(a), gameKey, titleId, sw, sh)
+        pipOn = fillOn && AzaharFourThree.isPipEnabled(store(a), gameKey, titleId, sw, sh)
 
         val first = a.getSharedPreferences("romcore_azahar_state", Context.MODE_PRIVATE)
         if (!first.getBoolean("defaults_v1", false)) {
@@ -101,8 +109,8 @@ object AzaharHost {
     private fun writeScreenLayout(ctx: Context, mode: AzaharScreenLayouts.Mode, bottomFocus: Boolean) {
         val (w, h) = windowSize(ctx)
         val l = AzaharScreenLayouts.compute(mode, bottomFocus, w, h)
-        // The emulator draws the top screen as a native 4:3 picture exactly while the 4:3 Fill layout is in force.
-        runCatching { NativeLibrary.setFourThreeFill(mode == AzaharScreenLayouts.Mode.FILL) }
+        // The emulator draws the top screen as a native 4:3 picture exactly while the 4:3 Fill layout is in force (with PiP: only while the top screen is the big one).
+        runCatching { NativeLibrary.setFourThreeFill(AzaharScreenLayouts.usesNativeFourThree(mode, bottomFocus)) }
         put(IntSetting.SCREEN_LAYOUT, CUSTOM_LAYOUT)
         put(IntSetting.LANDSCAPE_TOP_X, l.topSlot.x); put(IntSetting.LANDSCAPE_TOP_Y, l.topSlot.y)
         put(IntSetting.LANDSCAPE_TOP_WIDTH, l.topSlot.width); put(IntSetting.LANDSCAPE_TOP_HEIGHT, l.topSlot.height)

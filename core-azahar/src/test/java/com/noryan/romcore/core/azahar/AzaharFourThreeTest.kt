@@ -47,12 +47,17 @@ class AzaharFourThreeTest {
         // STACKED_FULL -> 4:3 Fill: per-game flag on, global mode untouched
         var st = AzaharFourThree.step(Mode.STACKED_FULL, Mode.STACKED_FULL, true)
         assertEquals(Mode.FILL, st.mode); assertTrue(st.fillOn); assertEquals(Mode.STACKED_FULL, st.global)
-        // 4:3 Fill -> Single Screen: flag off, global becomes Single
+        // 4:3 Fill -> 4:3 Fill + PiP: still per-game, global untouched
         st = AzaharFourThree.step(Mode.FILL, Mode.STACKED_FULL, true)
+        assertEquals(Mode.FILL_PIP, st.mode); assertTrue(st.fillOn); assertTrue(st.pipOn); assertEquals(Mode.STACKED_FULL, st.global)
+        // PiP -> Single Screen: flag off, global becomes Single
+        st = AzaharFourThree.step(Mode.FILL_PIP, Mode.STACKED_FULL, true)
         assertEquals(Mode.SINGLE, st.mode); assertFalse(st.fillOn); assertEquals(Mode.SINGLE, st.global)
-        // backwards from Single wraps to 4:3 Fill; from Fill goes to Stacked Full
+        // backwards from Single wraps to PiP; from PiP to Fill; from Fill goes to Stacked Full
         st = AzaharFourThree.step(Mode.SINGLE, Mode.SINGLE, false)
-        assertEquals(Mode.FILL, st.mode); assertTrue(st.fillOn)
+        assertEquals(Mode.FILL_PIP, st.mode); assertTrue(st.fillOn)
+        st = AzaharFourThree.step(Mode.FILL_PIP, Mode.SINGLE, false)
+        assertEquals(Mode.FILL, st.mode); assertTrue(st.fillOn); assertFalse(st.pipOn)
         st = AzaharFourThree.step(Mode.FILL, Mode.SINGLE, false)
         assertEquals(Mode.STACKED_FULL, st.mode); assertFalse(st.fillOn); assertEquals(Mode.STACKED_FULL, st.global)
     }
@@ -60,5 +65,18 @@ class AzaharFourThreeTest {
     @Test fun effectiveModeIsFillOnlyWhenOn() {
         assertEquals(Mode.FILL, AzaharFourThree.effectiveMode(true, Mode.STACKED))
         assertEquals(Mode.STACKED, AzaharFourThree.effectiveMode(false, Mode.STACKED))
+    }
+
+    @Test fun pipDefaultsOnForNewGamesButNotOverASavedFillChoice() {
+        val s = MapStore()
+        assertTrue(AzaharFourThree.isPipEnabled(s, OOT, OOT, 1280, 960))      // new game on the Nova
+        assertFalse(AzaharFourThree.isPipEnabled(s, OOT, OOT, 1920, 1080))    // 16:9 screens: off
+        AzaharFourThree.setEnabled(s, OOT, true)                              // a game that already has a saved Fill choice keeps plain Fill
+        assertFalse(AzaharFourThree.isPipEnabled(s, OOT, OOT, 1280, 960))
+        AzaharFourThree.setPipEnabled(s, OOT, true)
+        assertTrue(AzaharFourThree.isPipEnabled(s, OOT, OOT, 1280, 960))
+        assertEquals(Mode.FILL_PIP, AzaharFourThree.effectiveMode(true, Mode.STACKED, true))
+        assertEquals(Mode.FILL, AzaharFourThree.effectiveMode(true, Mode.STACKED, false))
+        assertEquals(Mode.STACKED, AzaharFourThree.effectiveMode(false, Mode.STACKED, true))
     }
 }

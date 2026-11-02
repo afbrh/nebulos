@@ -14,6 +14,11 @@ import android.content.Context
  *    window, centred (the whole window when it is 4:3): the emulator draws the top screen as a native 4:3 picture in this mode
  *    (see AzaharFourThree), the bottom screen is 4:3 anyway. The other screen is parked off the window. This is a PER-GAME choice
  *    (AzaharFourThree), never the saved global mode ([loadMode] / [saveMode] never return / store it).
+ *  - [Mode.FILL_PIP]: [Mode.FILL] with the other screen drawn on top of it as a picture-in-picture window at 1x (native size: bottom
+ *    320x240, top 400x240 when swapped), in the upper right corner of the filled 4:3 box with a [PIP_GAP] px gap. Azahar draws the
+ *    `bottom` slot after the `top` slot, so the small window is always above; touch maps to the bottom screen's rectangle, so touches
+ *    outside the small window do nothing. Per game like FILL. When swapped (bottom screen big) the top screen is the small window
+ *    and is drawn normally (the native 4:3 top picture is only used while the top screen is the big one).
  *  - [Mode.STACKED_FULL]: the big screen scaled up to fill the window left to right, touching the top; the other screen takes
  *    the space left below it, as large as that allows. 1280x960: top 1280x768 over the bottom 256x192.
  *
@@ -22,11 +27,13 @@ import android.content.Context
  * is always the big/shown screen's rectangle and [Layout.bottomSlot] the other one's.
  */
 object AzaharScreenLayouts {
-    enum class Mode { SINGLE, STACKED, STACKED_FULL, FILL;
+    enum class Mode { SINGLE, STACKED, STACKED_FULL, FILL, FILL_PIP;
         fun next() = values()[(ordinal + 1) % values().size]
         fun previous() = values()[(ordinal + values().size - 1) % values().size]
-        val label get() = when (this) { SINGLE -> "Single Screen"; STACKED -> "Stacked"; STACKED_FULL -> "Stacked Full"; FILL -> "4:3 Fill" }
-        internal val key get() = when (this) { SINGLE -> "single"; STACKED -> "stacked"; STACKED_FULL -> "stacked_full"; FILL -> "fill" }
+        val label get() = when (this) { SINGLE -> "Single Screen"; STACKED -> "Stacked"; STACKED_FULL -> "Stacked Full"; FILL -> "4:3 Fill"; FILL_PIP -> "4:3 Fill + PiP" }
+        /** Chosen per game (AzaharFourThree), never the saved global mode. */
+        val perGame get() = this == FILL || this == FILL_PIP
+        internal val key get() = when (this) { SINGLE -> "single"; STACKED -> "stacked"; STACKED_FULL -> "stacked_full"; FILL -> "fill"; FILL_PIP -> "fill_pip" }
     }
     data class Rect(val x: Int, val y: Int, val width: Int, val height: Int)
     data class Layout(val topSlot: Rect, val bottomSlot: Rect)
@@ -34,6 +41,11 @@ object AzaharScreenLayouts {
     private const val TOP_W = 400
     private const val BOTTOM_W = 320
     private const val H = 240
+    /** Gap between the picture-in-picture window and the edges of the filled picture, in window pixels. */
+    const val PIP_GAP = 16
+
+    /** True when the emulator should draw the top screen as the native 4:3 picture (FILL always; FILL_PIP only while the top screen is the big one). */
+    fun usesNativeFourThree(mode: Mode, bottomFocus: Boolean) = mode == Mode.FILL || (mode == Mode.FILL_PIP && !bottomFocus)
 
     fun compute(mode: Mode, bottomFocus: Boolean, w: Int, h: Int): Layout {
         val bigW = if (bottomFocus) BOTTOM_W else TOP_W
@@ -41,6 +53,10 @@ object AzaharScreenLayouts {
         return when (mode) {
             Mode.SINGLE -> Layout(fitIn(0, 0, w, h, bigW), Rect(w, 0, otherW, H))   // the hidden screen sits just right of the window
             Mode.FILL -> Layout(fourByThreeBox(w, h), Rect(w, 0, otherW, H))
+            Mode.FILL_PIP -> {
+                val box = fourByThreeBox(w, h)
+                Layout(box, Rect(maxOf(0, box.x + box.width - otherW - PIP_GAP), box.y + PIP_GAP, otherW, H))
+            }
             Mode.STACKED -> {
                 val k = minOf(w / bigW, (h - H) / H)
                 if (k >= 1) {
@@ -74,10 +90,10 @@ object AzaharScreenLayouts {
     private const val KEY = "screen_layout"
     fun loadMode(ctx: Context): Mode {
         val saved = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null)
-        return Mode.values().firstOrNull { it.key == saved && it != Mode.FILL } ?: Mode.STACKED
+        return Mode.values().firstOrNull { it.key == saved && !it.perGame } ?: Mode.STACKED
     }
     fun saveMode(ctx: Context, m: Mode) {
-        if (m == Mode.FILL) return      // per game, see AzaharFourThree
+        if (m.perGame) return      // per game, see AzaharFourThree
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, m.key).apply()
     }
 }

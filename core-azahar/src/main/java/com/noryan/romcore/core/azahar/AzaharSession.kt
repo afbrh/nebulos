@@ -50,11 +50,11 @@ class AzaharSession(private val activity: Activity) : CoreSession, StateSlotProv
     override fun optionValue(): String = layoutMode.label
     override fun cycleOption(): Boolean = setMode(true)
     override fun cycleOptionBack(): Boolean = setMode(false)
-    /** Single / Stacked / Stacked Full are global; "4:3 Fill" is this game's own switch (AzaharFourThree). All apply live. */
+    /** Single / Stacked / Stacked Full are global; "4:3 Fill" / "4:3 Fill + PiP" are this game's own switch (AzaharFourThree). All apply live. */
     private fun setMode(forward: Boolean): Boolean {
         val st = AzaharFourThree.step(layoutMode, AzaharScreenLayouts.loadMode(activity), forward)
         layoutMode = st.mode
-        AzaharHost.setFill(activity, st.fillOn)
+        AzaharHost.setFill(activity, st.fillOn, st.pipOn)
         AzaharScreenLayouts.saveMode(activity, st.global)
         AzaharHost.applyScreenLayout(activity, st.mode, bottomFocus)
         return true
