@@ -28,13 +28,16 @@ import android.content.Context
  */
 object AzaharScreenLayouts {
     enum class Mode { SINGLE, STACKED, STACKED_FULL, FILL, FILL_PIP;
-        fun next() = values()[(ordinal + 1) % values().size]
-        fun previous() = values()[(ordinal + values().size - 1) % values().size]
+        /** The layouts the Screen Layout row offers. FILL and STACKED_FULL stay in the engine/layout code but are not selectable; a saved one maps to its neighbour. */
+        fun next() = CYCLE[(CYCLE.indexOf(normalized()) + 1) % CYCLE.size]
+        fun previous() = CYCLE[(CYCLE.indexOf(normalized()) + CYCLE.size - 1) % CYCLE.size]
+        fun normalized() = when (this) { FILL -> FILL_PIP; STACKED_FULL -> STACKED; else -> this }
         val label get() = when (this) { SINGLE -> "Single Screen"; STACKED -> "Stacked"; STACKED_FULL -> "Stacked Full"; FILL -> "4:3 Fill"; FILL_PIP -> "Nebulos" }
         /** Chosen per game (AzaharFourThree), never the saved global mode. */
         val perGame get() = this == FILL || this == FILL_PIP
         internal val key get() = when (this) { SINGLE -> "single"; STACKED -> "stacked"; STACKED_FULL -> "stacked_full"; FILL -> "fill"; FILL_PIP -> "fill_pip" }
     }
+    private val CYCLE = listOf(Mode.SINGLE, Mode.STACKED, Mode.FILL_PIP)
     data class Rect(val x: Int, val y: Int, val width: Int, val height: Int)
     data class Layout(val topSlot: Rect, val bottomSlot: Rect)
 
@@ -90,7 +93,7 @@ object AzaharScreenLayouts {
     private const val KEY = "screen_layout"
     fun loadMode(ctx: Context): Mode {
         val saved = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null)
-        return Mode.values().firstOrNull { it.key == saved && !it.perGame } ?: Mode.STACKED
+        return (Mode.values().firstOrNull { it.key == saved && !it.perGame } ?: Mode.STACKED).normalized()
     }
     fun saveMode(ctx: Context, m: Mode) {
         if (m.perGame) return      // per game, see AzaharFourThree

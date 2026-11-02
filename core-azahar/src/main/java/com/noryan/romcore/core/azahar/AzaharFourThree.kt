@@ -11,7 +11,7 @@ import com.noryan.romcore.api.FourByThree
  *
  * The choice is stored per game (key = title id for cartridge dumps, otherwise the file name) and defaults to ON on 4:3 screens
  * (same screen test as [FourByThree.defaultOn]) except for titles in [DENY] (known to look wrong with it). It applies live: the
- * menu's Screen Layout row cycles Single / Stacked / Stacked Full / 4:3 Fill / 4:3 Fill + PiP and the last two are this per-game switch.
+ * menu's Screen Layout row cycles Single Screen / Stacked / Nebulos (4:3 Fill + PiP); Nebulos is this per-game switch.
  */
 object AzaharFourThree {
     /** Title ids (16 upper-case hex digits) for which the default is OFF, with why. The user can still turn it on. */
@@ -50,7 +50,7 @@ object AzaharFourThree {
 
     /** The mode in force: the per-game 4:3 Fill (with PiP when on) when on, otherwise the global [AzaharScreenLayouts] choice. */
     fun effectiveMode(fillOn: Boolean, global: AzaharScreenLayouts.Mode, pipOn: Boolean = false): AzaharScreenLayouts.Mode =
-        if (fillOn) (if (pipOn) AzaharScreenLayouts.Mode.FILL_PIP else AzaharScreenLayouts.Mode.FILL) else global
+        if (fillOn) AzaharScreenLayouts.Mode.FILL_PIP else global.normalized()
 
     /** What the Screen Layout row does when cycled from [current]: the new mode plus the new per-game fill flag and global mode. */
     data class Step(val mode: AzaharScreenLayouts.Mode, val fillOn: Boolean, val global: AzaharScreenLayouts.Mode) {

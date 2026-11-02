@@ -35,12 +35,15 @@ class AzaharScreenLayoutsTest {
     }
 
     @Test fun modesCycleBothWays() {
-        for (m in Mode.values()) { assertEquals(m, m.next().previous()); assertEquals(m, m.previous().next()) }
-        assertEquals(5, Mode.values().size)
-        assertEquals(Mode.FILL, Mode.STACKED_FULL.next())
-        assertEquals(Mode.FILL_PIP, Mode.FILL.next())
+        // the row offers Single Screen, Stacked and Nebulos only; the retired FILL / STACKED_FULL map to their neighbours
+        val offered = listOf(Mode.SINGLE, Mode.STACKED, Mode.FILL_PIP)
+        for (m in offered) { assertEquals(m, m.next().previous()); assertEquals(m, m.previous().next()) }
+        assertEquals(Mode.STACKED, Mode.SINGLE.next())
+        assertEquals(Mode.FILL_PIP, Mode.STACKED.next())
         assertEquals(Mode.SINGLE, Mode.FILL_PIP.next())
-        assertEquals(Mode.STACKED, Mode.values().first { it.label == "Stacked" })
+        assertEquals(Mode.SINGLE, Mode.FILL.next())            // a saved plain Fill is Nebulos
+        assertEquals(Mode.SINGLE, Mode.STACKED_FULL.previous()) // a saved Stacked Full is Stacked
+        assertEquals(listOf("Single Screen", "Stacked", "Nebulos"), offered.map { it.label })
     }
 
     @Test fun screensKeepTheirAspectRatios() {
