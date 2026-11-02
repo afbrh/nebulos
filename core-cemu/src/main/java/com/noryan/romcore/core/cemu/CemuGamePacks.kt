@@ -40,8 +40,14 @@ internal object CemuGamePacks {
                     if (PRESET in p.presets && p.activePreset != PRESET) p.activePreset = PRESET
                 }
             }
-        if (fresh) NativeGraphicPacks.getGraphicPackBasicInfos()
+        // Cemu only persists settings.xml on a clean exit, so an activation made in a session that was killed is lost; the marker is
+        // only written once a launch has actually activated the pack, and is wiped with the dir on re-extraction.
+        val on60 = File(dir, ".romcore_60fps_on")
+        if (fresh || !on60.exists()) NativeGraphicPacks.getGraphicPackBasicInfos()
             .firstOrNull { it.virtualPath.contains("Twilight Princess HD") && it.virtualPath.endsWith("60fps") }
-            ?.let { info -> if (!info.enabled) NativeGraphicPacks.setGraphicPackActive(info.id, true) }
+            ?.let { info ->
+                if (!info.enabled) NativeGraphicPacks.setGraphicPackActive(info.id, true)
+                on60.writeText("1")
+            }
     }
 }
