@@ -30,7 +30,7 @@ object AzaharScreenLayouts {
     enum class Mode { SINGLE, STACKED, STACKED_FULL, FILL, FILL_PIP;
         fun next() = values()[(ordinal + 1) % values().size]
         fun previous() = values()[(ordinal + values().size - 1) % values().size]
-        val label get() = when (this) { SINGLE -> "Single Screen"; STACKED -> "Stacked"; STACKED_FULL -> "Stacked Full"; FILL -> "4:3 Fill"; FILL_PIP -> "4:3 Fill + PiP" }
+        val label get() = when (this) { SINGLE -> "Single Screen"; STACKED -> "Stacked"; STACKED_FULL -> "Stacked Full"; FILL -> "4:3 Fill"; FILL_PIP -> "Nebulos" }
         /** Chosen per game (AzaharFourThree), never the saved global mode. */
         val perGame get() = this == FILL || this == FILL_PIP
         internal val key get() = when (this) { SINGLE -> "single"; STACKED -> "stacked"; STACKED_FULL -> "stacked_full"; FILL -> "fill"; FILL_PIP -> "fill_pip" }

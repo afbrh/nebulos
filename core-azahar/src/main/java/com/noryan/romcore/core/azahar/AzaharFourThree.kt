@@ -39,7 +39,7 @@ object AzaharFourThree {
     private const val PIP_PREFIX = "fill43pip_"
 
     /**
-     * "4:3 Fill + PiP" (the bottom screen as a 1x window in the upper right corner of the filled top screen), only meaningful while
+     * "Nebulos" = 4:3 Fill + PiP (the bottom screen as a 1x window in the upper right corner of the filled top screen), only meaningful while
      * Fill is on. Defaults to ON, on the same screens as Fill, for games that have no saved Fill choice yet (a game whose Fill
      * choice was already saved keeps plain Fill until the user cycles to PiP).
      */
