@@ -17,7 +17,7 @@ internal object CemuGamePacks {
     private const val ASSET = "cemu_tphd_4x3.zip"
     private const val DIR = "RomCore_TPHD_4x3"
     private const val DIR60 = "RomCore_TPHD_60fps"
-    private const val VERSION = "4"                         // bump when the zip changes
+    private const val VERSION = "5"                         // bump when the zip changes
     private const val PRESET = "1280x960 (4:3)"
 
     fun apply(context: Context) = runCatching {
