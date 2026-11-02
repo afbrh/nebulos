@@ -96,11 +96,38 @@ not forwarded as a mouse/camera (`enableTouchControls/MenuPointer/MouseCamera` o
 * Widescreen: `lockAspectRatio=false` (viewport follows the 16:9 screen), internal resolution auto (`internalResolutionScale=0` = screen
   size, 1920x1080), shadows 1x, Dusklight's bloom/depth-of-field (default), bilinear resampler (default), vsync on.
 * **60 fps**: `enableFrameInterpolation=1 (Capped)` + `maxFrameRate=60` (game logic stays at its native 30 Hz, presentation is interpolated).
-* Vanilla gameplay: no quality-of-life tweaks, no cheats, speedrun/recording/input-viewer off, no mods bundled, no autosave, no achievements/controller toasts.
+* Vanilla gameplay (HUD restyled by the bundled Twilight HD mod): no quality-of-life tweaks, no cheats, speedrun/recording/input-viewer off, no autosave, no achievements/controller toasts.
 * No network features: update checks, mod update checks, Discord off.
 * Input only through RomCore (touch controls, menu pointer, mouse, gyro off). Audio master volume 100 (system volume rules).
 * `pauseOnFocusLost=true` (shade pulled / app backgrounded); the host pauses the game itself while the RomCore menu is open.
 Dusklight's config file lives in `<filesDir>/dusklight/config.json`; it is overridden on every launch, so stale values cannot leak in.
+
+## Bundled mod: Twilight HD (TPHD / Wii U style HUD)
+
+`src/main/assets/twilight_hd_hud.dusk` is **Twilight HD v2.7.6** by Hyrule Hysteria (github.com/OTPR26/twilight-hd-hud, MIT), shipped
+unmodified (30 MB, native code for every platform inside the zip; only `lib/android-aarch64/mod.so` is used). It restyles the HUD
+after Twilight Princess HD on Wii U: hearts + Midna + D-pad upper left, minimap lower left, round A/B/X/Y prompts upper right
+(Wii U layout, A right / B bottom / X top / Y left), third item slot, TPHD file-select / Collection / dialogue prompts ("Confirm (A)",
+"Back (B)", "A Next"), bank-style item screen, optional replacement fonts.
+* Install: `DusklightMods.install` (called from `DusklightActivity.prepareProcessEnvironment`, before the engine starts) copies the asset to
+  `<filesDir>/dusklight/mods/twilight_hd_hud.dusk` (the engine's mod dir is `<--user-dir>/mods`) when the marker
+  `.romcore_twilight_hd_version` differs from `DusklightMods.VERSION` (bump it when the asset changes). Mods are enabled by default
+  (`mod.<id>.enabled=true`); the loader runs even in embedded mode (`mods_init` is unconditional) while its UI does not exist.
+* Engine compatibility: mod ABI 1 and services config 1.0, game 2.0, hook 1.1, host 2.2, log 1.0, resource 1.1, ui 2.3 are all provided by
+  our engine tree (Dusklight v2.0.2, `b245c6bef8`). 13 optional hook targets (`dusk::companion::*`, `dMeter2Info_c::getStringFull`,
+  `dusk::getActionBindHold`) do not resolve in a clean engine and log a warning; the mod still initialises ("1/1 mod(s) active").
+* **`libmain.so` shim**: upstream's Android engine library is `libmain.so` and the mod's `mod.so` has `DT_NEEDED libmain.so`; ours is
+  `libdusklight_main.so`, so the load failed ("library libmain.so not found"). `src/main/jniLibs/arm64-v8a/libmain.so` is a 1.7 KB empty
+  library with `DT_NEEDED libdusklight_main.so` (source + rebuild script in `native-shim/`); the mod's engine symbols resolve through it.
+* Settings (no UI in embedded mode): config keys `mod.org_twilight_hd__hud.<name>` (id escaping: `.` -> `_`, `_` -> `__`), pinned in
+  `DusklightArgs.CVARS` when needed. Pinned: `check-for-updates=false` (no network). Everything else is the mod's default, which is the
+  Wii U look: `button-layout`, `button-style`, `third-item-slot`, `collection-screen`, `dpad-shortcuts`, `items-screen`, `text-font`,
+  `hud-percent` / `dpad-percent` / `hearts-percent` / `minimap-percent` / `rupee-percent` / `controller-diamond-percent` (50-125),
+  `action-text-percent`, `dialogue-text-percent`, `swap-menu-buttons`, `combined-map-control`, `controller-compatibility`.
+  Label presets (Generic ABXY/BAYX/BAYX Flipped/PlayStation/blank, Steam Deck, DualSense, BOTW styles) change prompts only.
+* Third-party native code runs inside the game process. Verified on the Nova (60.00 fps presented with the mod, Ordon, interpolation on).
+* Licences: mod MIT (c) Hyrule Hysteria; bundled fonts SIL OFL 1.1 (Fira Sans, Alegreya Sans, M PLUS 2, Zen Kaku Gothic New; texts
+  inside the `.dusk` under `res/fonts/OFL-*.txt`).
 
 ## Input
 
@@ -156,7 +183,7 @@ set `INTERPOLATION_CAPPED -> 0` (native 30 fps) in `DusklightArgs`.
 * Needs a real file path (RomCore holds All files access); a SAF-only ROM folder cannot be opened by Dusklight.
 * The Wii TP release and the Korean disc are not routed here.
 * Rumble is not forwarded (virtual pad has no rumble callback); gyro aim is off.
-* In embedded mode Dusklight's own settings, mods, texture packs UI and speedrun tools are unreachable by design; user texture replacements
+* In embedded mode Dusklight's own settings, mods manager, texture packs UI and speedrun tools are unreachable by design; user texture replacements
   placed in `<filesDir>/dusklight/texture_replacements` would still load.
 
 ## Licenses
@@ -167,5 +194,6 @@ set `INTERPOLATION_CAPPED -> 0` (native 30 fps) in `DusklightArgs`.
   (FreeType License / GPLv2), fmt (MIT), abseil (Apache-2.0), SQLite (public domain), Tracy (BSD-3), nlohmann/json (MIT), cxxopts (MIT),
   miniz (MIT), Dawn/WebGPU (BSD-3, prebuilt), luau (MIT), zstd (BSD/GPLv2 dual), xxhash (BSD-2), OkHttp 5 (Apache-2.0, Java side).
   Bundled fonts in `res/`: Fira Sans (OFL), Alegreya SC (OFL), Inter (OFL), Noto Mono (OFL), Material Symbols (Apache-2.0).
+* Bundled mod Twilight HD 2.7.6: MIT; its fonts: SIL OFL 1.1 (see above). Copyright (c) Hyrule Hysteria, github.com/OTPR26/twilight-hd-hud.
 * RomCore itself is GPLv3; CC0 and the permissive licences above are GPL-compatible.
 * No copyrighted Nintendo data is bundled: the user's disc supplies all game assets.

@@ -38,6 +38,7 @@ class DusklightActivity : DuskActivity() {
     /** Everything the engine reads at startup (env vars) must be in place BEFORE SDL/Dusklight start. */
     private fun prepareProcessEnvironment() {
         DusklightSaveData.prepare(this)
+        DusklightMods.install(this, DusklightSaveData.userDir(this))
         fun env(k: String, v: String) = runCatching { Os.setenv(k, v, true) }.onFailure { Log.e(TAG, "setenv $k failed: $it") }
         env("DUSK_ROMCORE_EMBED", "1")
         // Only the RomCore virtual pad (vendor 0x5243 / product 0x0001) may become a gamepad. Real controllers are

@@ -8,7 +8,7 @@ package com.noryan.romcore.core.dusklight
  * RomCore defaults (documented in README-dusklight.md):
  *  - Vulkan backend (Adreno 740 on the AYN Thor); the OpenGL ES fallback is never used.
  *  - Widescreen: the viewport follows the screen (lockAspectRatio off), classic 4:3 menus are not pillarboxed.
- *  - Vanilla gameplay: no quality-of-life tweaks, cheats, mods, achievements, speedrun/recording tools.
+ *  - Vanilla gameplay: no quality-of-life tweaks, cheats, achievements, speedrun/recording tools. One bundled mod: Twilight HD (HUD).
  *  - Internal resolution: auto (screen size); shadows 1x; bloom/depth of field = Dusklight's own modern look.
  *  - 60 fps presentation through frame interpolation ([FPS]); the game logic stays at its native 30 Hz.
  *  - No touch controls, no mouse/pointer helpers, no gyro (RomCore's controller mapper is the only input).
@@ -18,6 +18,9 @@ internal object DusklightArgs {
     /** 0 = off (native 30 fps), 1 = capped interpolation at [maxFps], 2 = unlimited. */
     const val INTERPOLATION_CAPPED = 1
     const val FPS = 60
+
+    /** Config-key prefix of the bundled Twilight HD mod (id `org.twilight.hd_hud`, escaped: `.`->`_`, `_`->`__`). */
+    const val HUD = "mod.org_twilight_hd__hud"
 
     /** `name -> value` pairs passed as `--cvar name=value`. */
     val CVARS: Map<String, String> = linkedMapOf(
@@ -57,6 +60,8 @@ internal object DusklightArgs {
         "game.allowBackgroundInput" to "false",
         // the host pauses the game itself while its menu is open; Android's lifecycle pauses it in the background
         "game.pauseOnFocusLost" to "true",
+        // bundled mod: Twilight HD (TPHD / Wii U style HUD); never touches the network
+        "$HUD.check-for-updates" to "false",
         // audio
         "audio.masterVolume" to "100",
     )
