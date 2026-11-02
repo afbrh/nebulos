@@ -69,6 +69,7 @@ class CemuGameActivity : AppCompatActivity() {
 
         ensureCemuInitialized(application)
         CemuDefaults.apply(this)
+        CemuGamePacks.apply(this)   // graphic packs (TPHD 4:3); must precede vm.initializeEmulation()
 
         session = CemuSession(this, romPath, onClose = ::closeGame)
 
