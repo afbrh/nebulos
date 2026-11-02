@@ -9,22 +9,27 @@ import java.io.File
 /**
  * Bundled Cemu graphic packs. Packs only activate for their own titleIds, so installing/enabling is harmless for other games.
  * "RomCore_TPHD_4x3" = Zelda: Twilight Princess HD rendered natively at 4:3 (derived from the official TPHD Resolution pack).
+ * "RomCore_TPHD_60fps" = TPHD 60 fps (30 Hz logic, every step drawn twice, in-between frame interpolates model + camera matrices).
+ * It is switched on once per install (when the zip is (re)extracted) so the user can turn it off in the graphic pack list.
  * Run in the :cemu process after CemuApplication init and BEFORE vm.initializeEmulation() (the title must not be running).
  */
 internal object CemuGamePacks {
     private const val ASSET = "cemu_tphd_4x3.zip"
     private const val DIR = "RomCore_TPHD_4x3"
-    private const val VERSION = "2"                         // bump when the zip changes
+    private const val DIR60 = "RomCore_TPHD_60fps"
+    private const val VERSION = "3"                         // bump when the zip changes
     private const val PRESET = "1280x960 (4:3)"
 
     fun apply(context: Context) = runCatching {
         val root = File(NativeActiveSettings.getUserDataPath(), "graphicPacks")
         val dir = File(root, DIR)
         val marker = File(dir, ".romcore_version")
+        var fresh = false
         if (!marker.exists() || marker.readText() != VERSION) {
-            dir.deleteRecursively(); root.mkdirs()
+            dir.deleteRecursively(); File(root, DIR60).deleteRecursively(); root.mkdirs()
             context.assets.open(ASSET).use { unzip(it, root.toString()) }
             marker.writeText(VERSION)
+            fresh = true
         }
         NativeGraphicPacks.refreshGraphicPacks()
         NativeGraphicPacks.getGraphicPackBasicInfos()
@@ -35,5 +40,8 @@ internal object CemuGamePacks {
                     if (PRESET in p.presets && p.activePreset != PRESET) p.activePreset = PRESET
                 }
             }
+        if (fresh) NativeGraphicPacks.getGraphicPackBasicInfos()
+            .firstOrNull { it.virtualPath.contains("Twilight Princess HD") && it.virtualPath.endsWith("60fps") }
+            ?.let { info -> if (!info.enabled) NativeGraphicPacks.setGraphicPackActive(info.id, true) }
     }
 }
