@@ -58,9 +58,10 @@ internal object DusklightArgs {
         "game.enableGyroAim" to "false",
         "game.enableGyroRollgoal" to "false",
         "game.allowBackgroundInput" to "false",
-        // right stick X (camera and first-person aim) inverted from Dusklight's default, per user preference
+        // user preference: right-stick camera X inverted; first-person look (left stick) X as Dusklight's default, Y inverted
         "game.invertCameraXAxis" to "true",
-        "game.invertFirstPersonXAxis" to "true",
+        "game.invertFirstPersonXAxis" to "false",
+        "game.invertFirstPersonYAxis" to "true",
         // the host pauses the game itself while its menu is open; Android's lifecycle pauses it in the background
         "game.pauseOnFocusLost" to "true",
         // bundled mod: Twilight HD (TPHD / Wii U style HUD); never touches the network
