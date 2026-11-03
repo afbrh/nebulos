@@ -3,18 +3,18 @@
     <application>
 
         <!-- The whole Eden runtime lives in its own process so libyuzu-android.so, Vulkan and its GL/EGL state never
-             share an address space with other RomCore cores. -->
+             share an address space with other Nebulos cores. -->
         <activity
             android:name="org.yuzu.yuzu_emu.activities.EmulationActivity"
             android:process=":eden"
-            android:taskAffinity="com.noryan.romcore.eden"
+            android:taskAffinity="com.noryan.nebulos.eden"
             android:enableOnBackInvokedCallback="true"
             android:exported="false"
             tools:node="merge"
-            android:theme="@style/Theme.RomCoreEden"
+            android:theme="@style/Theme.NebulosEden"
             android:screenOrientation="landscape"
             tools:replace="android:exported,android:theme,android:screenOrientation">
-            <!-- RomCore launches this explicitly; drop the public VIEW/NFC filters of the stock app. -->
+            <!-- Nebulos launches this explicitly; drop the public VIEW/NFC filters of the stock app. -->
             <intent-filter tools:node="removeAll" />
         </activity>
 
@@ -24,10 +24,10 @@
             tools:node="merge" />
 
         <!-- Runs in :eden before Application.onCreate: initialises Eden (the stock YuzuApplication never runs because
-             the RomCore app has its own Application) and installs the RomCore input/menu hooks. -->
+             the Nebulos app has its own Application) and installs the Nebulos input/menu hooks. -->
         <provider
-            android:name="com.noryan.romcore.core.eden.EdenInitProvider"
-            android:authorities="${applicationId}.romcore.eden.init"
+            android:name="com.noryan.nebulos.core.eden.EdenInitProvider"
+            android:authorities="${applicationId}.nebulos.eden.init"
             android:process=":eden"
             android:exported="false"
             android:initOrder="100" />

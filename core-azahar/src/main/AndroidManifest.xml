@@ -3,7 +3,7 @@
     <application>
 
         <!-- Whole Azahar runtime lives in :azahar so libcitra-android.so and its GL/Vulkan state never share an
-             address space with other cores. The stock activity is reused unmodified; RomCore hooks it from outside. -->
+             address space with other cores. The stock activity is reused unmodified; Nebulos hooks it from outside. -->
         <activity
             android:name="org.citra.citra_emu.activities.EmulationActivity"
             android:process=":azahar"
@@ -14,13 +14,13 @@
             <intent-filter tools:node="removeAll" />
         </activity>
 
-        <!-- Azahar's own other activities are never used by RomCore; keep them out of the game process anyway. -->
+        <!-- Azahar's own other activities are never used by Nebulos; keep them out of the game process anyway. -->
 
         <!-- Runs in :azahar before Application.onCreate: initialises Azahar (CitraApplication never runs because the
-             RomCore app has its own Application) and installs the RomCore menu/input hooks. -->
+             Nebulos app has its own Application) and installs the Nebulos menu/input hooks. -->
         <provider
-            android:name="com.noryan.romcore.core.azahar.AzaharInitProvider"
-            android:authorities="${applicationId}.romcore.azahar.init"
+            android:name="com.noryan.nebulos.core.azahar.AzaharInitProvider"
+            android:authorities="${applicationId}.nebulos.azahar.init"
             android:process=":azahar"
             android:exported="false"
             android:initOrder="100" />

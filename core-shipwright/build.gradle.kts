@@ -7,19 +7,19 @@ plugins {
 // ../shipwright-src/Android (a library module; local patches in core-shipwright/patches, never pushed). Native library libsoh.so +
 // libSDL2.so (SDL2 Java package relocated to org.libsdl.appsoh, no clash with Eden/Azahar's org.libsdl.app).
 android {
-    namespace = "com.noryan.romcore.core.shipwright"
+    namespace = "com.noryan.nebulos.core.shipwright"
     compileSdk = 37
     defaultConfig {
         minSdk = 30
         ndk { abiFilters += "arm64-v8a" }
-        buildConfigField("String", "VERSION_NAME", "\"Ship of Harkinian 9.2.3 (android fork, romcore patches)\"")
+        buildConfigField("String", "VERSION_NAME", "\"Ship of Harkinian 9.2.3 (android fork, nebulos patches)\"")
     }
     buildFeatures { buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
 }
 
 dependencies {
-    api(project(":romcore-api"))
+    api(project(":nebulos-api"))
     api("com.dishii:app")   // substituted by includeBuild("../shipwright-src/Android") in settings.gradle.kts
     implementation("androidx.core:core-ktx:1.13.1")
     testImplementation("junit:junit:4.13.2")

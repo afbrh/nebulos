@@ -2,7 +2,7 @@
  * Derived from WindWakerHD-Android-Plus (https://github.com/Nycolazs/WindWakerHD-Android-Plus, v1.11.1), MPL-2.0.
  * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
  * distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
- * RomCore changes: the class and its members are public; the reverse calls (rumble, software keyboard) go to [Host]
+ * Nebulos changes: the class and its members are public; the reverse calls (rumble, software keyboard) go to [Host]
  * instead of the original MainActivity. The JNI names (package org.wwhdrecomp.app) are unchanged, as libwwhd.so looks them up.
  */
 package org.wwhdrecomp.app;

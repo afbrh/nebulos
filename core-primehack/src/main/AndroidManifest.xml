@@ -3,11 +3,11 @@
          other Dolphin-derived core or the shell. Shown over the game only: no Dolphin/PrimeHack menus. -->
     <application>
         <activity
-            android:name="com.noryan.romcore.core.primehack.PrimeHackActivity"
+            android:name="com.noryan.nebulos.core.primehack.PrimeHackActivity"
             android:screenOrientation="landscape"
             android:process=":primehack"
             android:exported="false"
-            android:theme="@style/Theme.RomCorePH"
+            android:theme="@style/Theme.NebulosPH"
             android:preferMinimalPostProcessing="true"
             android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|density" />
     </application>

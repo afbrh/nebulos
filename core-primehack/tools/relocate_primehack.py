@@ -7,7 +7,7 @@ Dolphin-derived engine (:core-dolphin).  Run ONCE on a fresh copy of primehack-s
     python3 relocate_primehack.py primehack-romcore-src
 
 What it does (all renames are mechanical and total, so JNI keeps resolving):
-  A. Java package  org.dolphinemu.dolphinemu  ->  com.noryan.romcore.core.primehack.jni
+  A. Java package  org.dolphinemu.dolphinemu  ->  com.noryan.nebulos.core.primehack.jni
      (Kotlin/Java sources + directory, AndroidManifest, XML custom views, and every C++ file that has
       Java_org_dolphinemu_dolphinemu_* JNI symbols or "org/dolphinemu/dolphinemu/..." FindClass strings)
   B. Native library  libmain.so -> libprimehack_main.so   (CMake target + System.loadLibrary)
@@ -23,11 +23,11 @@ import os, re, sys
 root = os.path.abspath(sys.argv[1])
 android = os.path.join(root, "Source", "Android")
 res = os.path.join(android, "app", "src", "main", "res")
-sentinel = os.path.join(root, ".romcore-relocated")
+sentinel = os.path.join(root, ".nebulos-relocated")
 if os.path.exists(sentinel):
     sys.exit("already relocated")
 
-OLD_PKG, NEW_PKG = "org.dolphinemu.dolphinemu", "com.noryan.romcore.core.primehack.jni"
+OLD_PKG, NEW_PKG = "org.dolphinemu.dolphinemu", "com.noryan.nebulos.core.primehack.jni"
 OLD_PATH, NEW_PATH = OLD_PKG.replace(".", "/"), NEW_PKG.replace(".", "/")
 OLD_JNI, NEW_JNI = OLD_PKG.replace(".", "_"), NEW_PKG.replace(".", "_")
 

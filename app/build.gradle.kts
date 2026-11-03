@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "com.noryan.romcore"
+    namespace = "com.noryan.nebulos"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.noryan.romcore"
+        applicationId = "com.noryan.nebulos"
         minSdk = 30
         targetSdk = 35
         versionCode = 6
@@ -20,9 +20,10 @@ android {
         ndk { abiFilters += "arm64-v8a" }
         missingDimensionStrategy("edenVersion", "legacy")
     }
-    // Release signing: key + passwords live outside the repo (~/.romcore-signing.properties); without it the release build is unsigned.
+    // Release signing: key + passwords live outside the repo (~/.nebulos-signing.properties, falling back to the legacy ~/.romcore-signing.properties); without it the release build is unsigned.
     val signingProps = Properties()
-    File(System.getProperty("user.home"), ".romcore-signing.properties").takeIf { it.exists() }?.inputStream()?.use { signingProps.load(it) }
+    listOf(".nebulos-signing.properties", ".romcore-signing.properties").map { File(System.getProperty("user.home"), it) }
+        .firstOrNull { it.exists() }?.inputStream()?.use { signingProps.load(it) }
     signingConfigs {
         if (signingProps.isNotEmpty()) create("release") {
             storeFile = file(signingProps.getProperty("storeFile")); storePassword = signingProps.getProperty("storePassword")
@@ -62,11 +63,11 @@ android {
 }
 
 dependencies {
-    implementation(project(":romcore-api"))
+    implementation(project(":nebulos-api"))
     // Core modules are optional at build time: each is linked in only if its module exists in settings.gradle.kts.
     // CoreBootstrap.kt finds and registers them reflectively, so nothing here is referenced from code directly.
-    // Override with -Promcore.cores=none or -Promcore.cores=dolphin,eden to link a subset (e.g. while a core is mid-work).
-    val wanted = (findProperty("romcore.cores") as String?)?.split(",")?.map { it.trim() }
+    // Override with -Pnebulos.cores=none or -Pnebulos.cores=dolphin,eden to link a subset (e.g. while a core is mid-work).
+    val wanted = (findProperty("nebulos.cores") as String?)?.split(",")?.map { it.trim() }
     listOf("retroarch", "dolphin", "primehack", "cemu", "eden", "azahar", "watermelonds", "armsx2", "dusklight", "shipwright", "twoship", "wwhd").forEach { id ->
         if ((wanted == null || id in wanted) && rootProject.findProject(":core-$id") != null) implementation(project(":core-$id"))
     }

@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.noryan.romcore.core.cemu"
+    namespace = "com.noryan.nebulos.core.cemu"
     compileSdk = 37
     defaultConfig { minSdk = 30 }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
@@ -14,7 +14,7 @@ android {
 }
 
 dependencies {
-    implementation(project(":romcore-api"))
+    implementation(project(":nebulos-api"))
     // Cemu (SSimco/Cemu android-port) built from /Users/ry/Desktop/claude/cemu-src via includeBuild
     // (see settings.gradle.kts). Brings libCemuAndroid.so + its Kotlin JNI bridge (info.cemu.cemu.*).
     api("info.cemu:app:embedded")

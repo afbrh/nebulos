@@ -5,12 +5,12 @@
     <application>
 
         <!-- The whole DS runtime lives in its own process so libmelonDS-android-frontend.so and its GL/Vulkan state
-             never share an address space with other RomCore cores. UI is hidden: only the game surface (+ the shared
-             RomCore menu, + WatermelonDS's own second-display presentation). Not exported; launched explicitly. -->
+             never share an address space with other Nebulos cores. UI is hidden: only the game surface (+ the shared
+             Nebulos menu, + WatermelonDS's own second-display presentation). Not exported; launched explicitly. -->
         <activity
             android:name="me.magnum.melonds.ui.emulator.EmulatorActivity"
             android:process=":melonds"
-            android:taskAffinity="com.noryan.romcore.melonds"
+            android:taskAffinity="com.noryan.nebulos.melonds"
             android:exported="false"
             tools:node="merge"
             android:screenOrientation="landscape"
@@ -18,13 +18,13 @@
             <intent-filter tools:node="removeAll" />
         </activity>
 
-        <!-- WatermelonDS's own launcher / shortcut / settings entry points are not part of RomCore. -->
+        <!-- WatermelonDS's own launcher / shortcut / settings entry points are not part of Nebulos. -->
         <activity android:name="me.magnum.melonds.ui.romlist.RomListActivity" tools:node="remove" />
         <activity android:name="me.magnum.melonds.ui.shortcutsetup.ShortcutSetupActivity" tools:node="remove" />
         <activity android:name="me.magnum.melonds.ui.shortcutsetup.DSFirmwareShortcutSetupActivity" tools:node="remove" />
         <activity android:name="me.magnum.melonds.ui.shortcutsetup.DSiFirmwareShortcutSetupActivity" tools:node="remove" />
         <receiver android:name="me.magnum.melondualds.RetroAchievementsHostOverrideReceiver" tools:node="remove" />
-        <!-- Exported adb/debug command receivers + self-updater of the stock app: never in RomCore. -->
+        <!-- Exported adb/debug command receivers + self-updater of the stock app: never in Nebulos. -->
         <receiver android:name="me.magnum.melonds.debug.ReleaseStateCommandReceiver" tools:node="remove" />
         <receiver android:name="me.magnum.melonds.debug.DebugCommandReceiver" tools:node="remove" />
         <provider android:name="me.magnum.melonds.common.providers.UpdateContentProvider" tools:node="remove" />

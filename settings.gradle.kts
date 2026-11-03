@@ -1,7 +1,7 @@
 pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
 dependencyResolutionManagement { repositories { google(); mavenCentral() } }
-rootProject.name = "RomCore"
-include(":app", ":romcore-api")
+rootProject.name = "Nebulos"
+include(":app", ":nebulos-api")
 // Each core agent adds its own line here when its module first builds:
 // include(":core-retroarch", ":core-dolphin", ":core-primehack", ":core-cemu",
 //         ":core-eden", ":core-azahar", ":core-watermelonds", ":core-armsx2")
@@ -21,7 +21,7 @@ includeBuild("../cemu-src/src/android") {
 }
 
 // :core-watermelonds (Nintendo DS/DSi). WatermelonDS (melonDS-android fork) consumed as a composite build; its :app is a library.
-// Local patches (RomCoreBridge seam, JDK17/arm64-only) live in ../watermelonds-src (local commits, never pushed upstream).
+// Local patches (NebulosBridge seam, JDK17/arm64-only) live in ../watermelonds-src (local commits, never pushed upstream).
 include(":core-watermelonds")
 includeBuild("../watermelonds-src") {
     name = "watermelonds"
@@ -36,7 +36,7 @@ includeBuild("../armsx2-src/platforms/android") {
     dependencySubstitution { substitute(module("com.armsx2:app")).using(project(":app")) }
 }
 
-// :core-dolphin (GameCube/Wii). Mainline Dolphin: native code from ../dolphin-src (CMake, branch `romcore`),
+// :core-dolphin (GameCube/Wii). Mainline Dolphin: native code from ../dolphin-src (CMake, branch `nebulos`),
 // Java layer package-relocated into this module. See core-dolphin/README-dolphin.md.
 include(":core-dolphin")
 
@@ -47,24 +47,24 @@ includeBuild("../azahar-src/src/android") {
     dependencySubstitution { substitute(module("org.azahar_emu:app")).using(project(":app")) }
 }
 
-// :core-retroarch (libretro host). Local RetroArch build (retroarch-src, with the romcore JNI bridge patch) as a composite build.
+// :core-retroarch (libretro host). Local RetroArch build (retroarch-src, with the nebulos JNI bridge patch) as a composite build.
 include(":core-retroarch")
 includeBuild("../retroarch-src/pkg/android/phoenix") {
     name = "retroarch"
     dependencySubstitution { substitute(module("com.retroarch:phoenix")).using(project(":")) }
 }
 
-// :core-primehack (GameCube/Wii, Metroid Prime trilogy). PrimeHack (shiiion/dolphin) via a local RomCore-patched clone
+// :core-primehack (GameCube/Wii, Metroid Prime trilogy). PrimeHack (shiiion/dolphin) via a local Nebulos-patched clone
 // (../primehack-romcore-src; made by core-primehack/tools/relocate_primehack.py + core-primehack/patches). Module coordinates
-// romcore.primehack:app deliberately differ from org.dolphinemu:app so :core-dolphin can substitute its own.
+// nebulos.primehack:app deliberately differ from org.dolphinemu:app so :core-dolphin can substitute its own.
 include(":core-primehack")
 includeBuild("../primehack-romcore-src/Source/Android") {
     name = "primehack"
-    dependencySubstitution { substitute(module("romcore.primehack:app")).using(project(":app")) }
+    dependencySubstitution { substitute(module("nebulos.primehack:app")).using(project(":app")) }
 }
 
 // :core-dusklight (GameCube, The Legend of Zelda: Twilight Princess ONLY). Dusklight (CC0-1.0, decomp-based native port)
-// from ../dusklight-src (local branch `romcore-local`, never pushed): its platforms/android module is a library
+// from ../dusklight-src (local branch `nebulos-local`, never pushed): its platforms/android module is a library
 // consumed as a composite build; native lib libdusklight_main.so, SDL3 Java package dev.twilitrealm.dusksdl.
 // Native build: see core-dusklight/README-dusklight.md (cmake --preset android-arm64 in ../dusklight-src, NDK 29).
 include(":core-dusklight")
@@ -74,7 +74,7 @@ includeBuild("../dusklight-src/platforms/android") {
 }
 
 // :core-shipwright (N64, The Legend of Zelda: Ocarina of Time ONLY). Ship of Harkinian (decomp-based native port) through the community
-// Android fork please-be-nice/Shipwright-android, cloned to ../shipwright-src (local branch `romcore-local`, never pushed): its Android
+// Android fork please-be-nice/Shipwright-android, cloned to ../shipwright-src (local branch `nebulos-local`, never pushed): its Android
 // project is a library consumed as a composite build; native libs libsoh.so + libSDL2.so, SDL2 Java package org.libsdl.appsoh.
 // Build notes: core-shipwright/README-shipwright.md (soh.o2r must exist in shipwright-src/Android/app/src/main/assets).
 include(":core-shipwright")
@@ -84,7 +84,7 @@ includeBuild("../shipwright-src/Android") {
 }
 
 // :core-twoship (N64, The Legend of Zelda: Majora's Mask ONLY). 2 Ship 2 Harkinian (decomp-based native port) through the community
-// Android fork linkzenic/2ship2harkinian-Android (v5.0.1-android.3), cloned to ../twoship-src (local branch `romcore-local`, never
+// Android fork linkzenic/2ship2harkinian-Android (v5.0.1-android.3), cloned to ../twoship-src (local branch `nebulos-local`, never
 // pushed): its Android project is a library consumed as a composite build; native libs lib2ship.so + libSDL2twoship.so, SDL2 Java
 // package org.libsdl.apptwoship (all distinct from :core-shipwright's, so both live in one APK).
 // Build notes: core-twoship/README-twoship.md (2ship.o2r must exist in twoship-src/Android/app/src/main/assets, vcpkg deps in
@@ -95,6 +95,6 @@ includeBuild("../twoship-src/Android") {
     dependencySubstitution { substitute(module("com.twoshipfork:app")).using(project(":app")) }
 }
 
-// :core-wwhd (Wii U: The Wind Waker HD only). Native runtime from ../wwhd-src (CMake, local branch `romcore`), no game code in the library;
+// :core-wwhd (Wii U: The Wind Waker HD only). Native runtime from ../wwhd-src (CMake, local branch `nebulos`), no game code in the library;
 // the game is translated on the device from the user's own .wua. See core-wwhd/README-wwhd.md.
 include(":core-wwhd")

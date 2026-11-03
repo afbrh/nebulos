@@ -3,7 +3,7 @@ plugins {
 }
 
 // :core-wwhd (Wii U: The Legend of Zelda: The Wind Waker HD only). The native runtime is WindWakerHD-Android-Plus (MPL-2.0), a static
-// recompilation of the game with GX2 on Vulkan: sources in ../../wwhd-src (local branch `romcore`, patches in core-wwhd/patches),
+// recompilation of the game with GX2 on Vulkan: sources in ../../wwhd-src (local branch `nebulos`, patches in core-wwhd/patches),
 // built with CMake into libwwhd.so exactly like the project's own "-PwwhdDeviceRecomp" APK: the library contains NO game code.
 // The game's PowerPC code is translated from the user's own .wua on the device (LLVM, built once for Android into ../../wwhd-llvm/install
 // with ../../wwhd-llvm/build-llvm.sh). See README-wwhd.md.
@@ -11,7 +11,7 @@ val wwhdSrc = file("../../wwhd-src")
 val wwhdLlvm = file("../../wwhd-llvm/install")
 
 android {
-    namespace = "com.noryan.romcore.core.wwhd"
+    namespace = "com.noryan.nebulos.core.wwhd"
     compileSdk = 37
     ndkVersion = "27.3.13750724"
 
@@ -20,7 +20,7 @@ android {
     defaultConfig {
         minSdk = 30
         ndk { abiFilters += "arm64-v8a" }
-        buildConfigField("String", "VERSION_NAME", "\"WindWakerHD-Android-Plus 1.11.1 (romcore)\"")
+        buildConfigField("String", "VERSION_NAME", "\"WindWakerHD-Android-Plus 1.11.1 (nebulos)\"")
         externalNativeBuild {
             cmake {
                 targets("wwhd")
@@ -51,7 +51,7 @@ android {
 }
 
 dependencies {
-    api(project(":romcore-api"))
+    api(project(":nebulos-api"))
     implementation("androidx.core:core-ktx:1.13.1")
     testImplementation("junit:junit:4.13.2")
 }

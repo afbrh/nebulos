@@ -1,7 +1,7 @@
 @nsobid-891687F016A18F1773D4A88EBF8A973C8E33ECC1
 
 # Super Mario 3D World + Bowser's Fury [010028600EBDA000] (base game v1.0.0, main NSO build id above)
-# 60 FPS in Bowser's Fury while Eden runs in handheld mode - RomCore.
+# 60 FPS in Bowser's Fury while Eden runs in handheld mode - Nebulos.
 #
 # Bowser's Fury is capped at 30 fps in handheld and runs at 60 fps docked. The game keeps its own copy of the
 # applet operation mode in a small status object (field +8 = "is docked", field +0xc = "boost performance mode"),

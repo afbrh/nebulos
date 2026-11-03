@@ -1,6 +1,6 @@
 @nsobid-FF773E90972D544EB79406EAA65396D53C43EFB9
 
-# Super Mario Bros. Wonder [010015100B514000] v1.2.1 - 4:3 Aspect Ratio + HUD un-stretch (RomCore)
+# Super Mario Bros. Wonder [010015100B514000] v1.2.1 - 4:3 Aspect Ratio + HUD un-stretch (Nebulos)
 # Plain 4:3 camera lines first, then two code hooks (code cave in the zero padding at the end of .text, 0x2138650+):
 #  1) Layout::Build override epilogue (0x61C9C): for every ui2d layout whose root pane is >= 500 tall (full-screen layouts;
 #     nested parts layouts are skipped) squash the root pane Y scale to 0.75 (the host later stretches the 16:9 buffer by 4/3,

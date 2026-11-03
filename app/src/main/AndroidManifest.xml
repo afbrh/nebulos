@@ -21,7 +21,7 @@
 
     <application
         tools:replace="android:appCategory,android:isGame,android:name,android:icon,android:label,android:roundIcon,android:theme,android:allowBackup,android:supportsRtl"
-        android:name=".RomCoreApp"
+        android:name=".NebulosApp"
         android:allowBackup="false"
         android:appCategory="game"
         android:isGame="true"
@@ -30,19 +30,19 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.RomCore">
+        android:theme="@style/Theme.Nebulos">
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
             android:screenOrientation="landscape"
-            android:theme="@style/Theme.RomCore.Splash">
+            android:theme="@style/Theme.Nebulos.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Lets RomCore be chosen as the device's home screen (Settings > Apps > Default apps > Home app). -->
+            <!-- Lets Nebulos be chosen as the device's home screen (Settings > Apps > Default apps > Home app). -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />

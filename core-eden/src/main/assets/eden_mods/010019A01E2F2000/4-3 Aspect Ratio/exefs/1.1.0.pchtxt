@@ -1,6 +1,6 @@
 @nsobid-8275FBE1EC5191C279F3A943AD8524F4BAB087A3
 @flag offset_shift 0x100
-# Metroid Prime 4 Beyond v1.1.0 (010019A01E2F2000) RomCore 4:3: 960x720 render + 4:3 projection.
+# Metroid Prime 4 Beyond v1.1.0 (010019A01E2F2000) Nebulos 4:3: 960x720 render + 4:3 projection.
 # Derived from the public Fl4sh9174 v1.1.0 ultrawide pack (same addresses), constants changed to 960x720 / 4:3.
 @enabled
 00DA3FD8 097880D2 // w

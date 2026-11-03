@@ -4,7 +4,7 @@
 
     <!--
       Cemu's own library manifest declares an <application android:name=".CemuApplication"> plus
-      MainActivity/EmulationActivity/DocumentsProvider. RomCore owns the Application and runs Cemu in
+      MainActivity/EmulationActivity/DocumentsProvider. Nebulos owns the Application and runs Cemu in
       its own process via CemuGameActivity, so: strip the application-level attributes Cemu would
       otherwise leak into the merged app, and remove its stock activities/provider (Cemu's
       EmulationActivity also carries a VIEW filter for .wud/.rpx/.iso that would hijack file opens).
@@ -17,7 +17,7 @@
             android:process=":cemu"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|navigation|uiMode|smallestScreenSize"
             android:screenOrientation="landscape"
-            android:theme="@style/Theme.RomCoreCemu" />
+            android:theme="@style/Theme.NebulosCemu" />
 
         <activity android:name="info.cemu.cemu.MainActivity" tools:node="remove" />
         <activity android:name="info.cemu.cemu.emulation.EmulationActivity" tools:node="remove" />

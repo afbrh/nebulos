@@ -4,7 +4,7 @@
     <uses-feature android:name="android.hardware.vulkan.version" android:version="0x401000" android:required="true" />
 
     <!-- The first-time "prepare game" step (extract the .wua, translate the game's code on the device) takes minutes: it runs as a
-         foreground service so the system does not end the process while RomCore is in the background. -->
+         foreground service so the system does not end the process while Nebulos is in the background. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -12,11 +12,11 @@
     <application>
 
         <!-- The whole runtime lives in its own process: libwwhd.so reserves a 4 GiB guest window, links LLVM/glslang statically and
-             exits the process when the game ends, so it must never share an address space with another RomCore core. -->
+             exits the process when the game ends, so it must never share an address space with another Nebulos core. -->
         <activity
-            android:name="com.noryan.romcore.core.wwhd.WwhdActivity"
+            android:name="com.noryan.nebulos.core.wwhd.WwhdActivity"
             android:process=":wwhd"
-            android:taskAffinity="com.noryan.romcore.wwhd"
+            android:taskAffinity="com.noryan.nebulos.wwhd"
             android:launchMode="singleTask"
             android:exported="false"
             android:alwaysRetainTaskState="true"
@@ -26,7 +26,7 @@
             android:configChanges="layoutDirection|locale|grammaticalGender|fontScale|fontWeightAdjustment|orientation|uiMode|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation|density" />
 
         <service
-            android:name="com.noryan.romcore.core.wwhd.WwhdKeepAliveService"
+            android:name="com.noryan.nebulos.core.wwhd.WwhdKeepAliveService"
             android:process=":wwhd"
             android:exported="false"
             android:foregroundServiceType="dataSync" />

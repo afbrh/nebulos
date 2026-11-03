@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- The sideload flavor of ARMSX2 merges an in-app APK updater; RomCore never self-updates. -->
+    <!-- The sideload flavor of ARMSX2 merges an in-app APK updater; Nebulos never self-updates. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove" />
 
     <!-- NOTE for :app: ARMSX2's <application> declares name/icon/label/roundIcon/theme (+ backup/rtl attrs). A library manifest
@@ -10,7 +10,7 @@
     <application>
 
         <!-- The ARMSX2 library's own front-end (boot splash, library, setup wizard entry points, "recent games" provider,
-             Discord helper) is never used: RomCore is the front-end. Drop every exported/launchable component. -->
+             Discord helper) is never used: Nebulos is the front-end. Drop every exported/launchable component. -->
         <activity android:name="com.armsx2.BootSplashActivity" tools:node="remove" />
         <activity android:name="com.armsx2.Main" tools:node="remove" />
         <activity-alias android:name="com.armsx2.MainActivity" tools:node="remove" />
@@ -22,12 +22,12 @@
         <activity android:name="com.armsx2.discord.DiscordAuthActivity" tools:node="remove" />
 
         <!-- The whole PS2 runtime lives in its own process so libemucore_*.so, its Vulkan device (adrenotools custom driver)
-             and SDL state never share an address space with the other RomCore cores. The process is killed when the
+             and SDL state never share an address space with the other Nebulos cores. The process is killed when the
              activity is destroyed (ARMSX2 does this itself), so every launch is a cold start. -->
         <activity
-            android:name="com.noryan.romcore.core.armsx2.Armsx2Activity"
+            android:name="com.noryan.nebulos.core.armsx2.Armsx2Activity"
             android:process=":armsx2"
-            android:taskAffinity="com.noryan.romcore.armsx2"
+            android:taskAffinity="com.noryan.nebulos.armsx2"
             android:launchMode="singleTask"
             android:exported="false"
             android:hardwareAccelerated="true"
@@ -38,7 +38,7 @@
 
         <!-- Shown (in the main process) instead of the game when no PS2 BIOS is installed yet. -->
         <activity
-            android:name="com.noryan.romcore.core.armsx2.Armsx2NoticeActivity"
+            android:name="com.noryan.nebulos.core.armsx2.Armsx2NoticeActivity"
             android:screenOrientation="landscape"
             android:exported="false"
             android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />

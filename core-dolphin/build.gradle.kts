@@ -3,13 +3,13 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization") version "2.4.0"
 }
 
-// Mainline Dolphin (GameCube/Wii). Native build: ../../dolphin-src (branch `romcore`, see patches/ and
+// Mainline Dolphin (GameCube/Wii). Native build: ../../dolphin-src (branch `nebulos`, see patches/ and
 // README-dolphin.md) built with CMake into libdolphin_main.so. Java side: Dolphin's Android model/utility layer,
-// package-relocated to com.noryan.romcore.core.dolphin.jni (also this module's R/BuildConfig namespace).
+// package-relocated to com.noryan.nebulos.core.dolphin.jni (also this module's R/BuildConfig namespace).
 val dolphinSrc = file("../../dolphin-src")
 
 android {
-    namespace = "com.noryan.romcore.core.dolphin.jni"
+    namespace = "com.noryan.nebulos.core.dolphin.jni"
     compileSdk = 37
     ndkVersion = "27.3.13750724"
 
@@ -20,10 +20,10 @@ android {
 
     defaultConfig {
         minSdk = 30
-        buildConfigField("String", "GIT_HASH", "\"romcore\"")
-        buildConfigField("String", "BRANCH", "\"romcore\"")
-        buildConfigField("String", "VERSION_NAME", "\"romcore\"")
-        buildConfigField("String", "APPLICATION_ID", "\"com.noryan.romcore\"")
+        buildConfigField("String", "GIT_HASH", "\"nebulos\"")
+        buildConfigField("String", "BRANCH", "\"nebulos\"")
+        buildConfigField("String", "VERSION_NAME", "\"nebulos\"")
+        buildConfigField("String", "APPLICATION_ID", "\"com.noryan.nebulos\"")
         ndk { abiFilters += "arm64-v8a" }
         consumerProguardFiles("consumer-rules.pro")
         externalNativeBuild {
@@ -32,7 +32,7 @@ android {
                     "-DANDROID_STL=c++_static",
                     "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
                     "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
-                    "-DROMCORE_SKIP_ASSETS=ON",
+                    "-DNEBULOS_SKIP_ASSETS=ON",
                 )
             }
         }
@@ -74,7 +74,7 @@ tasks.matching { it.name.matches(Regex("merge.*Assets")) || it.name.matches(Rege
     .configureEach { dependsOn(stageDolphinSys) }
 
 dependencies {
-    implementation(project(":romcore-api"))
+    implementation(project(":nebulos-api"))
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.preference:preference-ktx:1.2.1")

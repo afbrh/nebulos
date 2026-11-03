@@ -1,7 +1,7 @@
 @nsobid-891687F016A18F1773D4A88EBF8A973C8E33ECC1
 
 # Super Mario 3D World + Bowser's Fury [010028600EBDA000] (base game, main NSO build id above; XCI boots with "Update v0.0.0" = v1.0.0)
-# 4:3 Aspect Ratio + HUD fit - RomCore. Eden handheld mode (guest 16:9 picture), RomCore stretches the picture 4/3 vertically.
+# 4:3 Aspect Ratio + HUD fit - Nebulos. Eden handheld mode (guest 16:9 picture), Nebulos stretches the picture 4/3 vertically.
 #
 # 1) 0040B818 (code 0x40b918): swapchain/render size 1920x1080 -> 960x720 (mov x28,#0x3c0 ; movk x28,#0x2d0,lsl #32).
 # 2) 00738678 -> cave 009C4D00: sead PerspectiveProjection::set() (0x738720) stores its aspect at [obj+0xb0]; when the value is ~16/9

@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.noryan.romcore.core.retroarch"
+    namespace = "com.noryan.nebulos.core.retroarch"
     compileSdk = 37
     defaultConfig {
         consumerProguardFiles("consumer-rules.pro")
@@ -14,8 +14,8 @@ android {
 }
 
 dependencies {
-    api(project(":romcore-api"))
-    // Local build of libretro/RetroArch (retroarch-src, patched with the romcore bridge), composite-included in settings.
+    api(project(":nebulos-api"))
+    // Local build of libretro/RetroArch (retroarch-src, patched with the nebulos bridge), composite-included in settings.
     api("com.retroarch:phoenix:embedded")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation(platform("androidx.compose:compose-bom:2024.09.02"))

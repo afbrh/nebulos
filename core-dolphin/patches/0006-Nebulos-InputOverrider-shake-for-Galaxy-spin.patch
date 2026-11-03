@@ -1,0 +1,19 @@
+diff --git a/Source/Core/Core/HW/WiimoteEmu/Dynamics.cpp b/Source/Core/Core/HW/WiimoteEmu/Dynamics.cpp
+index 68d374c..d4fe267 100644
+--- a/Source/Core/Core/HW/WiimoteEmu/Dynamics.cpp
++++ b/Source/Core/Core/HW/WiimoteEmu/Dynamics.cpp
+@@ -88,8 +88,12 @@ void EmulateShake(PositionalState* state, ControllerEmu::Shake* const shake_grou
+   // shake emulation (its own intensity and frequency).
+   if (override_func)
+     if (const auto o = override_func("NebulosShake", "On", 0.0))
+-      if (*o > 0.5)
+-        shake_state = Common::Vec3(1.f, 0.f, 0.f);
++    {
++      // The override value is a bit mask of the Shake directions pressed: 1 = X, 2 = Y, 4 = Z.
++      const int mask = int(std::lround(*o));
++      if (mask > 0)
++        shake_state = Common::Vec3((mask & 1) ? 1.f : 0.f, (mask & 2) ? 1.f : 0.f, (mask & 4) ? 1.f : 0.f);
++    }
+   auto target_position = shake_state * float(shake_group->GetIntensity() / 2);
+   for (std::size_t i = 0; i != target_position.data.size(); ++i)
+   {

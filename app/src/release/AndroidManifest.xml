@@ -4,8 +4,8 @@
     <!-- Release only: drop the debug test activity and un-export the game activities the cores leave exported for the
          adb debug drivers (the shell starts them explicitly from inside the app). -->
     <application>
-        <activity android:name="com.noryan.romcore.api.menu.debug.MenuTestActivity" tools:node="remove" />
-        <activity android:name="com.noryan.romcore.core.dolphin.DolphinActivity" android:exported="false" tools:node="merge" tools:replace="android:exported" />
-        <activity android:name="com.noryan.romcore.core.primehack.PrimeHackActivity" android:exported="false" tools:node="merge" tools:replace="android:exported" />
+        <activity android:name="com.noryan.nebulos.api.menu.debug.MenuTestActivity" tools:node="remove" />
+        <activity android:name="com.noryan.nebulos.core.dolphin.DolphinActivity" android:exported="false" tools:node="merge" tools:replace="android:exported" />
+        <activity android:name="com.noryan.nebulos.core.primehack.PrimeHackActivity" android:exported="false" tools:node="merge" tools:replace="android:exported" />
     </application>
 </manifest>

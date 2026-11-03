@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Preview-only harness. Deliberately NOT a launcher / exported entry: it is merged into the app's debug build
+             and must never appear as a second, older Nebulos menu. -->
+        <activity android:name="com.noryan.nebulos.api.menu.debug.MenuTestActivity" android:exported="false"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" android:label="Nebulos Menu Test" />
+    </application>
+</manifest>

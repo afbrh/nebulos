@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.noryan.romcore.core.azahar"
+    namespace = "com.noryan.nebulos.core.azahar"
     compileSdk = 37
     defaultConfig {
         minSdk = 30
@@ -16,9 +16,9 @@ android {
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
-    implementation(project(":romcore-api"))
+    implementation(project(":nebulos-api"))
     // azahar-src/src/android (:app already converted to a library) via includeBuild in settings.gradle.kts.
-    // Native lib: libcitra-android.so (unique among RomCore cores); Java package org.citra.citra_emu (no clash).
+    // Native lib: libcitra-android.so (unique among Nebulos cores); Java package org.citra.citra_emu (no clash).
     // The dependency-level attribute pins Azahar's "version" flavor for the final app's runtime classpath too (a
     // library's missingDimensionStrategy does not propagate), so :app needs no missingDimensionStrategy for it.
     implementation("org.azahar_emu:app:embedded") {

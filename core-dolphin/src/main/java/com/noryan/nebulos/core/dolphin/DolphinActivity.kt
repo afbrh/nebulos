@@ -1,0 +1,256 @@
+package com.noryan.nebulos.core.dolphin
+
+import android.app.Activity
+import android.graphics.PixelFormat
+import android.os.Bundle
+import android.os.Process
+import android.view.KeyEvent
+import android.view.MotionEvent
+import android.view.SurfaceHolder
+import android.view.SurfaceView
+import android.view.ViewGroup
+import android.view.WindowInsets
+import android.view.WindowInsetsController
+import android.view.WindowManager
+import android.widget.FrameLayout
+import com.noryan.nebulos.api.NebulosCoreHost
+import com.noryan.nebulos.api.System
+import com.noryan.nebulos.core.dolphin.jni.DolphinApplication
+import com.noryan.nebulos.core.dolphin.jni.NativeLibrary
+import com.noryan.nebulos.core.dolphin.jni.utils.ActivityTracker
+import java.util.concurrent.atomic.AtomicBoolean
+
+/**
+ * The only Dolphin UI Nebulos shows: one full-screen game SurfaceView. No game list, settings, cheats, overlay or
+ * Dolphin pause menu; pause/save/load/mapping/hotkeys/close come from the shared Nebulos menu (nebulos-api).
+ * Runs in android:process ":dolphin" (see AndroidManifest) and takes the whole process down when the game ends -
+ * Dolphin's native core is not designed to be torn down and re-initialised in-process.
+ */
+class DolphinActivity : Activity(), NativeLibrary.EmulationHost, SurfaceHolder.Callback {
+    companion object {
+        const val EXTRA_PATH = "com.noryan.nebulos.core.dolphin.PATH"
+        const val EXTRA_ROM_PATH = "com.noryan.nebulos.core.dolphin.ROM_PATH"
+        const val EXTRA_SYSTEM = "com.noryan.nebulos.core.dolphin.SYSTEM"
+        const val EXTRA_RESUME_STATE = "com.noryan.nebulos.core.dolphin.RESUME_STATE"
+        const val EXTRA_WW60 = "com.noryan.nebulos.core.dolphin.WW60"
+    }
+
+    private lateinit var session: DolphinSession
+    private lateinit var hooks: NebulosCoreHost.Hooks
+    private lateinit var system: System
+
+    private val lock = Any()
+    private var holder: SurfaceHolder? = null
+    @Volatile private var runtimeReady = false
+    private val booted = AtomicBoolean(false)
+    private var emuThread: Thread? = null
+    private var closing = false
+    private var readySignalled = false
+    private var titleValid = false
+    private var shadersDone = false
+    private var shadersWaiting = false
+    private var shaderLogged = false
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val launchPath = intent.getStringExtra(EXTRA_PATH)
+        if (launchPath == null) { finish(); return }
+        val romPath = intent.getStringExtra(EXTRA_ROM_PATH) ?: launchPath
+        val ww60 = intent.getBooleanExtra(EXTRA_WW60, false)
+        system = runCatching { System.valueOf(intent.getStringExtra(EXTRA_SYSTEM) ?: "") }.getOrDefault(System.GAMECUBE)
+
+        window.setBackgroundDrawableResource(android.R.color.black)
+        window.attributes = window.attributes.apply {
+            layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        }
+        window.setDecorFitsSystemWindows(false)
+
+        val sv = SurfaceView(this).apply { holder.setFormat(PixelFormat.RGBA_8888); holder.addCallback(this@DolphinActivity) }
+        setContentView(FrameLayout(this).also { it.addView(sv, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT) })
+        hideSystemBars()
+
+        session = DolphinSession(this, romPath) { closeGame() }
+        // nebulos-api one-call integration: InputRouter (mapping/auto-profiles/hotkeys) + shared menu + quick save/load.
+        hooks = NebulosCoreHost.install(this, session, system)
+        MemWatch.start { t -> runOnUiThread { if (::hooks.isInitialized) hooks.notice(t) } }
+        NativeLibrary.setEmulationHost(this)
+        DolphinApplication.initialize(this)
+        DolphinApplication.setAppActivity(this)
+
+        // Native bring-up (Sys extraction on first run) off the UI thread.
+        Thread({
+            try {
+                val disc = readDisc(launchPath, romPath)
+                session.gameId = disc?.id
+                DolphinRuntime.ensureInitialized(this, disc, ww60)
+                DolphinRuntime.prepareGame(this, disc, ww60)
+                session.fourThreeAtLaunch = disc?.id?.let { com.noryan.nebulos.api.FourByThree.supports(it) && com.noryan.nebulos.api.FourByThree.isEnabled(this, it) } ?: false
+            } catch (t: Throwable) {
+                hooks.error("Dolphin failed to start", t.message ?: t.toString(), true)
+                return@Thread
+            }
+            runOnUiThread {
+                // Needs the native lib (setBackgroundExecutionAllowedNative / flushUnsavedData), so only after init.
+                val tracker = ActivityTracker()
+                application.registerActivityLifecycleCallbacks(tracker)
+                if (!isFinishing) tracker.onActivityResumed(this)
+            }
+            synchronized(lock) {
+                runtimeReady = true
+                holder?.let { if (it.surface.isValid) NativeLibrary.SurfaceChanged(it.surface) }
+            }
+            maybeBoot()
+        }, "dolphin-init").start()
+    }
+
+    /** First bytes of the disc image (plain path, else the SAF content:// Uri) -> game ID + revision. */
+    private fun readDisc(launchPath: String, romPath: String): SunshineFps.Disc? = try {
+        val buf = ByteArray(SunshineFps.HEADER_BYTES)
+        val ins = if (java.io.File(romPath).canRead()) java.io.File(romPath).inputStream()
+        else contentResolver.openInputStream(android.net.Uri.parse(launchPath))
+        val n = ins?.use { it.readNBytes(buf, 0, buf.size) } ?: 0
+        buf.copyOf(n).let { h ->
+            // parseDisc is GameCube-only (GC magic); Wii discs (Other M, ...) are identified by nebulos-api's DiscId.
+            SunshineFps.parseDisc(h) ?: com.noryan.nebulos.api.DiscId.fromHeader(h)?.let { SunshineFps.Disc(it.gameId, 0) }
+        }
+    } catch (_: Throwable) { null }
+
+    // ---- surface -> boot ---------------------------------------------------------------------------------------
+    override fun surfaceCreated(h: SurfaceHolder) {}
+
+    override fun surfaceChanged(h: SurfaceHolder, format: Int, width: Int, height: Int) {
+        synchronized(lock) {
+            holder = h
+            if (runtimeReady) NativeLibrary.SurfaceChanged(h.surface)
+        }
+        maybeBoot()
+    }
+
+    override fun surfaceDestroyed(h: SurfaceHolder) {
+        synchronized(lock) {
+            holder = null
+            if (runtimeReady) NativeLibrary.SurfaceDestroyed()
+        }
+    }
+
+    private fun maybeBoot() {
+        val ready = synchronized(lock) { runtimeReady && holder?.surface?.isValid == true }
+        if (!ready || !booted.compareAndSet(false, true)) return
+        val path = intent.getStringExtra(EXTRA_PATH) ?: return
+        val resume = intent.getBooleanExtra(EXTRA_RESUME_STATE, false) && session.hasResumeState()
+        val fresh = intent.getBooleanExtra(com.noryan.nebulos.api.EXTRA_FRESH_START, false)
+        val boot = if (resume) session.resumeStatePath() else if (fresh) null else session.quickStatePath()   // straight into the saved moment, no fresh boot first
+        session.bootedIntoState = boot != null
+        NativeLibrary.SetIsBooting()
+        emuThread = Thread({
+            if (boot != null) NativeLibrary.Run(arrayOf(path), false, boot, false)
+            else NativeLibrary.Run(arrayOf(path), false)
+            // Run() returns when emulation ended (game quit, crash-to-menu, StopEmulation).
+            runOnUiThread { closeGame() }
+        }, "NativeEmulation").also { it.start() }
+    }
+
+    // ---- NativeLibrary.EmulationHost ---------------------------------------------------------------------------
+    override fun finishEmulation() = runOnUiThread { closeGame() }
+
+    override fun onTitleChanged() {
+        runOnUiThread {
+            if (NativeLibrary.IsGameMetadataValid()) {
+                session.onGameReady()
+                titleValid = true
+                android.util.Log.i("NebulosUi", "title valid")
+                // Fallback if the shader-wait callback never arrives (WaitForShadersBeforeStarting off).
+                maybeReady(if (shadersDone) 500 else 30_000)
+            }
+        }
+    }
+
+    /** Shader pre-compile progress goes to the shared Nebulos loading screen (Dolphin's own ImGui bar is not drawn). */
+    override fun onShaderCompile(completed: Int, total: Int, finished: Boolean) {
+        android.util.Log.i("NebulosUi", "shader $completed/$total finished=$finished")
+        runOnUiThread {
+            if (!::hooks.isInitialized) return@runOnUiThread
+            if (finished) {
+                shadersWaiting = false; hooks.setLoadingText(null); shadersDone = true; maybeReady(500)
+                ShaderCacheKeeper.logSummary(); ShaderCacheKeeper.startPeriodic()
+            }
+            else {
+                shadersWaiting = true
+                hooks.setLoadingProgress(completed.toFloat() / maxOf(total, 1), "Compiling shaders $completed/$total")
+                if (!shaderLogged) { shaderLogged = true; ShaderCacheKeeper.logSummary("start, $total to compile") }
+            }
+        }
+    }
+
+    /** Ready = shader pre-compile wait finished (native signal; the CPU only starts ~5 s after the title is valid) or a 30 s fallback; the delay lets the first frames reach the surface. */
+    private fun maybeReady(delayMs: Long) {
+        if (readySignalled || !titleValid) return
+        val fallback = delayMs >= 30_000
+        window.decorView.postDelayed({
+            if (!readySignalled && !shadersWaiting && (shadersDone || fallback) && ::hooks.isInitialized) { readySignalled = true; android.util.Log.i("NebulosUi", "onGameReady"); hooks.onGameReady() }
+        }, delayMs)
+    }
+
+    override fun displayScale(): Float = resources.displayMetrics.scaledDensity
+    override fun toast(text: String) { if (::hooks.isInitialized) hooks.notice(text) }
+
+    // ---- shutdown ----------------------------------------------------------------------------------------------
+    private fun closeGame() {
+        if (closing) return
+        closing = true
+        session.onGameStopped()
+        Thread({
+            if (runCatching { NativeLibrary.IsRunning() }.getOrDefault(false)) runCatching { NativeLibrary.StopEmulation() }
+            emuThread?.let { runCatching { it.join(5000) } }
+            runOnUiThread { finishAndRemoveTask() }
+        }, "dolphin-stop").start()
+    }
+
+    /** Safety net: log memory state (incl. Adreno kgsl GPU memory) and warn the player when the system is about to kill us. */
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        MemWatch.onTrim(level) { t -> runOnUiThread { if (::hooks.isInitialized) hooks.notice(t) } }
+    }
+
+    override fun onDestroy() {
+        MemWatch.stop()
+        super.onDestroy()
+        if (::hooks.isInitialized) hooks.onDestroy()
+        NativeLibrary.setEmulationHost(null)
+        // Dolphin's native core can't be re-initialised in this process; the shell lives in another process.
+        if (isFinishing) Process.killProcess(Process.myPid())
+    }
+
+    override fun onPause() {
+        ShaderCacheKeeper.flush(full = true)   // the process may be killed any time after the app leaves the foreground
+        if (::hooks.isInitialized) hooks.onPause()
+        if (runtimeReady && NativeLibrary.IsRunningAndUnpaused()) NativeLibrary.PauseEmulation(true)
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (runtimeReady && NativeLibrary.IsRunning() && !hooks.menu.isOpen) NativeLibrary.UnPauseEmulation()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) hideSystemBars()
+    }
+
+    private fun hideSystemBars() {
+        window.insetsController?.apply {
+            systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsets.Type.systemBars())
+        }
+    }
+
+    // ---- input -------------------------------------------------------------------------------------------------
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (hooks.dispatchKey(event)) return true // Back is always consumed here and opens the shared menu
+        return super.dispatchKeyEvent(event)
+    }
+
+    override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean =
+        hooks.dispatchMotion(event) || super.dispatchGenericMotionEvent(event)
+}

@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
     <!-- DEBUG BUILDS ONLY: exported so adb can start a game directly (am start with the PATH string extra), bypassing the shell UI. -->
     <application>
-        <activity android:name="com.noryan.romcore.core.dolphin.DolphinActivity"
+        <activity android:name="com.noryan.nebulos.core.dolphin.DolphinActivity"
             android:exported="true" tools:replace="android:exported" />
     </application>
 </manifest>

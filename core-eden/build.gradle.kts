@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.noryan.romcore.core.eden"
+    namespace = "com.noryan.nebulos.core.eden"
     compileSdk = 37
     defaultConfig {
         minSdk = 30
@@ -17,9 +17,9 @@ android {
 }
 
 dependencies {
-    implementation(project(":romcore-api"))
+    implementation(project(":nebulos-api"))
     // Eden's android project (../eden-src/src/android, :app converted to a library) via includeBuild in settings.
-    // Native lib: libyuzu-android.so (unique among RomCore cores); Java package org.yuzu.yuzu_emu (no relocation needed).
+    // Native lib: libyuzu-android.so (unique among Nebulos cores); Java package org.yuzu.yuzu_emu (no relocation needed).
     implementation("dev.eden_emu:app:embedded")
     // Eden is compiled against Material 1.12.0; newer versions drop R.attr.colorPrimary -> NoSuchFieldError in
     // EmulationFragment (found by RomRunner). Strictly pinned so it propagates to the app.

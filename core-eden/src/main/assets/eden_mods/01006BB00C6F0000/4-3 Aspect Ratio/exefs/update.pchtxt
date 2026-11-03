@@ -1,7 +1,7 @@
 @nsobid-909E904AF78AC1B8DEEFE97AB2CCDB51968F0EC7
 
 # The Legend of Zelda: Link's Awakening [01006BB00C6F0000] (XCI with update; Eden prints "Update v0.1.0")
-# 4:3 Aspect Ratio + HUD fit - RomCore. Eden handheld (guest 1280x720 buffer), RomCore stretches the picture 4/3 vertically.
+# 4:3 Aspect Ratio + HUD fit - Nebulos. Eden handheld (guest 1280x720 buffer), Nebulos stretches the picture 4/3 vertically.
 #
 # 1) 016AFBA4: shared float constant 16/9 (0x3FE38E39) -> 4/3 (0x3FAAAAAB). Used by the game camera update (code 0x10b58, 0x1092c, ...)
 #    as projection aspect; vertical FOV unchanged, 3D view = centre 4:3 of the 16:9 view.

@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # One-shot bootstrap: import mainline Dolphin's Android Java/Kotlin + resources into :core-dolphin with the
-# package relocated  org.dolphinemu.dolphinemu  ->  com.noryan.romcore.core.dolphin.jni
+# package relocated  org.dolphinemu.dolphinemu  ->  com.noryan.nebulos.core.dolphin.jni
 # (see ../README-dolphin.md). The result is committed; re-run only to rebase onto a newer Dolphin, then
 # re-apply the hand edits listed in README-dolphin.md ("Files changed from upstream").
 #
-# Native side is handled by patches/0001-*.patch (applied to dolphin-src branch `romcore`).
+# Native side is handled by patches/0001-*.patch (applied to dolphin-src branch `nebulos`).
 set -euo pipefail
 SRC="${DOLPHIN_SRC:-/Users/ry/Desktop/claude/dolphin-src}/Source/Android/app/src/main"
 DST="$(cd "$(dirname "$0")/.." && pwd)/src/main"
 OLD_PKG=org.dolphinemu.dolphinemu
-NEW_PKG=com.noryan.romcore.core.dolphin.jni
+NEW_PKG=com.noryan.nebulos.core.dolphin.jni
 OLD_DIR=$(echo "$OLD_PKG" | tr . /)
 NEW_DIR=$(echo "$NEW_PKG" | tr . /)
 
@@ -22,7 +22,7 @@ rm -rf "$DST"/res/mipmap-* "$DST"/res/drawable*/banner_tv* "$DST"/res/drawable*/
 
 find "$DST/java" "$DST/res" \( -name '*.kt' -o -name '*.java' -o -name '*.xml' \) -print0 |
   xargs -0 sed -i '' -e "s/org\\.dolphinemu\\.dolphinemu/${NEW_PKG}/g"
-# Prune Dolphin's own Android UI (RomCore shows the game surface + the shared romcore-api menu only).
+# Prune Dolphin's own Android UI (Nebulos shows the game surface + the shared nebulos-api menu only).
 # What stays is the JNI-facing model/utility layer that the native IDCache requires.
 J="$DST/java/$NEW_DIR"
 rm -rf "$J"/{activities,adapters,dialogs,fragments,layout,overlay,services,ui,viewholders}

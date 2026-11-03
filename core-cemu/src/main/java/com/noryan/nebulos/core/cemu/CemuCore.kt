@@ -1,0 +1,63 @@
+package com.noryan.nebulos.core.cemu
+
+import android.content.Context
+import android.content.Intent
+import com.noryan.nebulos.api.CoreDescriptor
+import com.noryan.nebulos.api.CoreRegistry
+import com.noryan.nebulos.api.LaunchRequest
+import com.noryan.nebulos.api.System
+import com.noryan.nebulos.api.save.SaveMigration
+import com.noryan.nebulos.api.save.SaveRoot
+import java.io.File
+
+/**
+ * Wii U via Cemu (SSimco's Android fork, MPL-2.0). Runs in its own android:process ":cemu"
+ * (see CemuGameActivity) so libCemuAndroid.so, Vulkan and the PPC recompiler never share a process
+ * with the shell or any other core.
+ */
+object CemuCore : CoreDescriptor {
+    override val id = "cemu"
+    override val displayName = "Cemu (Wii U)"
+    override val systems = setOf(System.WIIU)
+
+    /** wud/wux = disc images, wua = packed archive, rpx = standalone executable. */
+    override val extensions = setOf("wud", "wux", "wua", "rpx")
+
+    /**
+     * Wii U titles are often unpacked "loadiine" folders: a directory holding `code`, `content` and
+     * `meta`. The scanner (which owns directory walking) should treat such a directory as ONE game
+     * (and not list the .rpx files under `code/` separately) by calling [isTitleFolder] with the
+     * directory's immediate child names.
+     */
+    val titleFolderMarkers = setOf("code", "content", "meta")
+
+    fun isTitleFolder(childNames: Collection<String>): Boolean {
+        val lower = childNames.mapTo(HashSet()) { it.lowercase() }
+        return titleFolderMarkers.all { it in lower }
+    }
+
+    override fun launchIntent(ctx: Context, request: LaunchRequest): Intent =
+        Intent(ctx, CemuGameActivity::class.java).apply {
+            // Cemu's file layer accepts a raw content:// URI (file or tree/folder) directly.
+            putExtra(CemuGameActivity.EXTRA_PATH, request.romUri ?: request.romPath)
+            putExtra(CemuGameActivity.EXTRA_ROM_PATH, request.romPath)
+            putExtra(CemuGameActivity.EXTRA_TITLE, request.romPath.trimEnd('/').substringAfterLast('/')
+                .substringBeforeLast('.'))
+            putExtra(CemuGameActivity.EXTRA_RESUME_STATE, request.resumeState)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+    /**
+     * Portable save data (SAVEDATA.md): the whole mlc01 (game saves `usr/save`, the Wii U account, boss data, generated `sys`
+     * stubs) lives in `<save root>/cemu/mlc01`. Cemu's `mlc_path` is a single directory, and Nebulos never installs
+     * updates/DLC into it (they come packed in .wua), so it stays small. keys.txt, settings.xml, graphic packs and the GPU
+     * driver stay in `<externalFilesDir>`.
+     */
+    fun mlcDir(ctx: Context): File = SaveRoot.coreSubDir(ctx, id, "mlc01")
+
+    fun register() {
+        CoreRegistry.register(this)
+        // Old location: <externalFilesDir>/mlc01 (Cemu's default <userData>/mlc01). Copy -> verify -> delete-old.
+        SaveMigration.register(id, "cemu mlc01", "mlc01") { ctx -> File(ctx.getExternalFilesDir(null) ?: ctx.filesDir, "mlc01") }
+    }
+}

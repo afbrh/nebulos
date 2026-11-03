@@ -1,4 +1,4 @@
-New Super Mario Bros. U Deluxe - 4:3 Aspect Ratio (RomCore / Eden, handheld)   [tested: intro, title/file select, world map, level 1-1 HUD/3D]
+New Super Mario Bros. U Deluxe - 4:3 Aspect Ratio (Nebulos / Eden, handheld)   [tested: intro, title/file select, world map, level 1-1 HUD/3D]
 Title id 0100EA80032EA000, main NSO build id AEE6DCCC06D9C05B42061E2019123A61 (AArch32 build; version label unknown, only this build).
 What it does:
  - Render size 960x720 (display config, mode-change resize, render setup) + default projection aspect 4/3 for the background/parallax cameras (agl PerspectiveProjection ctor/set hooks + 12 literals).

@@ -1,0 +1,109 @@
+package com.noryan.nebulos.core.watermelonds
+
+import android.app.Activity
+import android.app.Application
+import android.os.Bundle
+import android.util.Log
+import android.view.KeyEvent
+import android.view.MotionEvent
+import androidx.startup.AppInitializer
+import com.noryan.nebulos.api.NebulosCoreHost
+import com.noryan.nebulos.api.System
+import me.magnum.melonds.MelonDSApplication
+import me.magnum.melonds.MelonEmulator
+import me.magnum.melonds.initializer.AppForegroundStateTrackerInitializer
+import me.magnum.melonds.initializer.CoilInitializer
+import me.magnum.melonds.nebulos.NebulosBridge
+import me.magnum.melonds.ui.emulator.EmulatorActivity
+import java.io.File
+
+/** Everything that happens inside the `:melonds` process: native load, WatermelonDS init, Nebulos menu + input hooks. */
+internal object WatermelonDsHost {
+    private const val TAG = "NebulosMelonDS"
+    private const val PROCESS_SUFFIX = ":melonds"
+
+    fun isMelonProcess(): Boolean = Application.getProcessName()?.endsWith(PROCESS_SUFFIX) == true
+
+    fun loadNative() = MelonDSApplication.loadNativeLib()
+
+    /** Called from [NebulosHiltApplication.onCreate] after the Hilt component exists. */
+    fun onProcessCreate(app: Application) {
+        runCatching { MelonDSApplication.initializeForEmbedding(app) }.onFailure { Log.e(TAG, "WatermelonDS embedding init failed", it) }
+        WatermelonDsSession.pinFastForwardCap(app)
+        // Manifest-declared startup initializers were removed (main process must not need Hilt); run them here.
+        runCatching {
+            val init = AppInitializer.getInstance(app)
+            init.initializeComponent(AppForegroundStateTrackerInitializer::class.java)
+            init.initializeComponent(CoilInitializer::class.java)
+        }.onFailure { Log.e(TAG, "startup initializers failed", it) }
+
+        app.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
+            override fun onActivityPostCreated(activity: Activity, savedInstanceState: Bundle?) {
+                if (activity is EmulatorActivity && activity.intent.getBooleanExtra(NebulosBridge.EXTRA_NEBULOS, false)) attach(activity)
+            }
+            override fun onActivityDestroyed(activity: Activity) {
+                if (activity is EmulatorActivity) detach(activity)
+            }
+            override fun onActivityCreated(a: Activity, s: Bundle?) {}
+            override fun onActivityStarted(a: Activity) {}
+            override fun onActivityResumed(a: Activity) {}
+            override fun onActivityPaused(a: Activity) { current?.takeIf { it.activity === a }?.hooks?.onPause() }
+            override fun onActivityStopped(a: Activity) {}
+            override fun onActivitySaveInstanceState(a: Activity, o: Bundle) {}
+        })
+    }
+
+    private class Attached(val activity: EmulatorActivity, val hooks: NebulosCoreHost.Hooks)
+    @Volatile private var current: Attached? = null
+
+    private fun attach(activity: EmulatorActivity) {
+        detach(activity)
+        val romPath = activity.intent.getStringExtra(WatermelonDsCore.EXTRA_ROM_PATH) ?: activity.intent.data?.toString().orEmpty()
+        val session = WatermelonDsSession(activity, romPath, activity)
+        // NebulosCoreHost wires InputRouter (profiles/mapping/hotkeys) + the shared menu + hotkey actions + keep-screen-on.
+        val hooks = NebulosCoreHost.install(activity, session, System.NDS)
+        session.comboClock = { hooks.router.lastHotkeyAtMs }
+        current = Attached(activity, hooks)
+
+        NebulosBridge.host = object : NebulosBridge.Host {
+            override fun onKey(event: KeyEvent): Boolean {
+                if (hooks.dispatchKey(event)) return true // Back opens the shared menu (never finishes the game)
+                return event.keyCode == KeyEvent.KEYCODE_BACK
+            }
+            override fun onMotion(event: MotionEvent): Boolean = hooks.dispatchMotion(event)
+            override fun onMenuRequested() = hooks.menu.open()
+            // Nebulos owns all UI: the emulator's toasts/dialogs/loading text are forwarded to the shared overlay.
+            override fun notice(text: String, durationMs: Long) { hooks.notice(text, durationMs) }
+            override fun error(title: String, message: String, fatal: Boolean) { hooks.error(title, message, fatal) }
+            override fun ready() { hooks.onGameReady() }
+            override fun loading(fraction: Float, text: String?) { hooks.setLoadingProgress(fraction, text) }
+        }
+
+        if (activity.intent.getBooleanExtra(WatermelonDsCore.EXTRA_RESUME, false)) resumeNewestState(session)
+    }
+
+    private fun detach(activity: EmulatorActivity) {
+        val c = current ?: return
+        if (c.activity !== activity) return
+        current = null
+        NebulosBridge.host = null
+        runCatching { c.hooks.onDestroy() }
+        // Close Game / activity gone: the :melonds process has nothing left to do; end it so its memory is released.
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ if (current == null) android.os.Process.killProcess(android.os.Process.myPid()) }, 400)
+    }
+
+    /** LaunchRequest.resumeState: once melonDS is actually running, load the most recently written slot (if any). */
+    private fun resumeNewestState(session: WatermelonDsSession) {
+        Thread {
+            val newest = (1..com.noryan.nebulos.api.menu.CoreSessionBase.SLOTS)
+                .map { it to File(session.statePath(it).path) }
+                .filter { it.second.exists() }.maxByOrNull { it.second.lastModified() }?.first ?: return@Thread
+            val deadline = android.os.SystemClock.uptimeMillis() + 20_000
+            while (android.os.SystemClock.uptimeMillis() < deadline) {
+                Thread.sleep(500)
+                val running = runCatching { MelonEmulator.getFPS() > 1f }.getOrDefault(false)
+                if (running) { Thread.sleep(500); session.loadState(newest); return@Thread }
+            }
+        }.apply { isDaemon = true; name = "nebulos-melon-resume" }.start()
+    }
+}
