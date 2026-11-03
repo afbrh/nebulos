@@ -1,13 +1,13 @@
 # 4:3 screen for Wii games (Retroid Pocket Nova, 1280x960)
 
 Dolphin's default Wii system setting is 16:9, so Wii games render widescreen and are letterboxed on a 4:3 screen (about 20% of the
-screen lost to black bars). RomCore now has a per-game **4:3 Screen** option (in-game menu row, above Close Game). It applies from
+screen lost to black bars). Nebulos now has a per-game **4:3 Screen** option (in-game menu row, above Close Game). It applies from
 the next launch ("On - restart game" is shown while the saved choice differs from the running game). Default: on when the device
 screen is 4:3-ish (width/height <= 1.5), off otherwise (the AYN Thor's 16:9 screen keeps 16:9).
 
 ## Mechanism
 Both cores write the game's own Dolphin INI (`<userDir>/GameSettings/<GAMEID>.ini`) before the game boots
-(`romcore-api` `FourByThree.prepare`, called from `DolphinRuntime.prepareGame` and `PrimeHackConfig.apply`):
+(`nebulos-api` `FourByThree.prepare`, called from `DolphinRuntime.prepareGame` and `PrimeHackConfig.apply`):
 
 1. **`[Wii] Widescreen = False`** for every supported game. In Dolphin's `BootManager` the per-game ("Meta") config layer is written
    into the Wii SYSCONF at boot, so the game sees a 4:3 console and renders 4:3 natively; Dolphin's Auto aspect then fills the
@@ -38,5 +38,5 @@ the `[Gecko_Enabled]` entry with that bare name only, so the code never ran (ver
 memory). The enable line now uses the bare name (`FourByThree.bareName`), covered by a test that reproduces Dolphin's rule.
 
 ## Status
-Unit tests: `romcore-api/.../FourByThreeTest.kt`. Still to check by eye: Other M and Prime Trilogy gameplay (both need a long
+Unit tests: `nebulos-api/.../FourByThreeTest.kt`. Still to check by eye: Other M and Prime Trilogy gameplay (both need a long
 cutscene / cursor-driven menu to get through), and the Other M Gecko code.

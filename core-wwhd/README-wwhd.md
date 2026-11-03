@@ -1,7 +1,7 @@
 # core-wwhd — The Legend of Zelda: The Wind Waker HD (Wii U)
 
 Embeds [WindWakerHD-Android-Plus](https://github.com/Nycolazs/WindWakerHD-Android-Plus) (MPL-2.0), a static recompilation of the game's PowerPC code to native ARM64
-with GX2 on Vulkan. RomCore runs it as an extra core in its own process (`:wwhd`) behind the shared loading screen, Back menu,
+with GX2 on Vulkan. Nebulos runs it as an extra core in its own process (`:wwhd`) behind the shared loading screen, Back menu,
 input mapping, hotkeys and save-state slots.
 
 - **Routing:** a Wii U `.wua` has no cheap readable title ID, so the game is recognised by title (`wind waker hd`). It becomes the

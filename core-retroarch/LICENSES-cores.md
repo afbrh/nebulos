@@ -40,7 +40,7 @@ here, in the source headers and in the shipped license files. Internal names (mo
 `retroarch/` data directory) are unchanged implementation details.
 
 ## CRT shader (NES / SNES only)
-`assets/retroarch_shaders/romcore-crt.glsl` + `romcore-crt.glslp` are RomCore's own code (GPL-3.0-or-later), written from scratch
+`assets/retroarch_shaders/nebulos-crt.glsl` + `nebulos-crt.glslp` are Nebulos's own code (GPL-3.0-or-later), written from scratch
 (general public CRT-emulation ideas only; nothing copied from third-party shaders). Single pass, 5 texture taps, GLSL ES 1.00 style
 (no `#version` line, so it works on GLES2/GLES3 through RetroArch's GL driver). Look: scanlines tied to the source line count scaled
 to the output (analytically box-filtered, so no moire at 1080p/non-integer scale; brighter pixels widen the beam like a real tube;
@@ -54,7 +54,7 @@ config key, so the preset is installed to `<ext files>/retroarch/shaders/` (re-c
 `rgui_config_directory` points there; `video_shader_enable=true`, `auto_shaders_enable=true`. For every other system (and when the
 pref is off) the shader keys are `false`/empty and `global.glslp` is deleted, so nothing sticks. Core aspect and `video_smooth`/
 `video_scale_integer` are untouched (preset's `filter_linear0=true` filters the source for pass 0).
-Pref: boolean `retro_crt_filter` in SharedPreferences file `romcore` (default true, no UI yet; `CrtShader.PREF_KEY`).
+Pref: boolean `retro_crt_filter` in SharedPreferences file `nebulos` (default true, no UI yet; `CrtShader.PREF_KEY`).
 
 Device verification checklist (when the Thor is free):
 1. Install, launch NES (Super Mario Bros.nes, The Legend of Zelda.nes) and SNES (Super Mario World, Super Metroid, ALttP): scanlines + faint

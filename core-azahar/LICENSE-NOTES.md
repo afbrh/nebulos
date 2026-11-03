@@ -1,6 +1,6 @@
 # :core-azahar notes
 
-* Engine: Azahar (azahar-emu/azahar, Citra lineage) - **GPL-2.0-only**. RomCore is GPLv3. GPLv2-only code cannot be
+* Engine: Azahar (azahar-emu/azahar, Citra lineage) - **GPL-2.0-only**. Nebulos is GPLv3. GPLv2-only code cannot be
   combined into one program with GPLv3 code. Mitigation: Azahar runs in its own `:azahar` process (separate address
   space, own native library `libcitra-android.so`), and the glue in this module talks to it only via its public
   Kotlin/JNI API. Whether a single APK containing both counts as one "work" is a legal question; get a ruling before

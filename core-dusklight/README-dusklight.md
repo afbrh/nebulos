@@ -11,8 +11,8 @@ You need your own disc dump. Nothing from the game is bundled.
 
 | Thing | Location |
 |---|---|
-| Android module (this dir) | `romcore/core-dusklight`, coreId `dusklight`, package `com.noryan.romcore.core.dusklight`, `object DusklightCore` + `register()` |
-| Engine source (local, never pushed) | `/Users/ry/Desktop/claude/dusklight-src`, branch `romcore-local` (+ submodule branches `extern/aurora`, `extern/borealis`, same name) |
+| Android module (this dir) | `nebulos/core-dusklight`, coreId `dusklight`, package `com.noryan.nebulos.core.dusklight`, `object DusklightCore` + `register()` |
+| Engine source (local, never pushed) | `/Users/ry/Desktop/claude/dusklight-src`, branch `nebulos-local` (+ submodule branches `extern/aurora`, `extern/borealis`, same name) |
 | Patches (numbered, `git format-patch`) | `core-dusklight/patches/{dusklight,aurora,borealis}/` |
 | Gradle wiring | `settings.gradle.kts` `includeBuild("../dusklight-src/platforms/android")` (module `dev.twilitrealm:app`, converted to a library) |
 | Native library | `libdusklight_main.so` (unique name, normal `jniLibs`, no side-loading), SDL3 statically linked |
@@ -27,21 +27,21 @@ code downstream. `remote.origin.pushurl` of the repo and both submodules is set 
 Base commits: dusklight `b245c6bef8` ("Update randomizer"), aurora `08122911e8`, borealis `8a1c87eb89`.
 
 ```
-cd dusklight-src                       && git checkout -b romcore-local b245c6bef8 && git am /path/core-dusklight/patches/dusklight/*.patch
-cd dusklight-src/extern/aurora         && git checkout -b romcore-local 08122911e8 && git am /path/core-dusklight/patches/aurora/*.patch
-cd dusklight-src/extern/borealis       && git checkout -b romcore-local 8a1c87eb89 && git am /path/core-dusklight/patches/borealis/*.patch
+cd dusklight-src                       && git checkout -b nebulos-local b245c6bef8 && git am /path/core-dusklight/patches/dusklight/*.patch
+cd dusklight-src/extern/aurora         && git checkout -b nebulos-local 08122911e8 && git am /path/core-dusklight/patches/aurora/*.patch
+cd dusklight-src/extern/borealis       && git checkout -b nebulos-local 8a1c87eb89 && git am /path/core-dusklight/patches/borealis/*.patch
 cd dusklight-src && git add extern/aurora extern/borealis && git commit -m "submodule pointers"
 ```
 
 | # | repo | patch | what |
 |---|---|---|---|
 | 0001 | dusklight | RomRunner-era local patches | `com.android.library` instead of application, `group dev.twilitrealm:app`, LAUNCHER filter removed, unique documents-provider authority, consumer ProGuard rules, AGP 9.2.1 |
-| 0002 | dusklight | RomCore embedding layer | `src/dusk/romcore_embed.{cpp,hpp}` (embedded-mode gate, SDL virtual gamepad JNI, host pause JNI, first-frame / notice / fatal events); Dusklight UI never created/shown (`m_Do_main.cpp`, `ui/ui.cpp`, `imgui/ImGuiConsole.cpp`); no sentry/crash handler; fatal -> host error panel (`logging.cpp`); `DuskActivity`: loads `libdusklight_main.so`, bare-soname `getMainSharedObject()`, host natives + `onRomCoreEvent`; NDK 29 pinned, bundled mods not packaged |
+| 0002 | dusklight | Nebulos embedding layer | `src/dusk/nebulos_embed.{cpp,hpp}` (embedded-mode gate, SDL virtual gamepad JNI, host pause JNI, first-frame / notice / fatal events); Dusklight UI never created/shown (`m_Do_main.cpp`, `ui/ui.cpp`, `imgui/ImGuiConsole.cpp`); no sentry/crash handler; fatal -> host error panel (`logging.cpp`); `DuskActivity`: loads `libdusklight_main.so`, bare-soname `getMainSharedObject()`, host natives + `onNebulosEvent`; NDK 29 pinned, bundled mods not packaged |
 | aurora 0001 | aurora | RomRunner-era | SDL3 Java package rename patch (`cmake/patches/apply-sdl3-java-package-rename.cmake`) and the checks that follow it |
-| aurora 0002 | aurora | RomCore | `AURORA_CARD_DIR` memory-card base override (`lib/dolphin/card.cpp`), `aurora_set_host_paused()` (`lib/window.cpp`, `aurora.h`) |
-| aurora 0003 | aurora | RomCore | Android: poll + 8 ms sleep instead of `SDL_WaitEvent` while paused (SDL's Android `WaitEvent` busy-loops while the Activity is resumed: a paused game pinned a core at 100 %, now ~2 %) |
+| aurora 0002 | aurora | Nebulos | `AURORA_CARD_DIR` memory-card base override (`lib/dolphin/card.cpp`), `aurora_set_host_paused()` (`lib/window.cpp`, `aurora.h`) |
+| aurora 0003 | aurora | Nebulos | Android: poll + 8 ms sleep instead of `SDL_WaitEvent` while paused (SDL's Android `WaitEvent` busy-loops while the Activity is resumed: a paused game pinned a core at 100 %, now ~2 %) |
 | borealis 0001 | borealis | RomRunner-era | SDL package rename in `BorealisActivity`, library-module gradle script, ProGuard, documents-provider authority `<pkg>.dusklight.documents` |
-| borealis 0002 | borealis | RomCore | CMake `OUTPUT_NAME dusklight_main`, staged jniLibs name, `jniLibs.srcDirs` restored (the library ships through the normal merge) |
+| borealis 0002 | borealis | Nebulos | CMake `OUTPUT_NAME dusklight_main`, staged jniLibs name, `jniLibs.srcDirs` restored (the library ships through the normal merge) |
 
 ## Build
 
@@ -50,12 +50,12 @@ export ANDROID_HOME=/Users/ry/Library/Android/sdk ANDROID_NDK_VERSION=29.0.14206
 export PATH="$ANDROID_HOME/cmake/3.31.6/bin:$HOME/.cargo/bin:$PATH"          # cargo: nod (disc library) is Rust
 cd /Users/ry/Desktop/claude/dusklight-src
 cmake --preset android-arm64 && cmake --build --preset android-arm64          # -> build/android-arm64/libdusklight_main.so (~337 MB unstripped)
-cd /Users/ry/Desktop/claude/romcore
+cd /Users/ry/Desktop/claude/nebulos
 JAVA_HOME=/Users/ry/android-dev/jdk-17.0.20.1+1/Contents/Home ANDROID_HOME=$ANDROID_HOME ./gradlew :app:assembleDebug
 ```
 The first full native build is slow (~1360 ninja steps, Dawn/Rust/abseil); incremental builds take seconds to minutes. AGP strips the
 library when packaging (46.5 MB in the APK, 23.7 MB deflated). Gradle reads `build/android-arm64/borealis-android.properties` and the
-`libdusklight_main.so` the CMake build produced, so run CMake first. `-Promcore.cores=...` can leave this core out (then drop
+`libdusklight_main.so` the CMake build produced, so run CMake first. `-Pnebulos.cores=...` can leave this core out (then drop
 `dusklight` from the list).
 
 APK size (debug, same build twice): compressed payload **+30.7 MB** (lib 23.7, assets/res 5.5, dex/res ~1.5), uncompressed +55.8 MB
@@ -69,23 +69,23 @@ Dusklight reads the disc with Aurora's `nod` library (encounter/nod, Rust, via `
 source: `nod/src/io/{iso,ciso,gcz,rvz/wia,wbfs,nfs,tgc}.rs`), so no conversion or reader shim is needed. The user's
 `The Legend of Zelda - Twilight Princess.ciso` (GameCube CISO, 1.05 GB) boots directly, no cache copy, no loading-time penalty
 (measured ~3.1 s from tap to first visible frame).
-`DusklightCore.sniff` reads the disc ID with `DiscId` (:romcore-api; ISO/CISO/WBFS/RVZ-WIA header, GCZ by inflating the first block) and
+`DusklightCore.sniff` reads the disc ID with `DiscId` (:nebulos-api; ISO/CISO/WBFS/RVZ-WIA header, GCZ by inflating the first block) and
 claims **only** GameCube `GZ2E01/GZ2P01/GZ2J01`; everything else returns null. The scanner stores the ID per game (`GameEntity.gameId`,
 Room v3) and `CoreRouter` routes by it (`CoreRouter.choose/autoChoice/candidatesFor`, `GameSpecificCores`).
-Dusklight itself also accepts `RZDE01/RZDJ01/RZDP01` (Wii); RomCore leaves those to Dolphin.
+Dusklight itself also accepts `RZDE01/RZDJ01/RZDP01` (Wii); Nebulos leaves those to Dolphin.
 
-## UI ownership (RomCore owns every pixel that is not the game)
+## UI ownership (Nebulos owns every pixel that is not the game)
 
-`DusklightActivity` sets `DUSK_ROMCORE_EMBED=1` (Os.setenv) before the native library starts. In that mode (`dusk::romcore::enabled()`):
+`DusklightActivity` sets `DUSK_NEBULOS_EMBED=1` (Os.setenv) before the native library starts. In that mode (`dusk::nebulos::enabled()`):
 * none of Dusklight's RmlUi documents is created or shown: overlay (FPS/toasts), touch controls, menu bar (Settings / Warp / Editor /
   Achievements / Mods / Reset / Quit), command console, prelaunch, preset chooser, crash-report consent, mod/update windows;
   `ui::push_document` forces `show=false`, `ui::handle_event` / `ui::update` do nothing, toasts are dropped, so the 3-finger-tap menu,
   the R+Start chord, F1, `/` console and drag-and-drop are all inert; ImGui debug menus return early; no sentry, no crash handler;
-* the disc comes from `--dvd`; if it cannot be opened (or no Vulkan backend) the engine calls `dusk::romcore::fatal` which shows RomCore's
+* the disc comes from `--dvd`; if it cannot be opened (or no Vulkan backend) the engine calls `dusk::nebulos::fatal` which shows Nebulos's
   blocking error panel (Close Game) instead of a prelaunch UI or `abort()`;
-* the loading screen is RomCore's; `hooks.onGameReady()` fires on the first presented frames that really draw (`drawCallCount >= 4` on 3
+* the loading screen is Nebulos's; `hooks.onGameReady()` fires on the first presented frames that really draw (`drawCallCount >= 4` on 3
   consecutive frames, i.e. when the game's first scene is on screen, ~3.1 s after launch); the shared menu, notices, errors, hotkeys and Back
-  handling come from `RomCoreCoreHost.install`;
+  handling come from `NebulosCoreHost.install`;
 * the game's own screens (title, file select, pause/Collection/Save, dialogs) are game content and stay.
 Verified on the Thor with taps, edge swipes from all four edges: only Android's transient status bar appears, never a Dusklight UI. Touch is
 not forwarded as a mouse/camera (`enableTouchControls/MenuPointer/MouseCamera` off, SDL gets no keyboard).
@@ -98,8 +98,8 @@ not forwarded as a mouse/camera (`enableTouchControls/MenuPointer/MouseCamera` o
 * **60 fps**: `enableFrameInterpolation=1 (Capped)` + `maxFrameRate=60` (game logic stays at its native 30 Hz, presentation is interpolated).
 * Vanilla gameplay (HUD restyled by the bundled Twilight HD mod): no quality-of-life tweaks, no cheats, speedrun/recording/input-viewer off, no autosave, no achievements/controller toasts.
 * No network features: update checks, mod update checks, Discord off.
-* Input only through RomCore (touch controls, menu pointer, mouse, gyro off). Audio master volume 100 (system volume rules).
-* `pauseOnFocusLost=true` (shade pulled / app backgrounded); the host pauses the game itself while the RomCore menu is open.
+* Input only through Nebulos (touch controls, menu pointer, mouse, gyro off). Audio master volume 100 (system volume rules).
+* `pauseOnFocusLost=true` (shade pulled / app backgrounded); the host pauses the game itself while the Nebulos menu is open.
 Dusklight's config file lives in `<filesDir>/dusklight/config.json`; it is overridden on every launch, so stale values cannot leak in.
 
 ## Bundled mod: Twilight HD (TPHD / Wii U style HUD)
@@ -111,7 +111,7 @@ after Twilight Princess HD on Wii U: hearts + Midna + D-pad upper left, minimap 
 "Back (B)", "A Next"), bank-style item screen, optional replacement fonts.
 * Install: `DusklightMods.install` (called from `DusklightActivity.prepareProcessEnvironment`, before the engine starts) copies the asset to
   `<filesDir>/dusklight/mods/twilight_hd_hud.dusk` (the engine's mod dir is `<--user-dir>/mods`) when the marker
-  `.romcore_twilight_hd_version` differs from `DusklightMods.VERSION` (bump it when the asset changes). Mods are enabled by default
+  `.nebulos_twilight_hd_version` differs from `DusklightMods.VERSION` (bump it when the asset changes). Mods are enabled by default
   (`mod.<id>.enabled=true`); the loader runs even in embedded mode (`mods_init` is unconditional) while its UI does not exist.
 * Engine compatibility: mod ABI 1 and services config 1.0, game 2.0, hook 1.1, host 2.2, log 1.0, resource 1.1, ui 2.3 are all provided by
   our engine tree (Dusklight v2.0.2, `b245c6bef8`). 13 optional hook targets (`dusk::companion::*`, `dMeter2Info_c::getStringFull`,
@@ -131,14 +131,14 @@ after Twilight Princess HD on Wii U: hearts + Midna + D-pad upper left, minimap 
 
 ## Input
 
-`InputRouter -> DusklightSession.injectButton/injectAxis -> DuskActivity.nativeRomCoreButton/Axis (JNI) -> SDL virtual gamepad`
-("RomCore Pad", vendor `0x5243`, product `0x0001`, attached by `romcore_embed.cpp` on the first frame). Aurora opens it like any
+`InputRouter -> DusklightSession.injectButton/injectAxis -> DuskActivity.nativeNebulosButton/Axis (JNI) -> SDL virtual gamepad`
+("Nebulos Pad", vendor `0x5243`, product `0x0001`, attached by `nebulos_embed.cpp` on the first frame). Aurora opens it like any
 gamepad, so port assignment, default bindings and dead zones are Dusklight's own. Mapping (consistent with `:core-dolphin`'s GameCube pad):
 A/B/X/Y 1:1 (canonical label = GameCube button), **Z on L1 or R1**, L2/R2 analog triggers = GC L/R, D-pad, left stick = main stick, right
 stick = C-stick, Start = Start; SELECT/L3/R3 unused.
 The physical controller never reaches SDL: `DusklightActivity.dispatchKeyEvent` consumes every key (except volume), `dispatchGenericMotionEvent`
 consumes joystick/gamepad motion, and SDL is told to ignore every real gamepad (`SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x5243/0x0001`,
-`SDL_JOYSTICK_HIDAPI=0`, `SDL_ACCELEROMETER_AS_JOYSTICK=0`). Log check: exactly one `Added controller 'RomCore Pad'`.
+`SDL_JOYSTICK_HIDAPI=0`, `SDL_ACCELEROMETER_AS_JOYSTICK=0`). Log check: exactly one `Added controller 'Nebulos Pad'`.
 
 ## Menu / session
 
@@ -149,7 +149,7 @@ finish the Activity, end the `:dusklight` process after 500 ms (cold start every
 
 ## Portable saves
 
-See `romcore-api/SAVEDATA.md` (phase-2 table). TP saves are GameCube memory-card data kept as a GCI-folder card by Aurora:
+See `nebulos-api/SAVEDATA.md` (phase-2 table). TP saves are GameCube memory-card data kept as a GCI-folder card by Aurora:
 `<root>/dusklight/<USA|EUR|JAP>/Card A/<maker>-<game>-<name>.gci` (e.g. `01-GZ2E-gczelda2.gci`, 32 KB) + the save-manager's backups.
 Mechanism: patched `lib/dolphin/card.cpp` reads `AURORA_CARD_DIR`; `DusklightSaveData.prepare` exports it with `Os.setenv` in the `:dusklight`
 process **before** the native library starts. Every card write is committed to disk at once (`CardGciFolder::commit`, tmp + rename), so no flush
@@ -169,18 +169,18 @@ Twilight Princess GC, Ordon village, free movement, 60 fps interpolated, 1920x10
 | cold cache (after `pm clear`), 242 s | 14 521 | **59.99** | 16.65 / 16.66 / 49.9 ms | 20 | - | - |
 Dolphin on the same disc: 29.94 fps at its 30 fps target. GPU busy 45 % avg (66 % max) at the 401 MHz floor clock, main thread ~12 % of one core,
 SoC max 76 C / GPU 61 C after 5.5 min. MemAvailable ~5.5 GB. No per-pipeline GPU memory growth (the PrimeHack ubershader problem does not apply:
-Aurora compiles specialised pipelines and caches them in `pipeline_cache.db`). `MemWatch` logs `RomCoreMem` every minute and warns on
+Aurora compiles specialised pipelines and caches them in `pipeline_cache.db`). `MemWatch` logs `NebulosMem` every minute and warns on
 `TRIM_MEMORY_RUNNING_CRITICAL` / low memory. Stable default chosen: **60 fps (interpolated)**; if a future device cannot hold it,
 set `INTERPOLATION_CAPPED -> 0` (native 30 fps) in `DusklightArgs`.
 
 ## Crash handling
 
-`RomCoreCrashGuard` markers work unchanged (the Activity is stamped by the shell). `kill -9` of `:dusklight` -> RomCore list shows
+`NebulosCrashGuard` markers work unchanged (the Activity is stamped by the shell). `kill -9` of `:dusklight` -> Nebulos list shows
 "GAME CLOSED UNEXPECTEDLY: The Legend of Zelda - Twilight Princess (Dusklight)  KILLED (SIGNAL 9)". Clean Close Game shows nothing.
 
 ## Known limits
 
-* Needs a real file path (RomCore holds All files access); a SAF-only ROM folder cannot be opened by Dusklight.
+* Needs a real file path (Nebulos holds All files access); a SAF-only ROM folder cannot be opened by Dusklight.
 * The Wii TP release and the Korean disc are not routed here.
 * Rumble is not forwarded (virtual pad has no rumble callback); gyro aim is off.
 * In embedded mode Dusklight's own settings, mods manager, texture packs UI and speedrun tools are unreachable by design; user texture replacements
@@ -195,5 +195,5 @@ set `INTERPOLATION_CAPPED -> 0` (native 30 fps) in `DusklightArgs`.
   miniz (MIT), Dawn/WebGPU (BSD-3, prebuilt), luau (MIT), zstd (BSD/GPLv2 dual), xxhash (BSD-2), OkHttp 5 (Apache-2.0, Java side).
   Bundled fonts in `res/`: Fira Sans (OFL), Alegreya SC (OFL), Inter (OFL), Noto Mono (OFL), Material Symbols (Apache-2.0).
 * Bundled mod Twilight HD 2.7.6: MIT; its fonts: SIL OFL 1.1 (see above). Copyright (c) Hyrule Hysteria, github.com/OTPR26/twilight-hd-hud.
-* RomCore itself is GPLv3; CC0 and the permissive licences above are GPL-compatible.
+* Nebulos itself is GPLv3; CC0 and the permissive licences above are GPL-compatible.
 * No copyrighted Nintendo data is bundled: the user's disc supplies all game assets.

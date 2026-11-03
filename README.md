@@ -1,9 +1,9 @@
-# RomCore
+# Nebulos
 
 Android multi-emulator front end (GPLv3). One ROM library, one controller mapper, one in-game menu
 (Close Game, Change Controller Mapping, Save State, Load State, Set Hotkeys) across embedded cores:
 RetroArch (libretro cores), PPSSPP, Dolphin, PrimeHack, Cemu, Eden, Azahar, WatermelonDS, ARMSX2.
-Architecture: see CONTRACT.md and romcore-api/INTEGRATION.md. Licenses: core-*/LICENSE-NOTES.md, core-retroarch/LICENSES-cores.md.
+Architecture: see CONTRACT.md and nebulos-api/INTEGRATION.md. Licenses: core-*/LICENSE-NOTES.md, core-retroarch/LICENSES-cores.md.
 
 ## Building
 This repo does NOT contain the emulator sources. Several modules use `includeBuild("../<name>-src/...")`
@@ -16,7 +16,7 @@ No ROMs, BIOS, keys or firmware are included. Switch needs your own prod.keys + 
 Known license issues before distributing: Azahar (GPL-2.0-only) vs GPLv3 code; genesis_plus_gx is non-commercial.
 
 ## NES/SNES CRT filter
-NES and SNES libretro cores automatically get a flat CRT shader (scanlines, aperture grille, soft beam, bloom; no curvature). Other systems never do. Turn off with the boolean pref `retro_crt_filter` in SharedPreferences `romcore` (default true, no UI yet). Details, tunables and device checklist: core-retroarch/LICENSES-cores.md.
+NES and SNES libretro cores automatically get a flat CRT shader (scanlines, aperture grille, soft beam, bloom; no curvature). Other systems never do. Turn off with the boolean pref `retro_crt_filter` in SharedPreferences `nebulos` (default true, no UI yet). Details, tunables and device checklist: core-retroarch/LICENSES-cores.md.
 
 ## Main screen (app shell)
 Controller-first, no popups (inline fold-downs). Top row: SETTINGS gear (upper left), centered tab row `GAMES` + one tab per

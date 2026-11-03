@@ -19,7 +19,7 @@ from the handheld's gyro or accelerometer.
 | + / - | Pause / suspend | Wii + / - |
 
 ## Where this differs from a real Switch
-* The Switch aims the Star Pointer with the controller's gyro (touch screen in handheld). RomCore has no motion input, so the
+* The Switch aims the Star Pointer with the controller's gyro (touch screen in handheld). Nebulos has no motion input, so the
   **right stick aims the pointer** instead, and the Switch's "change camera view" on the right stick is not available (the Wii
   camera reset on L and the D-pad still work).
 * Spin: X or Y presses **Nunchuk > Shake > X** (Dolphin's Nunchuk Shake motion input, X direction only), picked by the owner from Dolphin's
@@ -31,5 +31,5 @@ from the handheld's gyro or accelerometer.
   file select and the Wii HOME menu are usable; R recentres it.
 
 ## Native pieces
-Shake needed a native control: `patches/0006-RomCore-InputOverrider-shake-for-Galaxy-spin.patch` adds `WIIMOTE_SHAKE` (59) and
+Shake needed a native control: `patches/0006-Nebulos-InputOverrider-shake-for-Galaxy-spin.patch` adds `WIIMOTE_SHAKE` (59) and
 `NUNCHUK_SHAKE` (60) to Dolphin's `InputOverrider` (the override is read in `EmulateShake`).

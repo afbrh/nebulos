@@ -10,12 +10,12 @@ by 2S2H.
 
 | Thing | Location |
 |---|---|
-| Android module (this dir) | `romcore/core-twoship`, coreId `twoship`, package `com.noryan.romcore.core.twoship`, `object TwoshipCore` + `register()` |
-| Engine source (local, never pushed) | `/Users/ry/Desktop/claude/twoship-src`, branch `romcore-local` (+ `libultraship` submodule branch `romcore-local`) |
+| Android module (this dir) | `nebulos/core-twoship`, coreId `twoship`, package `com.noryan.nebulos.core.twoship`, `object TwoshipCore` + `register()` |
+| Engine source (local, never pushed) | `/Users/ry/Desktop/claude/twoship-src`, branch `nebulos-local` (+ `libultraship` submodule branch `nebulos-local`) |
 | Patches | `core-twoship/patches/{twoship,libultraship}/` (base: 2ship-Android `e6b1de75e`, libultraship `45081d07`) |
 | Gradle wiring | `settings.gradle.kts` `includeBuild("../twoship-src/Android")` (build name `twoship`, module `com.twoshipfork:app`, built as a library: `BUILD_AS_LIBRARY=true`) |
 | Native libraries | `lib2ship.so`, `libSDL2twoship.so` |
-| SDL2 Java package | `org.libsdl.apptwoship` (relocated from `org.libsdl.app`, which Eden/Azahar ship, and different from Ship of Harkinian's `org.libsdl.appsoh`); SDL's JNI names are patched at fetch time by `libultraship/cmake/dependencies/patches/romcore-sdl2-java-package.cmake` |
+| SDL2 Java package | `org.libsdl.apptwoship` (relocated from `org.libsdl.app`, which Eden/Azahar ship, and different from Ship of Harkinian's `org.libsdl.appsoh`); SDL's JNI names are patched at fetch time by `libultraship/cmake/dependencies/patches/nebulos-sdl2-java-package.cmake` |
 | Process | `:twoship` (`TwoshipActivity`, a subclass of 2Ship's `MainActivity`) |
 
 **Never push twoship-src anywhere** (its push URLs are set to `DISABLED`).
@@ -52,7 +52,7 @@ The Android native build also needs vcpkg packages (zlib libpng libogg libvorbis
 export PATH="$ANDROID_HOME/cmake/3.31.6/bin:$PATH"
 cd twoship-src
 # 1) support archive (host tools only)
-cmake -S . -B build-host -G Ninja -DCMAKE_BUILD_TYPE=Release -DROMCORE_HOST_TOOLS_ONLY=ON \
+cmake -S . -B build-host -G Ninja -DCMAKE_BUILD_TYPE=Release -DNEBULOS_HOST_TOOLS_ONLY=ON \
       -DCMAKE_PREFIX_PATH=../shipwright-hostdeps/prefix -DCMAKE_CXX_FLAGS="-DFMT_CONSTEVAL="
 cmake --build build-host --target Generate2ShipOtr          # -> mm/2ship.o2r
 cp mm/2ship.o2r Android/app/src/main/assets/2ship.o2r
@@ -61,23 +61,23 @@ git clone https://github.com/microsoft/vcpkg build/vcpkg && git -C build/vcpkg c
 ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.3.13750724 build/vcpkg/bootstrap-vcpkg.sh
 ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.3.13750724 build/vcpkg/vcpkg install --triplet arm64-android zlib libpng libogg libvorbis opus opusfile
 # 3) the APK
-cd ../romcore && ./gradlew :app:assembleDebug
+cd ../nebulos && ./gradlew :app:assembleDebug
 ```
 The library builds the native code as Release (-O3). The app minifies even debug builds, so `Android/app/consumer-rules.pro` keeps
 `org.libsdl.apptwoship.**` and `com.twoshipfork.mm.**` (JNI looks them up by name). `Android/local.properties` (`sdk.dir=`) is
 untracked.
 
-## UI ownership (RomCore owns every pixel that is not the game)
+## UI ownership (Nebulos owns every pixel that is not the game)
 
-`TwoshipActivity` sets `ROMCORE_EMBED=1` before the native library starts (`Ship::Mobile::RomCoreEmbedded()`):
+`TwoshipActivity` sets `NEBULOS_EMBED=1` before the native library starts (`Ship::Mobile::NebulosEmbedded()`):
 * the stock touch overlay is never created; touch is swallowed by the Activity; no storage-permission or setup dialogs;
 * 2S2H's ImGui menu cannot open (`Gui::DrawMenu` ignores ESC / controller Back when embedded); every 2S2H toast
   (`Notification::Emit`) is dropped;
-* the first-launch ROM -> `mm.o2r` conversion runs headless (`RomCoreExtract` in `BenPort.cpp`, no popups, no file picker, no ImGui
-  frames) with its progress sent to RomCore's loading screen (event 3 -> `Hooks.setLoadingProgress`); extractor errors
-  (`Extractor::ShowErrorBox`, unsupported ROM) become RomCore's blocking error panel (event 2);
+* the first-launch ROM -> `mm.o2r` conversion runs headless (`NebulosExtract` in `BenPort.cpp`, no popups, no file picker, no ImGui
+  frames) with its progress sent to Nebulos's loading screen (event 3 -> `Hooks.setLoadingProgress`); extractor errors
+  (`Extractor::ShowErrorBox`, unsupported ROM) become Nebulos's blocking error panel (event 2);
 * `onGameReady` fires after 6 game frames (event 0); the shared menu, notices, errors, hotkeys and Back handling come from
-  `RomCoreCoreHost.install`.
+  `NebulosCoreHost.install`.
 
 ## Defaults (`TwoshipFiles.PINNED`, written into `2ship2harkinian.json` on every launch)
 
@@ -96,13 +96,13 @@ core); Select/L3/R3 unused. The physical controller never reaches SDL (`TwoshipA
 ## Menu / session
 
 Back opens the shared menu (Close Game, Change Controller Mapping, Set Hotkeys). **Save/Load State are N/A** (native port, no machine
-state). Pause = the game thread blocks at the next frame boundary (`RomCoreOnGameFrame`). Close Game = release input, pause, finish
+state). Pause = the game thread blocks at the next frame boundary (`NebulosOnGameFrame`). Close Game = release input, pause, finish
 the Activity, end the `:twoship` process.
 
 ## Portable saves
 
 `<filesDir>/twoship/saves` is a symlink to `<root>/twoship/Save` (`file*.json`, backups, pictograph images), see
-`romcore-api/SAVEDATA.md`. Local only: `2ship2harkinian.json`, `mm.o2r` (rebuilt from the ROM when the core version changes),
+`nebulos-api/SAVEDATA.md`. Local only: `2ship2harkinian.json`, `mm.o2r` (rebuilt from the ROM when the core version changes),
 `2ship.o2r`, `assets/`, `mods/`, `logs/`, crash reports.
 
 ## Routing
@@ -113,12 +113,12 @@ Ocarina of Time routing (`:core-shipwright`) is unchanged.
 
 ## Known limits
 
-* Needs a real file path (RomCore holds All files access).
-* No save states, no fast forward, no rumble forwarding through RomCore.
+* Needs a real file path (Nebulos holds All files access).
+* No save states, no fast forward, no rumble forwarding through Nebulos.
 * 2S2H's enhancements, randomizer, mods UI and touch controls are unreachable by design.
 
 ## Licenses
 
 * 2 Ship 2 Harkinian (HarbourMasters) and libultraship: see their repositories (source-available; no copyrighted Nintendo data is
   bundled, the user's ROM supplies all game assets). SDL2 (zlib), ImGui (MIT), spdlog (MIT), StormLib (MIT), libopus (BSD-3).
-* RomCore itself is GPLv3.
+* Nebulos itself is GPLv3.
