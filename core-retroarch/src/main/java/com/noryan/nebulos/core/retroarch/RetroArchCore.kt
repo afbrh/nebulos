@@ -79,6 +79,7 @@ object RetroArchCore : CoreDescriptor {
             .putExtra("ROM", rom)
             .putExtra("LIBRETRO", corePath)
             .putExtra("CONFIGFILE", cfg.absolutePath)
+            .putExtra("SDCARD", RaFiles.nativeDefaultsRoot(ctx).absolutePath) // see RaFiles.nativeDefaultsRoot: no stray /sdcard/RetroArch
             .putExtra(NebulosRetroActivity.EXTRA_SYSTEM, request.system.name)
             .putExtra(NebulosRetroActivity.EXTRA_ROM_KEY, rom)
             .putExtra(NebulosRetroActivity.EXTRA_RESUME, request.resumeState)

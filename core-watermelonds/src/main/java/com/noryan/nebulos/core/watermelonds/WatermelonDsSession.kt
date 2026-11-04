@@ -39,11 +39,15 @@ class WatermelonDsSession(
         true
     } catch (_: Throwable) { false }
 
-    // ---- screen layout: "Single Screen" (one screen fills the display) / "Stacked" (big screen on top, small one below) ----------
+    // ---- screen layout: "Nebulos" (one screen fills the display, the other 1x in the corner) / "Single Screen" / "Stacked" (big screen on top, small one below) ----------
     // The choice is remembered (own prefs file: this process only); L3 or R3 swaps which screen is shown / big (not remembered; the quick menu row Swap Screens can turn that off).
     // The layout itself is built in the WatermelonDS fork (NebulosScreenLayouts), driven by NebulosBridge.screenLayout.
     private val layoutPrefs = context.getSharedPreferences("nebulos_ds", Context.MODE_PRIVATE)
-    private var layoutMode = if (layoutPrefs.getString("screen_layout", null) == "single") NebulosScreenLayouts.Mode.SINGLE else NebulosScreenLayouts.Mode.STACKED
+    private var layoutMode = when (layoutPrefs.getString("screen_layout", null)) {
+        "single" -> NebulosScreenLayouts.Mode.SINGLE
+        "stacked" -> NebulosScreenLayouts.Mode.STACKED
+        else -> NebulosScreenLayouts.Mode.NEBULOS // default: big screen fills the display, small one as a picture-in-picture
+    }
     private var bottomFocus = false
     private val swapShortcut = com.noryan.nebulos.api.SwapScreensShortcut(context, "nebulos_ds") { bottomFocus = !bottomFocus; publishLayout() }
     /** Set by the host: uptime of the last hotkey combo (InputRouter.lastHotkeyAtMs), to tell an L3/R3 tap from one in a combo. */
@@ -56,14 +60,20 @@ class WatermelonDsSession(
     private fun publishLayout() { NebulosBridge.screenLayout.value = NebulosScreenLayout(layoutMode, bottomFocus) }
 
     override val optionLabel = "Screen Layout"
-    override fun optionValue(): String = if (layoutMode == NebulosScreenLayouts.Mode.SINGLE) "Single Screen" else "Stacked"
-    override fun cycleOption(): Boolean {
-        layoutMode = if (layoutMode == NebulosScreenLayouts.Mode.SINGLE) NebulosScreenLayouts.Mode.STACKED else NebulosScreenLayouts.Mode.SINGLE
-        layoutPrefs.edit().putString("screen_layout", if (layoutMode == NebulosScreenLayouts.Mode.SINGLE) "single" else "stacked").apply()
+    override fun optionValue(): String = when (layoutMode) {
+        NebulosScreenLayouts.Mode.NEBULOS -> "Nebulos"
+        NebulosScreenLayouts.Mode.SINGLE -> "Single Screen"
+        NebulosScreenLayouts.Mode.STACKED -> "Stacked"
+    }
+    private val modes = listOf(NebulosScreenLayouts.Mode.NEBULOS, NebulosScreenLayouts.Mode.SINGLE, NebulosScreenLayouts.Mode.STACKED)
+    private fun step(by: Int): Boolean {
+        layoutMode = modes[(modes.indexOf(layoutMode) + by + modes.size) % modes.size]
+        layoutPrefs.edit().putString("screen_layout", layoutMode.name.lowercase()).apply()
         publishLayout()
         return true
     }
-    override fun cycleOptionBack(): Boolean = cycleOption()
+    override fun cycleOption(): Boolean = step(1)
+    override fun cycleOptionBack(): Boolean = step(-1)
 
     override val toggleLabel = "Swap Screens"
     override fun toggleValue() = swapShortcut.enabled

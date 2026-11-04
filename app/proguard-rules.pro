@@ -13,3 +13,24 @@
 # libwwhd.so looks up Native's static reverse-call methods and registers its natives by exact name in JNI_OnLoad.
 -keep class org.wwhdrecomp.app.Native { *; }
 -keep class org.wwhdrecomp.app.Native$Host { *; }
+
+# The embedded engines are reached from native code (JNI FindClass/GetMethodID by exact name) and through reflection / Hilt / manifest
+# class names. R8 in the release build renamed or removed them (DS: ClassNotFoundException me.magnum.melonds.MelonDSApplication;
+# Azahar / Eden: SIGABRT looking up DiskShaderCacheProgress$LoadCallbackStage). Debug builds kept the names, which hid it.
+# Keep every engine package whole (APK size is dominated by the native libraries, so this costs little).
+-keep class me.magnum.** { *; }
+-keep class org.citra.** { *; }
+-keep class org.yuzu.** { *; }
+-keep class org.libsdl.** { *; }
+-keep class org.dolphinemu.** { *; }
+-keep class info.cemu.** { *; }
+-keep class com.armsx2.** { *; }
+-keep class com.retroarch.** { *; }
+-keep class dev.twilitrealm.** { *; }
+-keep class dev.encounter.** { *; }
+-keep class com.dishii.** { *; }
+-keep class com.twoshipfork.** { *; }
+-keep class org.wwhdrecomp.** { *; }
+# Looked up by name from native code (FindClass), with no Java reference R8 could see: Eden's initJvm asks for kotlin/Pair.
+-keep class kotlin.Pair { *; }
+-keep class androidx.core.util.Pair { *; }

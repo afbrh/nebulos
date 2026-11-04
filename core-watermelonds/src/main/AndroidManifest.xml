@@ -28,6 +28,14 @@
         <receiver android:name="me.magnum.melonds.debug.ReleaseStateCommandReceiver" tools:node="remove" />
         <receiver android:name="me.magnum.melonds.debug.DebugCommandReceiver" tools:node="remove" />
         <provider android:name="me.magnum.melonds.common.providers.UpdateContentProvider" tools:node="remove" />
+        <!-- The engine hard-codes the authority me.magnum.melondualds.fileprovider, which is also the standalone WatermelonDS app's own
+             authority: the two apps cannot be installed side by side (INSTALL_FAILED_CONFLICTING_PROVIDER). Own, package-prefixed name. -->
+        <provider
+            android:name="me.magnum.melonds.WatermelonDSFileProvider"
+            android:authorities="${applicationId}.melonds.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true"
+            tools:replace="android:authorities" />
         <profileable tools:node="remove" />
 
         <!-- WatermelonDS's androidx.startup initializers need the Hilt component; they are run by hand in :melonds only

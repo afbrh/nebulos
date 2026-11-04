@@ -15,8 +15,8 @@ android {
         applicationId = "com.noryan.nebulos"
         minSdk = 30
         targetSdk = 35
-        versionCode = 9
-        versionName = "0.6.2"
+        versionCode = 10
+        versionName = "0.7.0"
         ndk { abiFilters += "arm64-v8a" }
         missingDimensionStrategy("edenVersion", "legacy")
     }

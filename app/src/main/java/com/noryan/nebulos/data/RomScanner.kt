@@ -20,7 +20,7 @@ val IGNORED_DIR_NAMES: Set<String> = setOf(
     "cache", "shaders", "shader", "shader_cache", "bios", "firmware", "keys", "mlc01", "sys", "system volume information",
     "lost+found", "\$recycle.bin", "android", "logs", "log", "screenshots", "dump", "dumps", "temp", "tmp", "backup", "backups",
     "memcards", "memory cards", "memorycards", "sstates", "textures", "texture_cache", "azahar", "citra",
-    "yuzu", "eden", "dolphin-emu", "retroarch", "system_data", "sysdata", "cheats", "gpu_drivers", "mods", "patches"
+    "yuzu", "eden", "dolphin-emu", "retroarch", "psp", "ppsspp", "citra-emu", "azahar-emu", "cemu", "melonds", "armsx2", "system_data", "sysdata", "cheats", "gpu_drivers", "mods", "patches"
 )
 
 fun isIgnoredDir(name: String): Boolean =

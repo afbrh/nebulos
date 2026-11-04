@@ -227,7 +227,24 @@ private fun MainScreen(vm: MainViewModel, pickRom: () -> Unit, pickBios: () -> U
             } else false
         }
     ) {
-        // Top bar, all left-aligned: the key hint, then [GAMES] [+] and the collection tabs (they scroll when there are many; focus
+        val notice by vm.crashNotice.collectAsStateWithLifecycle()
+        notice?.let { (title, hint) ->
+            Column {
+                FocusLine(title, onClick = vm::dismissCrashNotice, style = MaterialTheme.typography.titleSmall)
+                Text(hint, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            when {
+                editor != null -> CollectionEditorScreen(vm)
+                settingsOpen -> SettingsTab(vm, pickRom, pickBios, pickSave)
+                appsOpen -> AppsScreen()
+                tab == CollectionRules.GAMES_TAB -> GameList(vm, null)
+                else -> GameList(vm, tab)
+            }
+        }
+        tabOpts?.let { o -> cols.firstOrNull { it.id == o.id }?.let { c -> CollectionOptions(vm, c, o.mode, { tabOpts = o.copy(mode = it) }, { tabOpts = null }) } }
+        // Bottom bar (it used to be the top bar), all left-aligned: the key hint, then [GAMES] [+] and the collection tabs (they scroll when there are many; focus
         // scrolls them into view). Visual order matches the L1/R1 cycle. B (Back) opens Settings, X and Y do nothing on a tab; a long press on a collection
         // tab (touch) still opens that collection's own options.
         val newOpen = editor != null && editor?.collectionId == null
@@ -264,25 +281,38 @@ private fun MainScreen(vm: MainViewModel, pickRom: () -> Unit, pickBios: () -> U
             if (scanning) Text("SCANNING $n", Modifier.padding(end = 18.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, maxLines = 1, softWrap = false)
             if (battery != null) Text("$battery%", Modifier.padding(start = 18.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, softWrap = false)
         }
-        tabOpts?.let { o -> cols.firstOrNull { it.id == o.id }?.let { c -> CollectionOptions(vm, c, o.mode, { tabOpts = o.copy(mode = it) }, { tabOpts = null }) } }
-        val notice by vm.crashNotice.collectAsStateWithLifecycle()
-        notice?.let { (title, hint) ->
-            Column {
-                FocusLine(title, onClick = vm::dismissCrashNotice, style = MaterialTheme.typography.titleSmall)
-                Text(hint, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            when {
-                editor != null -> CollectionEditorScreen(vm)
-                settingsOpen -> SettingsTab(vm, pickRom, pickBios, pickSave)
-                appsOpen -> AppsScreen()
-                tab == CollectionRules.GAMES_TAB -> GameList(vm, null)
-                else -> GameList(vm, tab)
-            }
-        }
 
     }
+}
+
+/** One line of the game list: a series heading, or a game (indented when it sits under a heading). */
+private sealed interface ListRow {
+    data class Group(val name: String) : ListRow
+    data class Item(val g: com.noryan.nebulos.data.GameEntity, val grouped: Boolean) : ListRow
+}
+
+/** Series that fold into one heading in the list: title prefix -> heading. A series with a single game stays a plain line. */
+private val SERIES = listOf("metroid" to "Metroid", "the legend of zelda" to "The Legend of Zelda", "super mario" to "Super Mario",
+    "sly " to "Sly Cooper", "jak " to "Jak and Daxter", "ratchet " to "Ratchet & Clank",
+    "pokemon" to "Pokemon", "pokémon" to "Pokemon", "dark cloud" to "Dark Cloud", "god of war" to "God of War")
+
+/** A game's line inside its series heading: the series part before " - " is dropped ("The Legend of Zelda - A Link to the Past" -> "A Link to the Past"). */
+internal fun titleInSeries(title: String): String =
+    if (seriesOf(title) != null && " - " in title) title.substringAfter(" - ").trim().ifEmpty { title } else title
+
+private fun seriesOf(title: String): String? = SERIES.firstOrNull { title.startsWith(it.first, ignoreCase = true) }?.second
+
+private fun listRows(games: List<com.noryan.nebulos.data.GameEntity>, open: Set<String>): List<ListRow> {
+    val bySeries = games.groupBy { seriesOf(it.title) }
+    val groups = bySeries.filter { it.key != null && it.value.size >= 2 }
+    val out = ArrayList<ListRow>()
+    // Series with the most games first (ties by name), then every game that is not part of a series, in the usual order.
+    for ((s, members) in groups.entries.sortedWith(compareBy({ -it.value.size }, { it.key!!.lowercase() }))) {
+        out += ListRow.Group(s!!)
+        if (s in open) members.sortedWith(compareBy({ ReleaseOrder.rank(s, it.title) }, { it.title.lowercase() })).forEach { out += ListRow.Item(it, true) }
+    }
+    games.filter { g -> seriesOf(g.title)?.let { it in groups.keys.filterNotNull() } != true }.forEach { out += ListRow.Item(it, false) }
+    return out
 }
 
 /** The game list: the whole library ([collectionId] == null) or one collection's games. Same rows, launch and X options. */
@@ -307,6 +337,9 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
     BackHandler(enabled = freshFor != null) { freshFor = null }
     val games = if (collectionId == null) all else CollectionRules.gamesOf(all, members[collectionId].orEmpty())
     val cols = collections.orEmpty()
+    // Games of one series (see [seriesOf]) fold into one heading, closed until the user opens it.
+    var groupsOpen by remember(collectionId) { mutableStateOf(setOf<String>()) }
+    val rows = remember(games, groupsOpen) { listRows(games, groupsOpen) }
     if (collectionId == null && games.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(if (scanning) "SCANNING..." else "NO GAMES FOUND\nPress BACK to open SETTINGS and check the ROM folder.", textAlign = TextAlign.Center,
@@ -321,14 +354,20 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
         if (collectionId != null && games.isEmpty()) item(key = "empty") {
             FocusLine("NO GAMES - PRESS A TO EDIT", dim = true, onClick = { vm.editCollection(collectionId) })
         }
-        items(games, key = { it.id }) { g ->
+        items(rows, key = { if (it is ListRow.Group) "group:${it.name}" else (it as ListRow.Item).g.id }) { row ->
+            if (row is ListRow.Group) {
+                // Heading only shows the name; A / tap folds the group open or shut.
+                FocusLine(row.name, onClick = { groupsOpen = if (row.name in groupsOpen) groupsOpen - row.name else groupsOpen + row.name })
+                return@items
+            }
+            val g = (row as ListRow.Item).g
             val sys = sysOf(g)
             val core = remember(g, tick, all.size, g.coreOverride) { vm.coreFor(g) }
             val holdFired = remember { booleanArrayOf(false) }
             Column {
                 // A / tap launches the game; Y opens its options (Game Options).
                 FocusLine(
-                    (if (g.favorite) "* " else "") + g.title + if (core == null) " (NO CORE)" else "",
+                    (if (g.favorite) "* " else "") + (if (row.grouped) titleInSeries(g.title) else g.title) + if (core == null) " (NO CORE)" else "",
                     Modifier.onPreviewKeyEvent { e ->
                         // A: tap = launch (as before); hold (~0.6 s) = ask "Launch without loading save?" instead.
                         if (e.key == Key.ButtonA) {
@@ -346,6 +385,7 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
                         if (e.type == KeyEventType.KeyUp && e.key == Key.ButtonY) { expanded = if (expanded == g.id) null else g.id; addOpen = null; coreOpen = null; freshFor = null; true } else false
                     },
                     dim = core == null,
+                    indent = if (row.grouped) 24.dp else 0.dp,
                     onClick = { expanded = null; addOpen = null; coreOpen = null; vm.launch(ctx, g) }
                 )
                 if (freshFor == g.id) {

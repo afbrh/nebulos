@@ -13,6 +13,13 @@ internal object RaFiles {
     fun baseDir(ctx: Context): File =
         File(ctx.getExternalFilesDir(null) ?: ctx.filesDir, "retroarch").apply { mkdirs() }
 
+    /**
+     * Passed as the intent's "SDCARD" extra. RetroArch's native startup derives its *default* dirs as <SDCARD>/RetroArch/{saves,states,
+     * system,...} and mkdirs them (dir_check_defaults) before/regardless of retroarch.cfg; left unset it falls back to the shared
+     * storage root and litters /sdcard/RetroArch. Pointing it inside the app's own folder keeps those (unused) dirs private.
+     */
+    fun nativeDefaultsRoot(ctx: Context) = File(baseDir(ctx), "native-defaults").apply { mkdirs() }
+
     /** User drops BIOS here (we ship none): <ext files>/retroarch/system */
     fun systemDir(ctx: Context) = File(baseDir(ctx), "system").apply { mkdirs() }
 
@@ -60,6 +67,17 @@ internal object RaFiles {
             "savestate_directory" to states.absolutePath,
             "core_options_path" to opt.absolutePath,
             "cache_directory" to ctx.cacheDir.absolutePath,
+            // Everything else would default to /sdcard/RetroArch (shared with a standalone RetroArch): keep it in the app's own folder.
+            "playlist_directory" to File(base, "playlists").apply { mkdirs() }.absolutePath,
+            "thumbnails_directory" to File(base, "thumbnails").apply { mkdirs() }.absolutePath,
+            "input_remapping_directory" to File(cfgDir, "remaps").apply { mkdirs() }.absolutePath,
+            "cheat_database_path" to File(base, "cheats").apply { mkdirs() }.absolutePath,
+            "screenshot_directory" to File(base, "screenshots").apply { mkdirs() }.absolutePath,
+            "core_assets_directory" to File(base, "downloads").apply { mkdirs() }.absolutePath,
+            "log_dir" to File(base, "logs").apply { mkdirs() }.absolutePath,
+            "content_history_path" to File(cfgDir, "content_history.lpl").absolutePath,
+            "content_favorites_path" to File(cfgDir, "content_favorites.lpl").absolutePath,
+            "history_list_enable" to "false",
             // ---- no RetroArch UI of any kind ----
             "menu_driver" to "rgui",
             "menu_enable_widgets" to "false",
