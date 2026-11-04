@@ -392,7 +392,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // ---- collections ----
     fun selectTab(id: Long) { selectedTab.value = id; prefs.selectedTab = id; settingsOpen.value = false }
     fun toggleSettings() { settingsOpen.value = !settingsOpen.value }
-    /** X: show/hide the apps list, only from the plain home screen (not over Settings or the collection editor). */
+    /** B (Back): show/hide the apps list, only from the plain home screen (not over Settings or the collection editor). */
     fun toggleApps(): Boolean {
         if (settingsOpen.value || editor.value != null) return false
         appsOpen.value = !appsOpen.value

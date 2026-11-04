@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.noryan.nebulos.BuildConfig
 import com.noryan.nebulos.CoreBootstrap
@@ -204,13 +205,14 @@ private fun MainScreen(vm: MainViewModel, pickRom: () -> Unit, pickBios: () -> U
         val o = tabOpts
         if (o != null && (editor != null || cols.none { it.id == o.id })) tabOpts = null
     }
-    // BACK is the Settings key, like it summons the in-game menu: it opens Settings from the home screen and closes it again.
+    // BACK (the B button) opens the Apps list from the home screen and closes it, Settings and the editor again; X opens Settings.
     BackHandler {
         when {
             editor != null -> vm.cancelEditor()
             tabOpts != null -> tabOpts = null
             appsOpen -> vm.appsOpen.value = false
-            else -> vm.toggleSettings()
+            settingsOpen -> vm.toggleSettings()
+            else -> vm.toggleApps()
         }
     }
     Column(
@@ -234,37 +236,41 @@ private fun MainScreen(vm: MainViewModel, pickRom: () -> Unit, pickBios: () -> U
                 Text(hint, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            when {
-                editor != null -> CollectionEditorScreen(vm)
-                settingsOpen -> SettingsTab(vm, pickRom, pickBios, pickSave)
-                appsOpen -> AppsScreen()
-                tab == CollectionRules.GAMES_TAB -> GameList(vm, null)
-                else -> GameList(vm, tab)
+        Row(Modifier.weight(1f).fillMaxWidth()) {
+            Box(Modifier.weight(1f).fillMaxHeight()) {
+                when {
+                    editor != null -> CollectionEditorScreen(vm)
+                    settingsOpen -> SettingsTab(vm, pickRom, pickBios, pickSave)
+                    appsOpen -> AppsScreen()
+                    tab == CollectionRules.GAMES_TAB -> GameList(vm, null)
+                    else -> GameList(vm, tab)
+                }
+            }
+            // Top right: the keys for this screen as a right-aligned list, label then coloured button letter.
+            // Each hint is also a touch button: B = Apps / Back, X = Settings.
+            Column(Modifier.width(IntrinsicSize.Max).widthIn(min = 150.dp).padding(top = 10.dp, end = 16.dp, start = 8.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                val keyHint = when { editor != null -> "A TOGGLE    B CANCEL"; settingsOpen || appsOpen -> "A SELECT    B BACK"; else -> "A SELECT    B APPS    X SETTINGS    Y GAME OPTIONS" }
+                keyHint.split("    ").forEach { part ->
+                    val tap: (() -> Unit)? = when {
+                        editor != null -> null
+                        part.startsWith("B ") -> { { if (settingsOpen) vm.toggleSettings() else vm.toggleApps() } }
+                        part.startsWith("X ") -> { { vm.toggleSettings() } }
+                        else -> null
+                    }
+                    Text(coloredKeyHint(part.substringAfter(' ') + " " + part.substringBefore(' ')),
+                        if (tap != null) Modifier.clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onClick = tap) else Modifier,
+                        style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false)
+                }
             }
         }
         tabOpts?.let { o -> cols.firstOrNull { it.id == o.id }?.let { c -> CollectionOptions(vm, c, o.mode, { tabOpts = o.copy(mode = it) }, { tabOpts = null }) } }
-        // Bottom bar (it used to be the top bar), all left-aligned: the key hint, then [GAMES] [+] and the collection tabs (they scroll when there are many; focus
+        // Bottom bar: [GAMES] [+] and the collection tabs (they scroll when there are many; focus
         // scrolls them into view). Visual order matches the L1/R1 cycle. B (Back) opens Settings, X and Y do nothing on a tab; a long press on a collection
         // tab (touch) still opens that collection's own options.
         val newOpen = editor != null && editor?.collectionId == null
         val showSel = !settingsOpen && !newOpen
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).onFocusChanged { tabsFocused = it.hasFocus }, verticalAlignment = Alignment.CenterVertically) {
-            val keyHint = when { editor != null -> "A TOGGLE    B CANCEL"; settingsOpen || appsOpen -> "A SELECT    B BACK"; else -> "A SELECT    B SETTINGS    X APPS    Y GAME OPTIONS" }
-            // Each hint is also a touch button: B = Settings / Back, X = the Apps list.
-            Row(horizontalArrangement = Arrangement.spacedBy(26.dp)) {
-                keyHint.split("    ").forEach { part ->
-                    val tap: (() -> Unit)? = when {
-                        editor != null -> null
-                        part.startsWith("B ") -> { { if (appsOpen) vm.appsOpen.value = false else vm.toggleSettings() } }
-                        part.startsWith("X ") -> { { vm.toggleApps() } }
-                        else -> null
-                    }
-                    Text(coloredKeyHint(part), if (tap != null) Modifier.clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onClick = tap) else Modifier,
-                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false)
-                }
-            }
-            Row(Modifier.weight(1f).padding(start = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     cols.forEach { c ->
@@ -276,10 +282,7 @@ private fun MainScreen(vm: MainViewModel, pickRom: () -> Unit, pickBios: () -> U
                     }
                 }
             }
-            val battery = rememberBatteryPercent()
-            // Right side of the top bar: scan counter, the keys for this screen, then the battery level in the corner.
-            if (scanning) Text("SCANNING $n", Modifier.padding(end = 18.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, maxLines = 1, softWrap = false)
-            if (battery != null) Text("$battery%", Modifier.padding(start = 18.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, softWrap = false)
+            if (scanning) Text("SCANNING $n", Modifier.padding(start = 18.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, maxLines = 1, softWrap = false)
         }
 
     }
@@ -342,7 +345,7 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
     val rows = remember(games, groupsOpen) { listRows(games, groupsOpen) }
     if (collectionId == null && games.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(if (scanning) "SCANNING..." else "NO GAMES FOUND\nPress BACK to open SETTINGS and check the ROM folder.", textAlign = TextAlign.Center,
+            Text(if (scanning) "SCANNING..." else "NO GAMES FOUND\nPress X to open SETTINGS and check the ROM folder.", textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         return
@@ -452,24 +455,6 @@ private fun coloredKeyHint(hint: String): androidx.compose.ui.text.AnnotatedStri
     Regex("(?<![A-Z])[ABXY](?![A-Z])").findAll(hint).forEach { m ->
         HINT_COLORS[m.value[0]]?.let { addStyle(androidx.compose.ui.text.SpanStyle(color = it), m.range.first, m.range.last + 1) }
     }
-}
-
-/** Device battery level (0-100), kept current from the sticky battery broadcast; null if the device doesn't report one. */
-@Composable
-private fun rememberBatteryPercent(): Int? {
-    val ctx = LocalContext.current
-    fun pct(i: android.content.Intent?): Int? {
-        val level = i?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
-        val scale = i?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1) ?: -1
-        return if (level >= 0 && scale > 0) level * 100 / scale else null
-    }
-    var value by remember { mutableStateOf<Int?>(null) }
-    DisposableEffect(ctx) {
-        val rx = object : android.content.BroadcastReceiver() { override fun onReceive(c: android.content.Context?, i: android.content.Intent?) { value = pct(i) } }
-        value = pct(ctx.registerReceiver(rx, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)))   // sticky: gives the current level at once
-        onDispose { runCatching { ctx.unregisterReceiver(rx) } }
-    }
-    return value
 }
 
 /** True while Nebulos is the device's chosen home app; re-read on every resume (the choice is made in a system screen). */

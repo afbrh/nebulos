@@ -21,7 +21,10 @@ val HighlightColor = BrandOrange
 
 val Silkscreen = FontFamily(Font(R.font.silkscreen_regular))
 
-private fun ts(size: Int) = TextStyle(fontFamily = Silkscreen, fontWeight = FontWeight.Normal, fontSize = size.sp)
+/** Chunky 5x7 pixel face in the spirit of the SNES Zelda dialogue text (drawn from scratch by tools/make_hylian_font.py); the whole app uses it. */
+val HylianPixel = FontFamily(Font(R.font.hylian_pixel))
+
+private fun ts(size: Int) = TextStyle(fontFamily = HylianPixel, fontWeight = FontWeight.Normal, fontSize = size.sp)
 
 val NebulosTypography = Typography(
     displayLarge = ts(40), displayMedium = ts(34), displaySmall = ts(30),

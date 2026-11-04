@@ -55,10 +55,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** X opens the apps list wherever focus happens to be (a controller press must work even before anything is focused). */
+    /** X opens Settings wherever focus happens to be (a controller press must work even before anything is focused). B / Back opens the apps list. */
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
         if (event.keyCode == android.view.KeyEvent.KEYCODE_BUTTON_X && vm.settingsOpen.value.not() && vm.editor.value == null) {
-            if (event.action == android.view.KeyEvent.ACTION_UP) vm.toggleApps()
+            if (event.action == android.view.KeyEvent.ACTION_UP) vm.toggleSettings()
             return true
         }
         return super.dispatchKeyEvent(event)
