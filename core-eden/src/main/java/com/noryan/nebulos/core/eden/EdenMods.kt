@@ -32,6 +32,7 @@ object EdenMods {
         AspectGame(Regex("breath\\s*of\\s*the\\s*wild", RegexOption.IGNORE_CASE), "01007EF00011E000/4-3 Aspect Ratio"),
         AspectGame(Regex("tears\\s*of\\s*the\\s*kingdom", RegexOption.IGNORE_CASE), "0100F2C0115B6000/4-3 Aspect Ratio"),
         AspectGame(Regex("animal\\s*crossing", RegexOption.IGNORE_CASE), "01006F8002326000/4-3 Aspect Ratio"),
+        AspectGame(Regex("metroid\\W*dread", RegexOption.IGNORE_CASE), "010093801237C000/4-3 Aspect Ratio"),
         AspectGame(Regex("pok.mon.*brilliant\\s*diamond", RegexOption.IGNORE_CASE), "0100000011D90000/4-3 Aspect Ratio"),
         AspectGame(Regex("mario\\s*bros\\.?\\s*u\\s*deluxe", RegexOption.IGNORE_CASE), "0100EA80032EA000/4-3 Aspect Ratio"),
     )
