@@ -49,12 +49,14 @@ object SaveMigration {
         val lines = ArrayList<String>()
         val log: (String) -> Unit = { lines += "${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).format(Date())} $it" }
         runCatching {
+            // 0. folders named by older versions after the standalone app (`dolphin`) -> `dolphin-core`
+            renameLegacyCoreFolders(root, rep, log)
             // 1. shared-menu states: <filesDir>/states/<coreId>/<hash>/** -> <root>/states/<coreId>/<gameKey>/**
             val oldStates = File(ctx.filesDir, "states")
             for (coreDir in oldStates.listFiles { f -> f.isDirectory }.orEmpty()) {
                 for (hashDir in coreDir.listFiles { f -> f.isDirectory }.orEmpty()) {
                     val key = hashToKey[hashDir.name]
-                    val dst = File(root, "states/${coreDir.name}/" + (key ?: "${SaveRoot.UNMATCHED}/${hashDir.name}"))
+                    val dst = File(root, "states/${SaveRoot.coreFolder(coreDir.name)}/" + (key ?: "${SaveRoot.UNMATCHED}/${hashDir.name}"))
                     if (key == null) rep.unmatched++
                     log("states ${coreDir.name}/${hashDir.name} -> ${dst.relativeTo(root).path}")
                     mergeDir(hashDir, dst, rep, log)
@@ -81,7 +83,7 @@ object SaveMigration {
             for (e in registered()) {
                 val old = runCatching { e.oldDir(ctx) }.getOrNull() ?: continue
                 if (!old.isDirectory) continue
-                val dst = File(File(root, e.coreId), e.newSub)
+                val dst = File(File(root, SaveRoot.coreFolder(e.coreId)), e.newSub)
                 if (inside(old, root) || inside(dst, old)) continue
                 log("${e.coreId}: ${e.label} ${old.path} -> ${dst.relativeTo(root).path}")
                 mergeDir(old, dst, rep, log)
@@ -95,6 +97,18 @@ object SaveMigration {
             }
         }
         return rep
+    }
+
+    /** `<root>/<id>` and `<root>/states/<id>` -> `...-core`, merged (never overwriting a newer file) when both exist. */
+    private fun renameLegacyCoreFolders(root: File, rep: Report, log: (String) -> Unit) {
+        for (parent in listOf(root, File(root, "states"))) for (id in SaveRoot.CORE_IDS) {
+            val old = File(parent, id)
+            if (!old.isDirectory) continue
+            val dst = File(parent, SaveRoot.coreFolder(id))
+            log("rename ${old.relativeTo(root).path} -> ${dst.relativeTo(root).path}")
+            if (!dst.exists() && old.renameTo(dst)) continue
+            mergeDir(old, dst, rep, log)
+        }
     }
 
     private fun inside(child: File, parent: File): Boolean = runCatching {

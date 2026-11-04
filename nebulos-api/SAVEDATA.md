@@ -11,11 +11,11 @@ source of truth for what each core must still do. Code: `com.noryan.nebulos.api.
 <root>/                               e.g. /storage/emulated/0/_ROMs/_nebulos-save-data   (found by exact name, case-insensitive)
   README.txt                          written once by the shell
   .nebulos-migration.log              what SaveMigration moved / conflicts
-  states/<coreId>/<gameKey>/slotN     SHARED-MENU save states (CoreSessionBase) + slotN.png thumbnail   [DONE in phase 1]
+  states/<coreId>-core/<gameKey>/slotN SHARED-MENU save states (CoreSessionBase) + slotN.png thumbnail   [DONE in phase 1]
   states/<coreId>/_unmatched/<hash>/  old states whose game could not be identified
-  <coreId>/...                        the engine's OWN native save data   [PHASE 2: you map your dirs here, see table]
+  <coreId>-core/...                   the engine's OWN native save data   [PHASE 2: you map your dirs here, see table]
 ```
-`coreId` = the descriptor id (`retroarch`, `ppsspp`, `dolphin`, `primehack`, `cemu`, `eden`, `azahar`, `watermelonds`, `armsx2`, `dusklight`, `shipwright`, `twoship`).
+Folders are `<coreId>-core` (`SaveRoot.coreFolder`) so they never share a name with the standalone emulator's own folders; older `<coreId>` folders are renamed by `SaveMigration`. `coreId` = the descriptor id (`retroarch`, `ppsspp`, `dolphin`, `primehack`, `cemu`, `eden`, `azahar`, `watermelonds`, `armsx2`, `dusklight`, `shipwright`, `twoship`).
 `gameKey` = the ROM file name without extension, sanitized (`Metroid - Prime Trilogy`); Wii U: the title folder name. Two ROMs with
 the same name get ` [<size hex>]` (or ` [<size hex>-<hash>]`). Use `SaveRoot.gameKey(ctx, romPath)`; never hash paths yourself.
 

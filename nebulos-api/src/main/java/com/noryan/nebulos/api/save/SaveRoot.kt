@@ -91,8 +91,16 @@ object SaveRoot {
         return intent
     }
 
-    /** `<root>/<coreId>` - the engine's own native save data. Created. */
-    @JvmStatic fun coreDir(ctx: Context, coreId: String): File = File(current(ctx), sanitizeSegment(coreId)).also { it.mkdirs() }
+    /** Core ids whose folders carry the [CORE_SUFFIX]; older Nebulos versions named them after the standalone app (`dolphin`, `watermelonds`...). */
+    val CORE_IDS = listOf("retroarch", "ppsspp", "dolphin", "primehack", "cemu", "eden", "azahar", "watermelonds", "armsx2", "dusklight", "shipwright", "twoship", "wwhd")
+    /** Appended to a core id so Nebulos's folders never share a name with the standalone emulator's own folders. */
+    const val CORE_SUFFIX = "-core"
+
+    /** Folder name of a core inside the save root: `dolphin` -> `dolphin-core`. */
+    @JvmStatic fun coreFolder(coreId: String): String = sanitizeSegment(coreId).let { if (it.endsWith(CORE_SUFFIX)) it else it + CORE_SUFFIX }
+
+    /** `<root>/<coreId>-core` - the engine's own native save data. Created. */
+    @JvmStatic fun coreDir(ctx: Context, coreId: String): File = File(current(ctx), coreFolder(coreId)).also { it.mkdirs() }
 
     /** `<root>/<coreId>/<sub>` for a relative [sub] path such as "memcards" or "PSP/SAVEDATA". Created. */
     @JvmStatic fun coreSubDir(ctx: Context, coreId: String, sub: String): File =
@@ -100,7 +108,7 @@ object SaveRoot {
 
     /** `<root>/states/<coreId>/<gameKey>` - shared-menu save states of one game. Created. */
     @JvmStatic fun statesDir(ctx: Context, coreId: String, gameKey: String): File =
-        File(current(ctx), "states/${sanitizeSegment(coreId)}/${sanitizeSegment(gameKey)}").also { it.mkdirs() }
+        File(current(ctx), "states/${coreFolder(coreId)}/${sanitizeSegment(gameKey)}").also { it.mkdirs() }
 
     /** Portable key for [romPath]: the adopted launch key, the shell's key table, or the plain sanitized name. */
     @JvmStatic fun gameKey(ctx: Context, romPath: String): String {
@@ -270,8 +278,8 @@ It is meant to be portable: to move your progress to another device, copy this w
 then start Nebulos. Nebulos looks for this folder by name on every start and uses it automatically.
 
 Layout
-  states/<core>/<game>/slotN      save states made from the Nebulos in-game menu (slotN.png = thumbnail)
-  <core>/...                      each emulator's own save data (memory cards, battery saves, NAND saves, native states)
+  states/<core>-core/<game>/slotN save states made from the Nebulos in-game menu (slotN.png = thumbnail)
+  <core>-core/...                    each emulator's own save data (memory cards, battery saves, NAND saves, native states)
   .nebulos-migration.log          log of data moved here from older Nebulos storage
 
 Notes
