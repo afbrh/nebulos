@@ -37,7 +37,15 @@ object EdenMods {
         AspectGame(Regex("mario\\s*bros\\.?\\s*u\\s*deluxe", RegexOption.IGNORE_CASE), "0100EA80032EA000/4-3 Aspect Ratio"),
     )
 
-    private fun aspectGame(gameTitle: String) = ASPECT_GAMES.firstOrNull { it.title.containsMatchIn(gameTitle) }
+    /**
+     * The launch title is the raw file name minus extension. The game regexes use `\\s*` between words, so "Super_Mario_Odyssey" or
+     * "Super Mario Odyssey (USA) [v1.3.0]" must be cleaned the way the library's own title is: brackets removed, `_` as a space.
+     */
+    internal fun matchTitle(raw: String): String = com.noryan.nebulos.api.TitleMatch.clean(raw)
+
+    private fun aspectGame(gameTitle: String) = matchTitle(gameTitle).let { t -> ASPECT_GAMES.firstOrNull { it.title.containsMatchIn(t) } }
+    /** The 4:3 mod folder (under load/) a game title selects, or null. */
+    internal fun aspectDirName(gameTitle: String): String? = aspectGame(gameTitle)?.dir
     private fun aspectDir(ctx: Context, g: AspectGame) = ctx.getExternalFilesDir(null)?.let { File(it, "load/${g.dir}") }
 
     /**

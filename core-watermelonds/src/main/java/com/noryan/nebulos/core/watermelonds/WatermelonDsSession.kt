@@ -95,8 +95,21 @@ class WatermelonDsSession(
         return tmp.renameTo(file) || run { file.delete(); tmp.renameTo(file) }
     }
 
+    /**
+     * The launch-time auto-load can arrive before melonDS is really running; pausing an emulator that has not started its frame loop
+     * could hang (Phantom Hourglass sometimes sat on the loading screen until its 90 s fail-safe). Wait (at most [maxMs]) for it to run.
+     */
+    private fun waitUntilRunning(maxMs: Long) {
+        val end = android.os.SystemClock.uptimeMillis() + maxMs
+        while (android.os.SystemClock.uptimeMillis() < end) {
+            if (runCatching { MelonEmulator.getFPS() > 1f }.getOrDefault(false)) { runCatching { Thread.sleep(300) }; return }
+            runCatching { Thread.sleep(200) }
+        }
+    }
+
     override fun readState(slot: Int, file: File): Boolean {
         val wasPaused = paused
+        if (!wasPaused) waitUntilRunning(5_000)
         if (!wasPaused) runCatching { MelonEmulator.pauseEmulation() }
         val ok = try { MelonEmulator.loadState(Uri.fromFile(file)) } catch (_: Throwable) { false }
         if (!wasPaused) runCatching { MelonEmulator.resumeEmulation() }

@@ -12,6 +12,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -60,6 +61,11 @@ class NebulosUi internal constructor(
     private var bar: BarView? = null
     private var chip: ImageView? = null
     private var progress = LoadingProgress(null, null)
+    private var firstHint: TextView? = null
+    private var slowShown = false
+    /** Identifies the game for the "first launch" hint: the launcher's save-folder key, else the title. */
+    private val gameKey: String = activity.intent?.getStringExtra(com.noryan.nebulos.api.save.SaveRoot.EXTRA_GAME_KEY)?.takeIf { it.isNotBlank() } ?: title
+    private val firstLaunch = runCatching { FirstLaunch.isFirst(activity.applicationContext.filesDir, gameKey) }.getOrDefault(false)
     private var fadeStarted = false
     private var destroyed = false
     private val startedAtMs = SystemClock.uptimeMillis()
@@ -178,6 +184,10 @@ class NebulosUi internal constructor(
         progressText = pt
         col.addView(pt, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(10); leftMargin = dp(32); rightMargin = dp(32) })
 
+        val fh = text("FIRST LAUNCH OF THIS GAME TAKES LONGER", 10f, DIM).apply { gravity = Gravity.CENTER; maxLines = 2; visibility = if (firstLaunch) View.VISIBLE else View.GONE }
+        firstHint = fh
+        col.addView(fh, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(18); leftMargin = dp(32); rightMargin = dp(32) })
+
         root.addView(col, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
         activity.addContentView(root, ViewGroup.LayoutParams(-1, -1))
         loadingRoot = root
@@ -192,7 +202,7 @@ class NebulosUi internal constructor(
     private fun applyProgress() {
         bar?.setFraction(progress.fraction)
         progressText?.let {
-            val t = progress.text
+            val t = if (slowShown) SLOW_HINT else progress.text
             if (t == null) it.visibility = View.GONE else { it.text = t.uppercase(); it.visibility = View.VISIBLE }
         }
     }
@@ -204,10 +214,17 @@ class NebulosUi internal constructor(
             val root = loadingRoot
             if (root != null) {
                 dotsView?.text = "LOADING" + ".".repeat(((now - startedAtMs) / 400 % 4).toInt())
+                val slow = timeline.isSlow(now)
+                if (slow != slowShown) {
+                    slowShown = slow; applyProgress()
+                    if (slow) Log.i(TAG, "loading screen still up after ${now - startedAtMs} ms, core not ready: showing the 'taking longer' hint")
+                }
                 when (timeline.phase(now)) {
                     LoadingTimeline.Phase.SHOWING -> {}
                     LoadingTimeline.Phase.FADING -> if (!fadeStarted) {
                         fadeStarted = true
+                        Log.i(TAG, "loading screen leaving after ${now - startedAtMs} ms: " + (if (timeline.isReady) "core signalled ready" else "FAIL-SAFE TIMEOUT, core never signalled ready"))
+                        if (timeline.isReady) runCatching { FirstLaunch.markSeen(activity.applicationContext.filesDir, gameKey) }
                         val remaining = (timeline.fadeStart(now) + timeline.fadeMs - now).coerceAtLeast(1)
                         chip?.animate()?.cancel()
                         root.animate().alpha(0f).setDuration(remaining).start()
@@ -222,7 +239,7 @@ class NebulosUi internal constructor(
 
     private fun removeLoading() {
         loadingRoot?.let { it.animate().cancel(); (it.parent as? ViewGroup)?.removeView(it) }
-        loadingRoot = null; dotsView = null; bar = null; chip = null; progressText = null
+        loadingRoot = null; dotsView = null; bar = null; chip = null; progressText = null; firstHint = null
         if (topRoot != null) main.post { /* nothing else to tick */ }
     }
 
@@ -378,6 +395,8 @@ class NebulosUi internal constructor(
         const val DANGER = 0xFFFF6B6B.toInt()
         const val TEXT_WHITE = Color.WHITE
         const val DIM = 0xFF9A9A9A.toInt()
+        private const val TAG = "NebulosUi"
+        const val SLOW_HINT = "TAKING LONGER THAN USUAL. PRESS BACK FOR THE MENU"
         const val FOCUS = 0xFF2A2A2A.toInt()
         const val BORDER = 0xFF2A2A2A.toInt()
         const val TRACK = 0xFF2A2A2A.toInt()

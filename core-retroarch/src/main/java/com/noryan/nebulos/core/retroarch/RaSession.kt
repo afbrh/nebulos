@@ -198,7 +198,7 @@ internal class RaSession(
     }
 
     // Metroid Fusion and Zero Mission: X fires B + R1 together (charge-beam / missile shortcut), nothing else is remapped.
-    private val xIsBPlusR1 = system == System.GBA && XBR1_GAMES.containsMatchIn(romKey)
+    private val xIsBPlusR1 = system == System.GBA && xBr1Game(romKey)
 
     override fun injectButton(pad: Pad, pressed: Boolean) {
         if (xIsBPlusR1 && pad == Pad.X) {
@@ -258,6 +258,9 @@ internal class RaSession(
     companion object {
         private const val TAG = "NebulosRa"
         private val XBR1_GAMES = Regex("metroid\\s*-?\\s*(fusion|zero\\s*mission)", RegexOption.IGNORE_CASE)
+
+        /** Matches on the file name with `_` as a space and brackets removed, so "Metroid_Fusion.gba" and "Metroid Fusion (USA).gba" count too. */
+        internal fun xBr1Game(romKey: String): Boolean = XBR1_GAMES.containsMatchIn(com.noryan.nebulos.api.TitleMatch.clean(romKey))
 
         /** Canonical (Nintendo-label) pad -> RETRO_DEVICE_ID_JOYPAD_*. Face buttons are 1:1 for every family. */
         fun retroId(p: Pad): Int? = when (p) {

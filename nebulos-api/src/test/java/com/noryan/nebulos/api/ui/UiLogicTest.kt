@@ -92,3 +92,26 @@ class UiLogicTest {
         assertEquals("", TitleGuess.fromCandidates(null, listOf("hello", "")))
     }
 }
+
+class SlowHintAndFirstLaunchTest {
+    @org.junit.Test fun slowOnlyWhileNotReadyAndPastTheThreshold() {
+        val t = LoadingTimeline(maxMs = 90_000).apply { start(1_000) }
+        org.junit.Assert.assertFalse(t.isSlow(1_000 + 44_000))
+        org.junit.Assert.assertTrue(t.isSlow(1_000 + 45_000))
+        t.signalReady(50_000)
+        org.junit.Assert.assertFalse("once the core is ready the hint is never shown", t.isSlow(120_000))
+    }
+
+    @org.junit.Test fun firstLaunchIsRememberedPerGame() {
+        val dir = java.nio.file.Files.createTempDirectory("fl").toFile()
+        try {
+            org.junit.Assert.assertTrue(FirstLaunch.isFirst(dir, "Melee"))
+            FirstLaunch.markSeen(dir, "Melee")
+            org.junit.Assert.assertFalse(FirstLaunch.isFirst(dir, "Melee"))
+            org.junit.Assert.assertTrue(FirstLaunch.isFirst(dir, "Galaxy"))
+            FirstLaunch.markSeen(dir, "Melee")   // again: still one line
+            org.junit.Assert.assertEquals(1, FirstLaunch.file(dir).readLines().size)
+            org.junit.Assert.assertFalse("blank key never counts as first", FirstLaunch.isFirst(dir, ""))
+        } finally { dir.deleteRecursively() }
+    }
+}

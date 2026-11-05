@@ -47,6 +47,8 @@ class DolphinActivity : Activity(), NativeLibrary.EmulationHost, SurfaceHolder.C
     private var closing = false
     private var readySignalled = false
     private var titleValid = false
+    /** Extra time the loading screen stays up after the picture appears, for games that hitch early (see StartupSettle). */
+    private var settleMs = 0L
     private var shadersDone = false
     private var shadersWaiting = false
     private var shaderLogged = false
@@ -56,6 +58,7 @@ class DolphinActivity : Activity(), NativeLibrary.EmulationHost, SurfaceHolder.C
         val launchPath = intent.getStringExtra(EXTRA_PATH)
         if (launchPath == null) { finish(); return }
         val romPath = intent.getStringExtra(EXTRA_ROM_PATH) ?: launchPath
+        settleMs = com.noryan.nebulos.api.StartupSettle.forPath(romPath)
         val ww60 = intent.getBooleanExtra(EXTRA_WW60, false)
         system = runCatching { System.valueOf(intent.getStringExtra(EXTRA_SYSTEM) ?: "") }.getOrDefault(System.GAMECUBE)
 
@@ -182,12 +185,12 @@ class DolphinActivity : Activity(), NativeLibrary.EmulationHost, SurfaceHolder.C
         }
     }
 
-    /** Ready = shader pre-compile wait finished (native signal; the CPU only starts ~5 s after the title is valid) or a 30 s fallback; the delay lets the first frames reach the surface. */
+    /** Ready = shader pre-compile wait finished (native signal; the CPU only starts ~5 s after the title is valid) or a 30 s fallback; then the loading screen waits for real picture ([PictureGate]) plus a per-game settle time. */
     private fun maybeReady(delayMs: Long) {
         if (readySignalled || !titleValid) return
         val fallback = delayMs >= 30_000
         window.decorView.postDelayed({
-            if (!readySignalled && !shadersWaiting && (shadersDone || fallback) && ::hooks.isInitialized) { readySignalled = true; android.util.Log.i("NebulosUi", "onGameReady"); hooks.onGameReady() }
+            if (!readySignalled && !shadersWaiting && (shadersDone || fallback) && ::hooks.isInitialized) { readySignalled = true; android.util.Log.i("NebulosUi", "onGameReady (engine ready, waiting for picture)"); hooks.onGameReadyAfterPicture(settleMs = settleMs, minLit = com.noryan.nebulos.api.PictureGate.MIN_LIT_STRICT) }
         }, delayMs)
     }
 

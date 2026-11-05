@@ -64,7 +64,7 @@ fun FocusLine(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = if (center) Arrangement.Center else Arrangement.Start
     ) {
-        Text(text, style = style, color = c1, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        Text(text, style = style, color = c1, maxLines = 2, overflow = TextOverflow.Ellipsis,   // long titles wrap to a second line instead of being cut off
             textAlign = if (center) TextAlign.Center else TextAlign.Start, modifier = if (center) Modifier else Modifier.weight(1f))
         if (right != null) {
             Spacer(Modifier.width(12.dp))

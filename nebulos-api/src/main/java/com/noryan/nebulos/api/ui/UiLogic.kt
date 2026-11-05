@@ -40,6 +40,9 @@ class LoadingTimeline(
     fun noteProgress(now: Long) { if (readyAt < 0) lastActivity = now }
     val isReady get() = readyAt >= 0
 
+    /** True when the core has not signalled ready and the screen has been up for [afterMs] (shows the "taking longer" hint). */
+    fun isSlow(now: Long, afterMs: Long = SLOW_AFTER_MS) = readyAt < 0 && now - startedAt >= afterMs
+
     /** Time the fade begins, or Long.MAX_VALUE if neither ready nor timed out (call with the current time). */
     fun fadeStart(now: Long): Long {
         if (readyAt >= 0) return maxOf(readyAt, startedAt + minShowMs)
@@ -64,7 +67,7 @@ class LoadingTimeline(
         return (1f - (now - f).toFloat() / fadeMs).coerceIn(0f, 1f)
     }
 
-    companion object { const val HARD_CAP_FACTOR = 4 }
+    companion object { const val HARD_CAP_FACTOR = 4; const val SLOW_AFTER_MS = 45_000L }
 }
 
 /** Optional progress shown under the LOADING label. [fraction] null = indeterminate bar. */

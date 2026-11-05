@@ -26,6 +26,8 @@ import java.util.concurrent.Executors
 object NebulosCoreHost {
     private const val BACK_TAP_WINDOW_MS = 200L
     private const val BACK_HOLD_MS = 450L
+    /** Longest the loading screen waits for the launch-time saved-state load before showing the game regardless (Wind Waker HD's takes ~15 s; a hung load used to hold the screen until the 90 s fail-safe). */
+    private const val AUTO_LOAD_MAX_MS = 30_000L
 
     /** State slot used by the Save/Load State hotkeys. */
     const val QUICK_SLOT = 1
@@ -86,6 +88,19 @@ object NebulosCoreHost {
             ui.onGameReady(); perf.gameReady()
         }
 
+        /**
+         * Like [onGameReady], but the loading screen then also waits for real picture on the game surface (see [PictureGate]) plus [settleMs].
+         * A launch-time saved-state load still starts right away and runs in parallel with the engine's own start-up, THEN the picture is awaited,
+         * so the two waits do not add up.
+         */
+        @JvmOverloads
+        fun onGameReadyAfterPicture(settleMs: Long = 0, minLit: Int = PictureGate.MIN_LIT, isCurrent: () -> Boolean = { true }) {
+            gameReady = true
+            val gate = { PictureGate.hold(activity, this, settleMs = settleMs, minLit = minLit, isCurrent = isCurrent, onDone = { ui.onGameReady(); perf.gameReady() }) }
+            if (startAutoLoad(onLoaded = gate)) return
+            gate()
+        }
+
         @Volatile private var gameReady = false
         @Volatile private var autoLoading = false
 
@@ -98,7 +113,7 @@ object NebulosCoreHost {
          * ([NativeBootState]) or a launch that is itself a resume (the core does that) needs nothing here. Returns true when it took over
          * showing the game.
          */
-        private fun startAutoLoad(): Boolean {
+        private fun startAutoLoad(onLoaded: (() -> Unit)? = null): Boolean {
             val resuming = activity.intent?.extras?.let { x -> x.keySet().any { k -> k.contains("resume", ignoreCase = true) && x.get(k) == true } } == true
             val fresh = activity.intent?.getBooleanExtra(EXTRA_FRESH_START, false) == true   // home screen: "launch without loading save"
             if (resuming || fresh || !statesWork || (session as? NativeBootState)?.bootedIntoState == true) return false
@@ -106,13 +121,20 @@ object NebulosCoreHost {
             if (!runCatching { slots.slotInfo(QUICK_SLOT).exists }.getOrDefault(false)) return false
             autoLoading = true
             worker.execute {
-                val deadline = android.os.SystemClock.uptimeMillis() + 8_000
-                var ok = false
-                while (!ok && android.os.SystemClock.uptimeMillis() < deadline) {   // the engine may need a moment after its first frame
-                    ok = runCatching { session.loadState(QUICK_SLOT) }.getOrDefault(false)
-                    if (!ok) Thread.sleep(150)
-                }
-                main.post { autoLoading = false; ui.onGameReady(); perf.gameReady() }
+                // The load itself runs on its own thread and is waited for with a time limit: a state load that never returns (seen with
+                // Phantom Hourglass on the DS core, where the loading screen stayed up until its 90 s fail-safe) must not hold the game back.
+                val loader = Thread {
+                    val deadline = android.os.SystemClock.uptimeMillis() + 8_000
+                    var ok = false
+                    while (!ok && android.os.SystemClock.uptimeMillis() < deadline) {   // the engine may need a moment after its first frame
+                        ok = runCatching { session.loadState(QUICK_SLOT) }.getOrDefault(false)
+                        if (!ok) runCatching { Thread.sleep(150) }
+                    }
+                }.apply { isDaemon = true; name = "nebulos-autoload" }
+                loader.start()
+                loader.join(AUTO_LOAD_MAX_MS)
+                if (loader.isAlive) android.util.Log.w("NebulosUi", "saved-state auto-load did not finish in $AUTO_LOAD_MAX_MS ms: showing the game anyway")
+                main.post { autoLoading = false; if (onLoaded != null) onLoaded() else { ui.onGameReady(); perf.gameReady() } }
             }
             return true
         }

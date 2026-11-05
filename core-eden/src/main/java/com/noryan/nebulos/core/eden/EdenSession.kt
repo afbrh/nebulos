@@ -124,7 +124,7 @@ class EdenSession(private val context: android.content.Context) : CoreSession, S
 
     // Link's Awakening ignores the d-pad for walking (it only reads the stick), so there the d-pad drives the left stick.
     private val dpadMovesStick = LINKS_AWAKENING.containsMatchIn(
-        (context as? android.app.Activity)?.intent?.getStringExtra("nebulos.title").orEmpty())
+        EdenMods.matchTitle((context as? android.app.Activity)?.intent?.getStringExtra("nebulos.title").orEmpty()))
     private val dpad = IntArray(2) // x: left -1 / right +1, y: down -1 / up +1 (stick convention above)
 
     private fun pushLeftStick() {

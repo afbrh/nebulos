@@ -20,15 +20,15 @@ Both cores write the game's own Dolphin INI (`<userDir>/GameSettings/<GAMEID>.in
 | Game | ID | What is applied | Result |
 |---|---|---|---|
 | Super Mario Galaxy 2 | SB4[EPJK]01 | `Widescreen = False` | **Works**: title screen fills the 4:3 screen (was letterboxed). |
-| New Super Mario Bros. Wii | SMN[EPJK]01 | `Widescreen = False` | Menus (file select, copy, dialogs) fill the screen. **Gameplay stays a letterboxed 16:9 picture**: the game does that itself in 4:3 mode. |
+| New Super Mario Bros. Wii | SMN[EPJK]01 | `Widescreen = False`; NTSC-U rev 2 (`SMNE01`) also a Gecko code ("Nebulos 4:3 Fill Screen", a port of the Dolphin Wiki 4:3 code, revision-guarded so it does nothing on other revisions) | With `Widescreen = False` alone, menus fill the screen but **gameplay stays a letterboxed 16:9 picture**: the game does that itself in 4:3 mode. The Gecko code (added later, see `FourByThree.NSMBW_GECKO`) is what fills the screen in levels on the one supported revision; other discs still get the letterboxed gameplay. |
 | Metroid: Other M | R3O[EPJK]01 | `Widescreen = False`; NTSC-U also the Gecko code | **Works in gameplay**: fills the 4:3 screen (lit rows 6-953 of 960; was 124-835 letterboxed). The opening movies and cutscenes stay 16:9. Verified in memory: code handler installed, `0x80103F94` = `c0a28b10`. |
 | Metroid Prime Trilogy (PrimeHack core) | R3M[EPJK]01 | `Widescreen = False` | First-person gameplay fills the screen. **Morph ball mode is drawn by the game as a letterboxed ~16:9 view** (black bars of ~100 px top and bottom); forcing Dolphin to stretch does not remove them, so they are in the game's own render. No known fix. |
 
 ## Tried and rejected
-* NSMBW community "Remove Borders" Gecko codes (NTSC-U, Dolphin forum, Brandondorf9999), tested three ways on the Nova (with
+* NSMBW community "Remove Borders" Gecko codes (NTSC-U, Dolphin forum, Brandondorf9999; this is a different code from the Dolphin Wiki "4:3 Support" port that is now shipped, see the table above), tested three ways on the Nova (with
   `Widescreen = False`, with the console left at 16:9, with and without forcing a 4:3 display): the overworld map came out with the
   right side cropped and a black bar still on top, never a clean 4:3 picture. A true 4:3 code is also reported to break the camera in
-  some levels. Not shipped.
+  some levels. Not shipped (the forum codes; the Wiki-port code in the table is shipped).
 * 21:9 codes: irrelevant to a 4:3 screen.
 * `[Video_Settings] SuggestedAspectRatio = 2` is also written, so Dolphin's widescreen heuristic cannot flip the display to 16:9.
 

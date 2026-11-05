@@ -151,7 +151,8 @@ private fun GameScreen(launchPath: String, hooksProvider: () -> NebulosCoreHost.
             // callback; give the renderer a moment to present the first frame before the overlay fades.
             h.setLoadingText("Booting title")
             delay(READY_DELAY_MS)
-            hooksProvider()?.onGameReady()
+            // Hold the loading screen until the picture is really there (Twilight Princess HD was black for ~2 s after the overlay left).
+            hooksProvider()?.onGameReadyAfterPicture()
         }
     }
 

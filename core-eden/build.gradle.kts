@@ -17,6 +17,7 @@ android {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     implementation(project(":nebulos-api"))
     // Eden's android project (../eden-src/src/android, :app converted to a library) via includeBuild in settings.
     // Native lib: libyuzu-android.so (unique among Nebulos cores); Java package org.yuzu.yuzu_emu (no relocation needed).

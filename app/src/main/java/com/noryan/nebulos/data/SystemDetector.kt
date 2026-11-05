@@ -95,7 +95,7 @@ object SystemDetector {
                 if ("bin" !in c.extensions && c.extensions.isNotEmpty()) continue
                 runCatching { c.sniff(path, h) }.getOrNull()?.takeIf { it == System.PS1 || it == System.PS2 }?.let { return it }
             }
-            return builtinSniff(h, ext, size)?.takeIf { it == System.PS1 || it == System.PS2 }
+            return builtinSniff(h, ext, size, path)?.takeIf { it == System.PS1 || it == System.PS2 }
         }
         fromFolders(folders)?.let { return it }
         val h = header()
@@ -105,7 +105,7 @@ object SystemDetector {
                 if (ext !in c.extensions && c.extensions.isNotEmpty()) continue
                 runCatching { c.sniff(path, h) }.getOrNull()?.let { return it }
             }
-            builtinSniff(h, ext, size)?.let { return it }
+            builtinSniff(h, ext, size, path)?.let { return it }
         }
         if (ext == "rvz" || ext == "ciso" || ext == "dol" || ext == "wia" || ext == "tgc") return System.GAMECUBE
         if (ext == "gz") return System.PS2
@@ -118,7 +118,46 @@ object SystemDetector {
     private fun ascii(b: ByteArray, o: Int, len: Int): String? =
         if (o + len > b.size) null else String(b, o, len, Charsets.ISO_8859_1)
 
-    fun builtinSniff(h: ByteArray, ext: String, size: Long): System? {
+    /**
+     * PS1 or PS2 from a disc image's SYSTEM.CNF: a PS2 disc boots with `BOOT2 = cdrom0:\\...`, a PS1 disc with `BOOT = cdrom:\\...`. Reads the
+     * ISO9660 root directory through [read] (offset, length) of a plain 2048-byte-sector image. Null when it cannot be read.
+     */
+    internal fun discKindFromSystemCnf(read: (Long, Int) -> ByteArray?): System? = runCatching {
+        val pvd = read(0x8000, 2048) ?: return null
+        if (ascii(pvd, 1, 5) != "CD001") return null
+        fun le32(b: ByteArray, o: Int) = (b[o].toInt() and 0xFF) or ((b[o + 1].toInt() and 0xFF) shl 8) or ((b[o + 2].toInt() and 0xFF) shl 16) or ((b[o + 3].toInt() and 0xFF) shl 24)
+        val rootLba = le32(pvd, 156 + 2).toLong(); val rootLen = le32(pvd, 156 + 10).coerceIn(0, 64 * 1024)
+        val dir = read(rootLba * 2048, rootLen) ?: return null
+        var o = 0
+        while (o < dir.size) {
+            val recLen = dir[o].toInt() and 0xFF
+            if (recLen == 0) { o = (o / 2048 + 1) * 2048; continue }   // records never straddle a sector: skip padding
+            val nameLen = dir[o + 32].toInt() and 0xFF
+            val name = String(dir, o + 33, nameLen, Charsets.ISO_8859_1).uppercase()
+            if (name.startsWith("SYSTEM.CNF")) {
+                val lba = le32(dir, o + 2).toLong(); val len = le32(dir, o + 10).coerceIn(0, 2048)
+                val text = String(read(lba * 2048, len) ?: return null, Charsets.ISO_8859_1).uppercase()
+                return if ("BOOT2" in text) System.PS2 else if (Regex("(^|\\n)\\s*BOOT\\s*=").containsMatchIn(text)) System.PS1 else null
+            }
+            o += recLen
+        }
+        null
+    }.getOrNull()
+
+    private fun discKindFromFile(path: String?): System? {
+        if (path == null) return null
+        val f = java.io.File(path)
+        if (!f.isFile || !f.canRead()) return null
+        return runCatching {
+            java.io.RandomAccessFile(f, "r").use { raf ->
+                discKindFromSystemCnf { off, len ->
+                    if (off < 0 || off + len > raf.length()) null else ByteArray(len).also { raf.seek(off); raf.readFully(it) }
+                }
+            }
+        }.getOrNull()
+    }
+
+    fun builtinSniff(h: ByteArray, ext: String, size: Long, path: String? = null): System? {
         if (h.size >= 0x20) {
             if (be32(h, 0x18) == 0x5D1C9EA3) return System.WII
             if (be32(h, 0x1C) == 0xC2339F3D.toInt()) return System.GAMECUBE
@@ -127,7 +166,10 @@ object SystemDetector {
         if (h.size >= 4 && ascii(h, 0, 4) == "WBFS") return System.WII
         if (ascii(h, 0x8001, 5) == "CD001") {
             val sysId = ascii(h, 0x8008, 32)?.trim() ?: ""
-            if (sysId.startsWith("PLAYSTATION")) return if (size > 750L * 1024 * 1024) System.PS2 else System.PS1
+            if (sysId.startsWith("PLAYSTATION")) {
+                if (ext == "iso") discKindFromFile(path)?.let { return it }   // exact; the size rule below is only the fallback (small PS2 discs exist)
+                return if (size > 750L * 1024 * 1024) System.PS2 else System.PS1
+            }
         }
         // Raw 2352-byte sector BIN images: sync pattern then ISO at offset 0x9319 or so.
         if (ext == "bin" && h.size > 0x9320 + 11 && ascii(h, 0x9319, 5) == "CD001" && ascii(h, 0x9320, 11) == "PLAYSTATION")

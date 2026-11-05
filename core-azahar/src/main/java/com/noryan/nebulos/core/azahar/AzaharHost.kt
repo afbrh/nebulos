@@ -179,7 +179,8 @@ object AzaharHost {
         NebulosBridge.progress = { f, t -> h.setLoadingProgress(f, t) }
         NebulosBridge.loadingText = { h.setLoadingText(it) }
         NebulosBridge.ready = {
-            h.onGameReady()
+            // Azahar reports ready ~1 s in, but the picture follows 2-5 s later: keep the loading screen until it is on screen.
+            h.onGameReadyAfterPicture(isCurrent = { hooks === h })
             // The emulator read config.ini before prepare() could rewrite the layout: re-apply it now that the game is running.
             a.runOnUiThread { runCatching { applyScreenLayout(a, currentMode(a), false) } }
         }

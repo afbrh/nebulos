@@ -68,6 +68,7 @@ class PrimeHackActivity : EmulationActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val path = intent.getStringExtra(EXTRA_ROM_PATH)
+        settleMs = com.noryan.nebulos.api.StartupSettle.forPath(path.orEmpty())
         val uri = intent.getStringExtra(EXTRA_ROM_URI)
         if (path == null && uri == null) { super.onCreate(savedInstanceState); finish(); return }
         PrimeHackConfig.applyEarly(this)   // before the native engine reads GFX.ini (stale values would be live this launch)
@@ -136,6 +137,8 @@ class PrimeHackActivity : EmulationActivity() {
 
     private var readySignalled = false
     private var titleValid = false
+    /** Extra time the loading screen stays up after the picture appears (see StartupSettle). */
+    private var settleMs = 0L
     private var shadersDone = false
     private var shadersWaiting = false
     private var shaderLogged = false
@@ -159,7 +162,7 @@ class PrimeHackActivity : EmulationActivity() {
         if (readySignalled || !titleValid) return
         val fallback = delayMs >= 30_000
         window.decorView.postDelayed({
-            if (!readySignalled && !shadersWaiting && (shadersDone || fallback)) { readySignalled = true; android.util.Log.i("NebulosUi", "onGameReady"); hooks?.onGameReady() }
+            if (!readySignalled && !shadersWaiting && (shadersDone || fallback)) { readySignalled = true; android.util.Log.i("NebulosUi", "onGameReady (engine ready, waiting for picture)"); hooks?.onGameReadyAfterPicture(settleMs = settleMs, minLit = com.noryan.nebulos.api.PictureGate.MIN_LIT_STRICT) }
         }, delayMs)
     }
 
