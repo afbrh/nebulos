@@ -15,14 +15,23 @@ class AzaharSixtyFpsTest {
 
     private val mm3d = AzaharSixtyFps.specFor("0004000000125500")!!
 
-    @Test fun onlyMajorasMask3dUsaHasIt() {
+    @Test fun onlyTheTwoZelda3dUsaBuildsHaveIt() {
         assertNotNull(AzaharSixtyFps.specFor("0004000000125500"))
-        assertNull(AzaharSixtyFps.specFor("0004000000033500")) // Ocarina of Time 3D: no patch yet
+        assertNotNull(AzaharSixtyFps.specFor("0004000000033500"))
+        assertNull(AzaharSixtyFps.specFor("0004000000125600")) // another region
         assertNull(AzaharSixtyFps.specFor(null))
     }
 
+    private val oot3d = AzaharSixtyFps.specFor("0004000000033500")!!
+
     @Test fun pairsAreWellFormed() {
-        for (a in listOf(mm3d.on, mm3d.off, mm3d.once)) assertEquals(0, a.size % 2)
+        for (spec in listOf(mm3d, oot3d)) for (a in listOf(spec.on, spec.off, spec.once)) assertEquals(0, a.size % 2)
+    }
+
+    @Test fun ootEveryGuardedWordIsPatched() {
+        val onAddrs = (oot3d.on.indices step 2).map { oot3d.on[it] }.toSet()
+        for (i in oot3d.off.indices step 2) assertTrue(oot3d.off[i] in onAddrs)
+        assertTrue(oot3d.once.size == 4 && oot3d.once[0] == oot3d.flagAddr)
     }
 
     @Test fun everyGuardedWordIsPatchedAndIsAnInstructionOrLiteralAboveTheCode() {
