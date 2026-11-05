@@ -15,19 +15,21 @@ class ShaderChoiceTest {
         assertEquals(ShaderChoice.Pick.entries.toList(), seen)
         assertEquals(ShaderChoice.Pick.OFF, p)
         for (q in ShaderChoice.Pick.entries) assertEquals(q, q.next().previous())
-        assertEquals(6, ShaderChoice.Pick.entries.size)
+        assertEquals(4, ShaderChoice.Pick.entries.size)
         assertEquals(ShaderChoice.Pick.entries.size, ShaderChoice.Pick.entries.map { it.id }.toSet().size)
     }
 
-    @Test fun onlyTwoDSystemsGetTheRow() {
-        for (s in listOf(System.NES, System.SNES, System.GB, System.GBC, System.GBA)) assertTrue(s.name, ShaderChoice.applies(s))
-        for (s in listOf(System.N64, System.PS1, System.GENESIS, System.NDS)) assertFalse(s.name, ShaderChoice.applies(s))
+    @Test fun consolesUpThroughN64Ps1AndTheGameBoysGetTheRow() {
+        for (s in listOf(System.NES, System.SNES, System.N64, System.PS1, System.GENESIS, System.MASTER_SYSTEM, System.PCE, System.ATARI, System.GB, System.GBC, System.GBA)) assertTrue(s.name, ShaderChoice.applies(s))
+        for (s in listOf(System.PS2, System.NDS, System.GAMECUBE, System.WII)) assertFalse(s.name, ShaderChoice.applies(s))
+        assertNull("CRT and Sharp Pixels are gone", ShaderChoice.fromId("crt")); assertNull(ShaderChoice.fromId("sharp"))
         assertFalse(ShaderChoice.applies(null))
     }
 
     @Test fun defaultsKeepThePreviousBehaviour() {
         assertEquals(ShaderChoice.Pick.SCANLINES, ShaderChoice.defaultFor(System.NES))
         assertEquals(ShaderChoice.Pick.SCANLINES, ShaderChoice.defaultFor(System.SNES))
+        for (s in listOf(System.N64, System.PS1, System.GENESIS, System.MASTER_SYSTEM, System.PCE, System.ATARI)) assertEquals(s.name, ShaderChoice.Pick.SCANLINES, ShaderChoice.defaultFor(s))
         assertEquals(ShaderChoice.Pick.LCD, ShaderChoice.defaultFor(System.GBA))
         assertEquals(ShaderChoice.Pick.DMG, ShaderChoice.defaultFor(System.GB))
         assertEquals(ShaderChoice.Pick.LCD, ShaderChoice.defaultFor(System.GBC))
@@ -53,7 +55,7 @@ class ShaderChoiceTest {
     }
 
     @Test fun newShadersAreWellFormedLibretroGlsl() {
-        for (n in listOf(CrtShader.SCANLINES_SHADER_FILE, CrtShader.SHARP_SHADER_FILE, CrtShader.DMG_SHADER_FILE, CrtShader.GBCROP_SHADER_FILE)) {
+        for (n in listOf(CrtShader.SCANLINES_SHADER_FILE, CrtShader.DMG_SHADER_FILE, CrtShader.GBCROP_SHADER_FILE)) {
             val t = File(assets, n).readText()
             assertTrue(n, t.contains("#if defined(VERTEX)") && t.contains("#elif defined(FRAGMENT)") && t.trimEnd().endsWith("#endif"))
             assertFalse("no #version line (the engine prepends its own defines)", t.lineSequence().any { it.trimStart().startsWith("#version") })
@@ -65,7 +67,7 @@ class ShaderChoiceTest {
         assertEquals(CrtShader.GBCROP_PRESET_FILE, ShaderChoice.presetFile(System.GB, ShaderChoice.Pick.OFF))
         assertEquals("gb-" + CrtShader.DMG_PRESET_FILE, ShaderChoice.presetFile(System.GB, ShaderChoice.Pick.DMG))
         assertNull(ShaderChoice.presetFile(System.NES, ShaderChoice.Pick.OFF))
-        assertEquals(CrtShader.PRESET_FILE, ShaderChoice.presetFile(System.NES, ShaderChoice.Pick.CRT))
+        assertEquals(CrtShader.SCANLINES_PRESET_FILE, ShaderChoice.presetFile(System.N64, ShaderChoice.Pick.SCANLINES))
         assertEquals(CrtShader.GBA_PRESET_FILE, ShaderChoice.presetFile(System.GBA, ShaderChoice.Pick.LCD))
         val crop = File(assets, CrtShader.GBCROP_PRESET_FILE).readText()
         assertTrue(crop.contains("shader0 = ${CrtShader.GBCROP_SHADER_FILE}") && File(assets, CrtShader.GBCROP_SHADER_FILE).isFile)

@@ -15,8 +15,8 @@ JAVA_HOME=<JDK17>/Contents/Home, ANDROID_HOME, VCPKG_ROOT=<cemu-src>/dependencie
 No ROMs, BIOS, keys or firmware are included. Switch needs your own prod.keys + firmware; PS2 needs your BIOS.
 Known license issues before distributing: Azahar (GPL-2.0-only) vs GPLv3 code; genesis_plus_gx is non-commercial.
 
-## NES/SNES CRT filter
-NES and SNES libretro cores automatically get a flat CRT shader (scanlines, aperture grille, soft beam, bloom; no curvature). Other systems never do. Turn off with the boolean pref `retro_crt_filter` in SharedPreferences `nebulos` (default true, no UI yet). Details, tunables and device checklist: core-retroarch/LICENSES-cores.md.
+## Console scanlines
+NES, SNES, Genesis, Master System, PC Engine, Atari, N64 and PS1 games (libretro cores) default to the Scanlines shader. The in-game menu's Shader row cycles Off / Scanlines (plus the handheld LCD / DMG looks on the Game Boy family); the choice is remembered per system (`retro_shader_<SYSTEM>`). The old CRT and Sharp Pixels picks were removed; a saved one falls back to the default. Details: core-retroarch/LICENSES-cores.md.
 
 ## Main screen (app shell)
 Controller-first, no popups (inline fold-downs). Top row: SETTINGS gear (upper left), centered tab row `GAMES` + one tab per
