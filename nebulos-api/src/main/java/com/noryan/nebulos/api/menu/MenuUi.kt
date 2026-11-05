@@ -183,6 +183,13 @@ private fun RowItem(model: MenuModel, row: MenuRowModel, focused: Boolean, click
                     style = style(if (focused) OnAccent else Color(0xFFE6E6EA)).copy(textAlign = TextAlign.Start, textDecoration = if (focused) TextDecoration.Underline else TextDecoration.None), maxLines = 2)
             }
         }
+        MenuRowModel.Toggle2 -> {
+            @Suppress("UNUSED_EXPRESSION") model.revision
+            Box(click.button(focused).padding(MenuStyle.RowPaddingHorizontal, 12.dp)) {
+                BasicText(model.toggle2Text.orEmpty(), Modifier.align(Alignment.CenterStart),
+                    style = style(if (focused) OnAccent else Color(0xFFE6E6EA)).copy(textAlign = TextAlign.Start, textDecoration = if (focused) TextDecoration.Underline else TextDecoration.None), maxLines = 2)
+            }
+        }
         MenuRowModel.Reset -> Sub(click, focused, "Reset defaults", "", MenuStyle.Danger)
         MenuRowModel.ClearHotkey -> Sub(click, focused, "Clear", "", Color(0xFFE6E6EA))
     }

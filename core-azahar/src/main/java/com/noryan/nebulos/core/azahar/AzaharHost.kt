@@ -39,6 +39,14 @@ object AzaharHost {
     // ---- per-game "4:3 Fill" (AzaharFourThree) ----
     private var gameKey = ""
     private var titleId: String? = null
+    internal var sixtySpec: AzaharSixtyFps.Spec? = null
+        private set
+    internal fun sixtyEnabled(ctx: Context) = AzaharSixtyFps.isEnabled(store(ctx), gameKey)
+    internal fun setSixty(ctx: Context, on: Boolean): Boolean {
+        val spec = sixtySpec ?: return false
+        AzaharSixtyFps.setEnabled(store(ctx), gameKey, on)
+        return AzaharSixtyFps.apply(spec, on)
+    }
     /** This game's 4:3 Fill choice (live: the Screen Layout row flips it and the emulator picks it up on the next draw). */
     @Volatile var fillOn = false
         private set
@@ -77,6 +85,8 @@ object AzaharHost {
 
         titleId = i.getStringExtra(AzaharCore.EXTRA_TITLEID)
         gameKey = AzaharFourThree.gameKey(titleId, i.getStringExtra(AzaharCore.EXTRA_ROM) ?: "")
+        sixtySpec = AzaharSixtyFps.specFor(titleId)
+        sixtySpec?.let { AzaharSixtyFps.apply(it, AzaharSixtyFps.isEnabled(store(a), gameKey)) } ?: AzaharSixtyFps.clear()
         val (sw, sh) = windowSize(a)
         fillOn = AzaharFourThree.isEnabled(store(a), gameKey, titleId, sw, sh)
         pipOn = fillOn && AzaharFourThree.isPipEnabled(store(a), gameKey, titleId, sw, sh)

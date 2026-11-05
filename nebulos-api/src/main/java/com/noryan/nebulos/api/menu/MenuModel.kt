@@ -24,6 +24,8 @@ sealed interface MenuRowModel {
     object Option : MenuRowModel
     /** The session's optional on/off row ([com.noryan.nebulos.api.ToggleOptionSupport]). */
     object Toggle : MenuRowModel
+    /** The session's second on/off row ([com.noryan.nebulos.api.SecondToggleOptionSupport]). */
+    object Toggle2 : MenuRowModel
     object Reset : MenuRowModel
     object ClearHotkey : MenuRowModel
 }
@@ -83,6 +85,7 @@ class MenuModel(
             if (a == MenuAction.FAST_FORWARD && session !is com.noryan.nebulos.api.FastForwardSupport) continue
             if (a == MenuAction.CLOSE_GAME && option != null) add(MenuRowModel.Option)
             if (a == MenuAction.CLOSE_GAME && toggle != null) add(MenuRowModel.Toggle)
+            if (a == MenuAction.CLOSE_GAME && toggle2 != null) add(MenuRowModel.Toggle2)
             add(MenuRowModel.Top(a))
             if (a == expanded) when (a) {
                 MenuAction.CLOSE_GAME -> { add(MenuRowModel.Confirm(true)); add(MenuRowModel.Confirm(false)) }
@@ -102,7 +105,7 @@ class MenuModel(
         val list = rows
         val groups = mutableListOf<MutableList<Int>>()
         list.forEachIndexed { i, r ->
-            val starts = r == MenuRowModel.Option || r == MenuRowModel.Toggle || r == MenuRowModel.Undo || r is MenuRowModel.Top
+            val starts = r == MenuRowModel.Option || r == MenuRowModel.Toggle || r == MenuRowModel.Toggle2 || r == MenuRowModel.Undo || r is MenuRowModel.Top
             if (i == 1 && list[0] is MenuRowModel.Top && r is MenuRowModel.Top) return@forEachIndexed   // Load State is drawn on Save State's line
             if (starts || groups.isEmpty()) groups += mutableListOf(i) else groups.last() += i
         }
@@ -115,6 +118,8 @@ class MenuModel(
     private val toggle get() = (session as? com.noryan.nebulos.api.ToggleOptionSupport)?.takeIf { it.toggleAvailable }
     /** Row text for the optional on/off setting, e.g. "Integer Scale: On"; null when the session has none. */
     val toggleText: String? get() { @Suppress("UNUSED_EXPRESSION") revision; return toggle?.let { "${it.toggleLabel}: ${if (it.toggleValue()) "On" else "Off"}" } }
+    private val toggle2 get() = (session as? com.noryan.nebulos.api.SecondToggleOptionSupport)?.takeIf { it.secondToggleAvailable }
+    val toggle2Text: String? get() { @Suppress("UNUSED_EXPRESSION") revision; return toggle2?.let { "${it.secondToggleLabel}: ${if (it.secondToggleValue()) "On" else "Off"}" } }
     private fun rowIndex(a: MenuAction) = rows.indexOfFirst { it is MenuRowModel.Top && it.action == a }.coerceAtLeast(0)
 
     fun open() {
@@ -182,7 +187,7 @@ class MenuModel(
                 revision++
                 if (ok) status = "${it.optionLabel}: ${it.optionValue()}"
             }
-            MenuRowModel.Toggle -> activate(row)
+            MenuRowModel.Toggle, MenuRowModel.Toggle2 -> activate(row)
             else -> {}
         }
     }
@@ -233,6 +238,11 @@ class MenuModel(
                 val ok = runCatching { it.toggle() }.getOrDefault(false)
                 revision++
                 status = if (ok) toggleText.orEmpty() else "Could not change ${it.toggleLabel}"
+            }
+            MenuRowModel.Toggle2 -> toggle2?.let {
+                val ok = runCatching { it.secondToggle() }.getOrDefault(false)
+                revision++
+                status = if (ok) toggle2Text.orEmpty() else "Could not change ${it.secondToggleLabel}"
             }
             MenuRowModel.Reset -> { if (expanded == MenuAction.SET_HOTKEYS) hotkeys.resetToDefaults() else mapping.resetToDefaults(); revision++; status = "Reset to defaults" }
             MenuRowModel.ClearHotkey -> {}

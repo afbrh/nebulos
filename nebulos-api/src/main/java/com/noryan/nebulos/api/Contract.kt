@@ -75,6 +75,14 @@ interface ToggleOptionSupport {
     fun toggle(): Boolean
 }
 
+/** Optional: a second on/off row (same contract as [ToggleOptionSupport]), shown below it, e.g. "60 FPS: On". */
+interface SecondToggleOptionSupport {
+    val secondToggleLabel: String
+    val secondToggleAvailable: Boolean get() = true
+    fun secondToggleValue(): Boolean
+    fun secondToggle(): Boolean
+}
+
 /** Static description of an embedded core, registered with CoreRegistry. */
 interface CoreDescriptor {
     val id: String                       // "dolphin", "eden", ...

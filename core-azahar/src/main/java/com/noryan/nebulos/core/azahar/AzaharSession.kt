@@ -19,7 +19,7 @@ import org.citra.citra_emu.NativeLibrary.ButtonType as B
  * save/load signals while running, so a paused session is briefly un-paused for the operation. These two methods
  * block (<= ~4 s); the menu already calls them off the main thread.
  */
-class AzaharSession(private val activity: Activity) : CoreSession, StateSlotProvider, FastForwardSupport, com.noryan.nebulos.api.OptionCycleSupport, com.noryan.nebulos.api.ToggleOptionSupport {
+class AzaharSession(private val activity: Activity) : CoreSession, StateSlotProvider, FastForwardSupport, com.noryan.nebulos.api.OptionCycleSupport, com.noryan.nebulos.api.ToggleOptionSupport, com.noryan.nebulos.api.SecondToggleOptionSupport {
     @Volatile var paused = false
         private set
     private val stick = FloatArray(4) // lx, ly, rx, ry; screen convention (down positive) as Azahar expects
@@ -64,6 +64,11 @@ class AzaharSession(private val activity: Activity) : CoreSession, StateSlotProv
     override val toggleAvailable get() = AzaharHost.customLayout
     override fun toggleValue() = swapShortcut.enabled
     override fun toggle() = swapShortcut.toggle()
+
+    override val secondToggleLabel = "60 FPS"
+    override val secondToggleAvailable get() = AzaharHost.sixtySpec != null
+    override fun secondToggleValue() = AzaharHost.sixtyEnabled(activity)
+    override fun secondToggle() = AzaharHost.setSixty(activity, !AzaharHost.sixtyEnabled(activity))
 
     override fun pause() { paused = true; NativeLibrary.pauseEmulation() }
     override fun resume() { paused = false; NativeLibrary.unPauseEmulation() }
