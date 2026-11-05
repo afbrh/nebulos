@@ -19,6 +19,10 @@ import org.yuzu.yuzu_emu.utils.NebulosBridge
  * key/motion event FIRST (contract rule). Events it does not consume fall through to Eden's own dispatch.
  */
 object EdenHost {
+    private const val PICTURE_WAIT_MS = 60_000L
+    private const val MAX_COPY_FAILURES = 20
+    /** Of the 64x36 samples, how many must be non-black before it counts as picture (~6%: a lone corner spinner on black does not). */
+    private const val PICTURE_MIN_LIT = 140
     @Volatile var session: EdenSession? = null
         private set
     private var hooks: NebulosCoreHost.Hooks? = null
@@ -32,7 +36,7 @@ object EdenHost {
         NebulosBridge.error = { t, m, fatal -> h.error(t, m, fatal) }
         NebulosBridge.progress = { f, t -> h.setLoadingProgress(f, t) }
         NebulosBridge.loadingText = { h.setLoadingText(it) }
-        NebulosBridge.ready = { h.onGameReady() }
+        NebulosBridge.ready = { holdUntilPicture(activity, h) }
         NebulosBridge.flushPending()
         EdenDriver.pendingNotice?.let { h.notice(it); EdenDriver.pendingNotice = null }
         val window = activity.window
@@ -46,6 +50,41 @@ object EdenHost {
         watchGameSurface(activity)
         // Eden's own Back handling (drawer) never runs: key Back is consumed by hooks.dispatchKey above and the
         // predictive/gesture back is taken by the PRIORITY_OVERLAY callback NebulosMenu.attach registers.
+    }
+
+    /**
+     * Eden reports "ready" when its first frame is presented, but a Switch game then often draws pure black for many more seconds while its own
+     * startup runs. Keep Nebulos's loading screen up until the game surface shows real picture (a few percent of the screen non-black, so a lone spinner on black doesn't count), checked ~3x a second
+     * with a small PixelCopy of the game surface. Falls back to "ready now" if the surface can't be sampled, and gives up waiting after [PICTURE_WAIT_MS].
+     */
+    private fun holdUntilPicture(activity: EmulationActivity, h: NebulosCoreHost.Hooks) {
+        val main = android.os.Handler(android.os.Looper.getMainLooper())
+        val t0 = android.os.SystemClock.uptimeMillis()
+        val bmp = android.graphics.Bitmap.createBitmap(64, 36, android.graphics.Bitmap.Config.ARGB_8888)
+        val px = IntArray(64 * 36)
+        var failures = 0
+        fun done(why: String) { android.util.Log.i("NebulosEden", "picture wait over after ${android.os.SystemClock.uptimeMillis() - t0}ms: $why"); if (hooks === h) h.onGameReady() }
+        fun poll() {
+            if (activity.isDestroyed || activity.isFinishing || hooks !== h) return
+            h.setLoadingText("Starting game")   // every round: Eden's own late progress calls would put "Building shaders" back
+            val view = findSurfaceView(activity.window.decorView)
+            if (android.os.SystemClock.uptimeMillis() - t0 > PICTURE_WAIT_MS || view == null || !view.holder.surface.isValid) { done("timeout/no surface"); return }
+            try {
+                android.view.PixelCopy.request(view, bmp, { result ->
+                    if (result != android.view.PixelCopy.SUCCESS) {
+                        // No buffer yet / surface busy: try again; only give up when sampling keeps failing (the game then just shows as before).
+                        if (++failures > MAX_COPY_FAILURES) done("pixelcopy keeps failing, result $result") else main.postDelayed(::poll, 300)
+                        return@request
+                    }
+                    failures = 0
+                    bmp.getPixels(px, 0, 64, 0, 0, 64, 36)
+                    val lit = px.count { c -> maxOf((c shr 16) and 0xFF, (c shr 8) and 0xFF, c and 0xFF) > 24 }
+                    if (lit >= PICTURE_MIN_LIT) done("picture ($lit lit)") else main.postDelayed(::poll, 300)
+                }, main)
+            } catch (t: Throwable) { done("pixelcopy threw $t") }
+        }
+        android.util.Log.i("NebulosEden", "ready from Eden: waiting for picture")
+        poll()
     }
 
     /** Called from the lifecycle hook when the Activity pauses/destroys. */

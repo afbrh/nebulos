@@ -206,8 +206,31 @@ internal class RaSession(
             retroId(Pad.R1)?.let { RaBridge.nativeButton(it, pressed) }
             return
         }
+        if (system == System.N64 && n64Button(pad, pressed)) return
         val id = retroId(pad) ?: return
         RaBridge.nativeButton(id, pressed)
+    }
+
+    // N64 (Mupen64Plus-Next): the pad's A and B are the N64 A and B (the core reads RetroPad B as N64 A and RetroPad Y as N64 B), and X / Y are
+    // C-right / C-down, sent as a full right-stick push so they work whatever the core's own C-button ids are; the real right stick still gives all four.
+    private var cRightHeld = false
+    private var cDownHeld = false
+
+    private fun n64Button(pad: Pad, pressed: Boolean): Boolean = when (pad) {
+        Pad.A -> { RaBridge.nativeButton(0, pressed); true }
+        Pad.B -> { RaBridge.nativeButton(1, pressed); true }
+        Pad.X -> { cRightHeld = pressed; pushSticks(); true }
+        Pad.Y -> { cDownHeld = pressed; pushSticks(); true }
+        else -> false
+    }
+
+    private fun pushSticks() {
+        val lx = stick[3] - stick[2]; val ly = stick[1] - stick[0]
+        var rx = stick[7] - stick[6]; var ry = stick[5] - stick[4]
+        if (cRightHeld) rx = 1f
+        if (cDownHeld) ry = 1f
+        RaBridge.nativeAxis(0, 0, (lx * 32767).toInt()); RaBridge.nativeAxis(0, 1, (ly * 32767).toInt())
+        RaBridge.nativeAxis(1, 0, (rx * 32767).toInt()); RaBridge.nativeAxis(1, 1, (ry * 32767).toInt())
     }
 
     override fun injectAxis(pad: Pad, value: Float) {
@@ -217,11 +240,8 @@ internal class RaSession(
             else -> return // L2/R2 analog is delivered as a button too
         }
         stick[i] = value.coerceIn(0f, 1f)
-        val lx = stick[3] - stick[2]; val ly = stick[1] - stick[0]
-        val rx = stick[7] - stick[6]; val ry = stick[5] - stick[4]
-        RaBridge.nativeAxis(0, 0, (lx * 32767).toInt()); RaBridge.nativeAxis(0, 1, (ly * 32767).toInt())
-        RaBridge.nativeAxis(1, 0, (rx * 32767).toInt()); RaBridge.nativeAxis(1, 1, (ry * 32767).toInt())
-        if (digitalOnly && i <= 3) foldStick(lx, ly)
+        pushSticks()
+        if (digitalOnly && i <= 3) foldStick(stick[3] - stick[2], stick[1] - stick[0])
     }
 
     private fun foldStick(lx: Float, ly: Float) {
