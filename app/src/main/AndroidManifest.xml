@@ -4,7 +4,9 @@
 
     <!-- Lets cores in other processes open ROMs by real path (SAF paths are otherwise unreadable). Optional. -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
-    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Security policy: Nebulos never uses the network. INTERNET is stripped from every merged library manifest, so the OS
+         refuses socket creation for all of its processes. verifyNoNetworkPermission (build.gradle.kts) fails the build if it returns. -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
     <uses-permission android:name="android.permission.REORDER_TASKS" />
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
     <!-- Cores declare these with differing maxSdkVersion; the app's unrestricted declaration wins. -->

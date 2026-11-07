@@ -100,3 +100,13 @@ configurations.configureEach {
     // com.atlassian.commonmark:commonmark 0.13 and org.commonmark:commonmark 0.22 ship identical packages.
     exclude(group = "com.atlassian.commonmark")
 }
+
+// Security policy: the packaged manifest must never request network access. Fails assemble if any library re-adds it.
+tasks.register("verifyNoNetworkPermission") {
+    val manifest = layout.buildDirectory.file("intermediates/merged_manifests/release/processReleaseManifest/AndroidManifest.xml")
+    doLast {
+        val text = manifest.get().asFile.readText()
+        check(!text.contains("android.permission.INTERNET")) { "Merged manifest requests android.permission.INTERNET; Nebulos must not use the network." }
+    }
+}
+tasks.matching { it.name == "assembleRelease" }.configureEach { finalizedBy("verifyNoNetworkPermission") }
