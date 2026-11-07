@@ -78,7 +78,7 @@ object RetroArchCore : CoreDescriptor {
         // Super Mario 64 (US .z64) on the N64 core: run the 60 fps patched copy unless the menu row turned it off.
         var runRom = rom
         var sm64 = ""
-        if (request.system == System.N64 && request.romPath.isNotBlank() && Sm64SixtyFps.eligible(ctx, File(request.romPath))) {
+        if (request.system == System.N64 && request.romPath.isNotBlank() && Sm64SixtyFps.eligible(File(request.romPath))) {
             val patched = if (Sm64SixtyFps.isOn(ctx)) Sm64SixtyFps.patchedCopy(ctx, File(request.romPath)) else null
             if (patched != null) { runRom = patched.absolutePath; sm64 = NebulosRetroActivity.SM64_ON } else sm64 = NebulosRetroActivity.SM64_OFF
         }
