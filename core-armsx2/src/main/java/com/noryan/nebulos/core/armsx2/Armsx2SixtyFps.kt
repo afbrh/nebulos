@@ -13,11 +13,11 @@ import kr.co.iefriends.pcsx2.NativeApp
  * fps and the same world speed (the engine scales its time step by that variable), cutscenes stay at their authored rate.
  */
 internal object Armsx2SixtyFps {
-    private data class Spec(val patchName: String)
+    private data class Spec(val patchNames: List<String>)
 
     /** `<serial>_<CRC>` (as in the game's INI file name) -> the patch group that gives 60 fps. */
     private val SPECS = mapOf(
-        "SCUS-97113_6F8545DB" to Spec("60 fps"), // ICO (NTSC-U)
+        "SCUS-97113_6F8545DB" to Spec(listOf("60 fps", "No-Interlacing")), // ICO (NTSC-U)
     )
 
     private const val KEY_PREFIX = "sixty_fps_"
@@ -34,14 +34,14 @@ internal object Armsx2SixtyFps {
 
     /** On by default for games that have it; the menu row turns it off. */
     fun isEnabled(p: SharedPreferences, key: String): Boolean = p.getBoolean(KEY_PREFIX + key, true)
-    fun setEnabled(p: SharedPreferences, key: String, on: Boolean) { p.edit().putBoolean(KEY_PREFIX + key, on).apply() }
+    fun setEnabled(p: SharedPreferences, key: String, on: Boolean) { p.edit().putBoolean(KEY_PREFIX + key, on).commit() }
 
     /** Writes this game's INI enable list and re-applies patches on the running VM. Returns false if it could not. */
     fun apply(key: String, on: Boolean): Boolean {
         val spec = SPECS[key] ?: return false
         return runCatching {
             val serial = key.substringBefore('_')
-            NativeApp.setEnabledPatches(false, arrayOf(spec.patchName), if (on) arrayOf(spec.patchName) else emptyArray(), serial)
+            NativeApp.setEnabledPatches(false, spec.patchNames.toTypedArray(), if (on) spec.patchNames.toTypedArray() else emptyArray(), serial)
             NativeApp.reloadPatches()
             true
         }.getOrDefault(false)
