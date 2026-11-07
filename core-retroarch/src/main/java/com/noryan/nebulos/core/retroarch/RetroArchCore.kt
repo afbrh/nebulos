@@ -75,14 +75,22 @@ object RetroArchCore : CoreDescriptor {
         val cfg = RaFiles.writeConfig(ctx, spec, CrtShader.isEnabled(ctx), request.system, CrtShader.isEnabled(ctx, CrtShader.Look.GBA_LCD), pick,
             IntegerScale.isOn(ctx, request.system))
         val rom = request.romPath.ifBlank { request.romUri.orEmpty() }
+        // Super Mario 64 (US .z64) on the N64 core: run the 60 fps patched copy unless the menu row turned it off.
+        var runRom = rom
+        var sm64 = ""
+        if (request.system == System.N64 && request.romPath.isNotBlank() && Sm64SixtyFps.eligible(ctx, File(request.romPath))) {
+            val patched = if (Sm64SixtyFps.isOn(ctx)) Sm64SixtyFps.patchedCopy(ctx, File(request.romPath)) else null
+            if (patched != null) { runRom = patched.absolutePath; sm64 = NebulosRetroActivity.SM64_ON } else sm64 = NebulosRetroActivity.SM64_OFF
+        }
         return Intent().setClassName(ctx, NebulosRetroActivity::class.java.name)
-            .putExtra("ROM", rom)
+            .putExtra("ROM", runRom)
             .putExtra("LIBRETRO", corePath)
             .putExtra("CONFIGFILE", cfg.absolutePath)
             .putExtra("SDCARD", RaFiles.nativeDefaultsRoot(ctx).absolutePath) // see RaFiles.nativeDefaultsRoot: no stray /sdcard/RetroArch
             .putExtra(NebulosRetroActivity.EXTRA_SYSTEM, request.system.name)
             .putExtra(NebulosRetroActivity.EXTRA_ROM_KEY, rom)
             .putExtra(NebulosRetroActivity.EXTRA_RESUME, request.resumeState)
+            .putExtra(NebulosRetroActivity.EXTRA_SM64_FPS, sm64)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
 }

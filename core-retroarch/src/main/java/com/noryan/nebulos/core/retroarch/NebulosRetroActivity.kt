@@ -22,6 +22,10 @@ class NebulosRetroActivity : RetroActivityFuture() {
         const val EXTRA_SYSTEM = "nebulos.system"
         const val EXTRA_ROM_KEY = "nebulos.rom"
         const val EXTRA_RESUME = "nebulos.resume"
+        /** Super Mario 64 60 fps patch: absent = not applicable, [SM64_ON] = running the patched copy, [SM64_OFF] = eligible but off. */
+        const val EXTRA_SM64_FPS = "nebulos.sm64fps"
+        const val SM64_ON = "on"
+        const val SM64_OFF = "off"
     }
 
     private lateinit var system: System
@@ -33,7 +37,7 @@ class NebulosRetroActivity : RetroActivityFuture() {
     override fun onCreate(savedInstanceState: Bundle?) {
         system = runCatching { System.valueOf(intent.getStringExtra(EXTRA_SYSTEM)!!) }.getOrDefault(System.OTHER)
         val romKey = intent.getStringExtra(EXTRA_ROM_KEY) ?: intent.getStringExtra("ROM").orEmpty()
-        session = RaSession(applicationContext, romKey, system) { runOnUiThread { finishGame() } }
+        session = RaSession(applicationContext, romKey, system, intent.getStringExtra(EXTRA_SM64_FPS).orEmpty()) { runOnUiThread { finishGame() } }
         // A fresh start must not inherit an old session's resume point (only the shell's automatic restore sets EXTRA_RESUME).
         if (!intent.getBooleanExtra(EXTRA_RESUME, false)) com.noryan.nebulos.api.menu.ResumePoint.clear(applicationContext, "retroarch", romKey)
         super.onCreate(savedInstanceState) // loads libretroarch-activity.so, starts the native thread

@@ -16,6 +16,8 @@ internal class RaSession(
     context: Context,
     private val romKey: String,
     private val system: System,
+    /** Super Mario 64 60 fps patch state at launch: "" not applicable, "on" patched copy running, "off" eligible but stock ROM. */
+    private val sm64Fps: String,
     private val onClose: () -> Unit,
 ) : CoreSessionBase(context, "retroarch", romKey), FastForwardSupport, com.noryan.nebulos.api.OptionCycleSupport,
     com.noryan.nebulos.api.ToggleOptionSupport {
@@ -89,12 +91,18 @@ internal class RaSession(
         return true
     }
 
-    // ---- optional menu toggle: Integer Scale for the pixel-art systems --------------------------------------------------------
-    override val toggleLabel = "Integer Scale"
-    override val toggleAvailable get() = IntegerScale.applies(system)
+    /** A patched ROM's RDRAM snapshots only load into that same ROM, so the 60 fps variant keeps its own state folder. */
+    override val stateDir: File get() = super.stateDir.let { if (sm64Fps == NebulosRetroActivity.SM64_ON) File(it.parentFile, it.name + "-60fps").also { d -> d.mkdirs() } else it }
+
+    // ---- optional menu toggle: Integer Scale for the pixel-art systems; "60 FPS" for Super Mario 64 ------------------------------
+    private val sm64Row get() = sm64Fps.isNotEmpty()
+    override val toggleLabel get() = if (!sm64Row) "Integer Scale"
+        else if (Sm64SixtyFps.isOn(context) == (sm64Fps == NebulosRetroActivity.SM64_ON)) "60 FPS" else "60 FPS (after restart)"
+    override val toggleAvailable get() = sm64Row || IntegerScale.applies(system)
     @Volatile private var integerOn: Boolean? = null
-    override fun toggleValue(): Boolean = integerOn ?: IntegerScale.isOn(context, system).also { integerOn = it }
+    override fun toggleValue(): Boolean = if (sm64Row) Sm64SixtyFps.isOn(context) else integerOn ?: IntegerScale.isOn(context, system).also { integerOn = it }
     override fun toggle(): Boolean {
+        if (sm64Row) { Sm64SixtyFps.setOn(context, !Sm64SixtyFps.isOn(context)); return true } // applied by the next launch (the ROM differs)
         if (!IntegerScale.applies(system)) return false
         val next = !toggleValue()
         integerOn = next
