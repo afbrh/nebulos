@@ -27,6 +27,7 @@ class Armsx2Activity : MainActivityRuntime() {
     private var framesSeen = 0
     private var errorShown = false
     private var pausedForBackground = false
+    private var sixtyApplied = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Before anything composes: ARMSX2's banners/toasts/dialogs route to Nebulos, its frontend surfaces never draw.
@@ -75,6 +76,7 @@ class Armsx2Activity : MainActivityRuntime() {
                 )
             }
             if (!ready) {
+                if (!sixtyApplied && st == EmuState.RUNNING) sixtyApplied = session.applySavedSixty()
                 applyHideOsd() // cheap + idempotent; covers the native lib finishing init after onCreate
                 if (st == EmuState.RUNNING) {
                     val fps = runCatching { NativeApp.getFPS() }.getOrDefault(0f)

@@ -26,7 +26,7 @@ import java.io.File
  */
 internal class Armsx2Session(private val activity: Armsx2Activity) :
     CoreSession, StateSlotProvider, FastForwardSupport, com.noryan.nebulos.api.OptionCycleSupport,
-    com.noryan.nebulos.api.ToggleOptionSupport, com.noryan.nebulos.api.menu.StateUndoSupport {
+    com.noryan.nebulos.api.ToggleOptionSupport, com.noryan.nebulos.api.SecondToggleOptionSupport, com.noryan.nebulos.api.menu.StateUndoSupport {
     private val main = Handler(Looper.getMainLooper())
 
     // ---- pause / resume ----------------------------------------------------------------------------------------------
@@ -72,6 +72,31 @@ internal class Armsx2Session(private val activity: Armsx2Activity) :
         NativeApp.osdApplyFlags(on, on, on, on, on, false, false, false, false, false, false, false)
         perfOverlay = on
     }.isSuccess
+
+    // ---- optional menu row: "60 FPS" for games with a verified 60 fps patch (Armsx2SixtyFps), per game, on by default ----
+    private val sixtyPrefs get() = activity.getSharedPreferences(Armsx2Prefs.PREFS, android.content.Context.MODE_PRIVATE)
+    private fun sixtyKey(): String? = Armsx2SixtyFps.keyFrom(runCatching { NativeApp.getPauseGameSerial() }.getOrNull())
+        ?.takeIf(Armsx2SixtyFps::isSupported)
+    // The patch only writes the game's frame variable; switching it off live leaves that variable where it was (the game
+    // sets it once, at boot), so the stock 30 fps is back only after the next launch. The row says so.
+    @Volatile private var sixtyOffPending = false
+    override val secondToggleLabel get() = if (sixtyOffPending) "60 FPS (off after restart)" else "60 FPS"
+    override val secondToggleAvailable get() = vmUp() && sixtyKey() != null
+    override fun secondToggleValue() = sixtyKey()?.let { Armsx2SixtyFps.isEnabled(sixtyPrefs, it) } ?: false
+    override fun secondToggle(): Boolean {
+        val key = sixtyKey() ?: return false
+        val on = !Armsx2SixtyFps.isEnabled(sixtyPrefs, key)
+        if (!Armsx2SixtyFps.apply(key, on)) return false
+        Armsx2SixtyFps.setEnabled(sixtyPrefs, key, on)
+        sixtyOffPending = !on
+        return true
+    }
+
+    /** Called once the VM is up: puts the game's saved 60 FPS choice into effect (patch enable lists are per game INI). */
+    fun applySavedSixty(): Boolean {
+        val key = sixtyKey() ?: return false
+        return Armsx2SixtyFps.apply(key, Armsx2SixtyFps.isEnabled(sixtyPrefs, key))
+    }
 
     private fun gameSerial(): String? = MainActivityRuntime.currentGame.value?.settingsKey
         ?: runCatching { NativeApp.getPauseGameSerial() }.getOrNull()?.substringBefore(" (")?.trim()?.takeIf(String::isNotBlank)
