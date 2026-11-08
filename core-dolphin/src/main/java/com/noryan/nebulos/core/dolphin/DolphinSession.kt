@@ -116,6 +116,7 @@ class DolphinSession(
     private var wii = false
     private val held = DoubleArray(ControlId.NUNCHUK_SHAKE + 1)
     private val dirs = DoubleArray(8) // LS up/down/left/right, RS up/down/left/right
+    private val fsaDpad = BooleanArray(4) // D-pad up/down/left/right, folded into the main stick for Four Swords Adventures
 
     /** Called (UI thread) once the game booted and the emulated controllers exist. */
     /** 6-char disc ID of the launched game (set by the Activity before boot); Other M switches to its own pad profile. */
@@ -259,6 +260,10 @@ class DolphinSession(
             }
         }
         val v = if (pressed) 1.0 else 0.0
+        if (!wii && FourSwordsAdventures.matches(gameId)) {
+            val i = when (pad) { Pad.DPAD_UP -> 0; Pad.DPAD_DOWN -> 1; Pad.DPAD_LEFT -> 2; Pad.DPAD_RIGHT -> 3; else -> -1 }
+            if (i >= 0) { fsaDpad[i] = pressed; stick(true) }   // also walks Link; the D-pad itself is still forwarded below
+        }
         if (!wii) when (pad) {
             Pad.A -> put(ControlId.GCPAD_A_BUTTON, v)
             Pad.B -> put(ControlId.GCPAD_B_BUTTON, v)
@@ -315,6 +320,9 @@ class DolphinSession(
         val o = if (left) 0 else 4
         var x = dirs[o + 3] - dirs[o + 2]
         var y = dirs[o] - dirs[o + 1]
+        if (left && !wii && FourSwordsAdventures.matches(gameId)) {
+            val c = FourSwordsAdventures.combine(x, y, fsaDpad[0], fsaDpad[1], fsaDpad[2], fsaDpad[3]); x = c.first; y = c.second
+        }
         val (cx, cy) = when {
             wii && left -> ControlId.NUNCHUK_STICK_X to ControlId.NUNCHUK_STICK_Y
             wii -> ControlId.WIIMOTE_IR_X to ControlId.WIIMOTE_IR_Y
