@@ -77,4 +77,19 @@ class SaveDiscoveryTest {
         val r = RomScanner.scan(roms, emptyMap(), false) {}
         assertEquals(listOf("Real.gba"), r.games.map { it.fileName })
     }
+
+    @Test fun legacyFolderIsRenamedInPlace() {
+        val root = java.nio.file.Files.createTempDirectory("sd").toFile()
+        val old = File(root, "_nebulos-save-data"); File(old, "states").mkdirs(); File(old, "states/keep").writeText("x")
+        val now = SaveDiscovery.upgradeLegacyName(old)
+        assertEquals(File(root, SaveRoot.FOLDER_NAME), now)
+        assertFalse(old.exists()); assertEquals("x", File(now, "states/keep").readText())
+        assertTrue(SaveDiscovery.isSaveFolderName("_nebulos-save-data")); assertTrue(SaveDiscovery.isSaveFolderName("_Nebulos"))
+    }
+
+    @Test fun legacyFolderStaysWhenNewNameIsTaken() {
+        val root = java.nio.file.Files.createTempDirectory("sd").toFile()
+        val old = File(root, "_nebulos-save-data").apply { mkdirs() }; File(root, SaveRoot.FOLDER_NAME).mkdirs()
+        assertEquals(old, SaveDiscovery.upgradeLegacyName(old))
+    }
 }

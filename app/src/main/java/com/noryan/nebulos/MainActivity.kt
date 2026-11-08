@@ -55,10 +55,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** X opens Settings wherever focus happens to be (a controller press must work even before anything is focused). B / Back opens the apps list. */
+    /** X and Start open Settings wherever focus happens to be (a controller press must work even before anything is focused). B / Back opens it too (see MainScreen). */
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
-        if (event.keyCode == android.view.KeyEvent.KEYCODE_BUTTON_X && vm.settingsOpen.value.not() && vm.editor.value == null) {
+        if ((event.keyCode == android.view.KeyEvent.KEYCODE_BUTTON_X || event.keyCode == android.view.KeyEvent.KEYCODE_BUTTON_START) && vm.settingsOpen.value.not() && vm.editor.value == null) {
             if (event.action == android.view.KeyEvent.ACTION_UP) vm.toggleSettings()
+            return true
+        }
+        // L1 / L2 and R1 / R2 move the game list's category tabs left / right (here, not in Compose: it must work before anything has focus).
+        val dir = when (event.keyCode) {
+            android.view.KeyEvent.KEYCODE_BUTTON_L1, android.view.KeyEvent.KEYCODE_BUTTON_L2 -> -1
+            android.view.KeyEvent.KEYCODE_BUTTON_R1, android.view.KeyEvent.KEYCODE_BUTTON_R2 -> 1
+            else -> 0
+        }
+        if (dir != 0 && !vm.settingsOpen.value && vm.editor.value == null) {
+            if (event.action == android.view.KeyEvent.ACTION_DOWN && event.repeatCount == 0) vm.stepCategory(dir)
             return true
         }
         return super.dispatchKeyEvent(event)

@@ -123,7 +123,7 @@ fun NotFoundScreen(cancellable: Boolean, onPick: () -> Unit, onSearchAgain: () -
     }
 }
 
-/** Several `_nebulos-save-data` folders were found: pick the one to use for all save data and save states. */
+/** Several `_Nebulos` folders were found: pick the one to use for all save data and save states. */
 @Composable
 fun SaveChooseScreen(
     candidates: List<SaveDiscovery.Candidate>, cancellable: Boolean,

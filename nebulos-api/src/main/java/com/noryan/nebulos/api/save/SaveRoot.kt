@@ -16,13 +16,15 @@ import java.util.Locale
  *   <root>/states/<coreId>/<gameKey>/slotN(.png)    shared-menu save states (CoreSessionBase)
  *   <root>/<coreId>/...                             each emulator's own native save data (phase 2 maps its dirs here)
  *
- * Where the root is: the shell discovers/creates `<ROM folder>/_nebulos-save-data` (or a copy found elsewhere), writes the
+ * Where the root is: the shell discovers/creates `<ROM folder>/_Nebulos` (or a copy found elsewhere), writes the
  * choice to `<externalFilesDir>/savedata_root.txt` and stamps every game Intent with [EXTRA_ROOT]. Core processes (separate
  * android:process) learn it from the Intent ([adopt], done automatically by NebulosCrashGuard / NebulosCoreHost.install before the
  * engine starts) or, without an Intent, from the pointer file. [current] never fails: the last resort is `<externalFilesDir>/savedata`.
  */
 object SaveRoot {
-    const val FOLDER_NAME = "_nebulos-save-data"
+    const val FOLDER_NAME = "_Nebulos"
+    /** What the folder was called in older builds; found by name and renamed to [FOLDER_NAME] in place. */
+    const val LEGACY_FOLDER_NAME = "_nebulos-save-data"
     const val README = "README.txt"
     /** Launch-Intent extra: absolute path of the save root. */
     const val EXTRA_ROOT = "nebulos.saveRoot"

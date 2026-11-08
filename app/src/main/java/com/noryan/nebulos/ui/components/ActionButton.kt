@@ -191,10 +191,10 @@ fun PlainTextButton(text: String, selected: Boolean, description: String, modifi
 
 
 /**
- * 0 = normal list rows, 1 = rows draw as menu-style buttons (Settings), 2 = rows inside an expanded box draw as flat small buttons.
- * [FocusLine], [Section] and [Note] read it, so a whole screen can switch look without touching each row.
+ * Extra left indent for the lines (and notes) of a fold-down list: the options under an open Settings row. [FocusLine] and
+ * [com.noryan.nebulos.ui.Note] read it, so the children of a row line up under it without each one passing an indent.
  */
-val LocalButtonLook = androidx.compose.runtime.compositionLocalOf { 0 }
+val LocalListIndent = androidx.compose.runtime.compositionLocalOf { 0.dp }
 
 /**
  * A button styled like the in-game menu's: dark plate + faint border, orange plate with a white border when focused,
@@ -227,9 +227,10 @@ fun OptionButton(
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            val ta = TextAlign.Center
             Text(text, style = (if (small) MaterialTheme.typography.labelLarge else MaterialTheme.typography.titleSmall).copy(textDecoration = ul), color = label,
-                textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (!sub.isNullOrEmpty()) Text(sub, style = MaterialTheme.typography.labelSmall, color = subInk, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                textAlign = ta, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (!sub.isNullOrEmpty()) Text(sub, style = MaterialTheme.typography.labelSmall, color = subInk, textAlign = ta, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }

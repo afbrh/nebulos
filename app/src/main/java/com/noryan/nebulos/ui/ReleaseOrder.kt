@@ -7,7 +7,7 @@ package com.noryan.nebulos.ui
  */
 internal object ReleaseOrder {
     private val ORDER: Map<String, List<String>> = mapOf(
-        "Metroid" to listOf("=metroid", "zero mission", "metroid - ii", "samus returns", "super metroid", "fusion", "prime trilogy", "other m", "dread"),
+        "Metroid" to listOf("=metroid", "zero mission", "metroid - ii", "samus returns", "super metroid", "fusion", "prime trilogy", "hunters", "other m", "federation force", "dread"),
         "The Legend of Zelda" to listOf(
             "=the legend of zelda", "zelda ii", "a link to the past", "awakening dx", "awakening", "ocarina of time", "ocarina of time 3d", "mask",
             "mask 3d", "oracle of seasons", "oracle of ages", "four swords", "wind waker", "wind waker hd", "four swords adventures", "minish cap",

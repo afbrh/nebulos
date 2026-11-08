@@ -4,7 +4,7 @@ import com.noryan.nebulos.api.save.SaveRoot
 import java.io.File
 
 /**
- * Finds / chooses the portable save-data folder `_nebulos-save-data`. Pure java.io + pure decision logic (unit tested).
+ * Finds / chooses the portable save-data folder `_Nebulos` (older builds named it `_nebulos-save-data`; that one is still found and renamed). Pure java.io + pure decision logic (unit tested).
  *
  * Search: every storage volume, same depth bound and skip rules as the ROM/BIOS search ([FolderSearch.findDirs]); the folder may sit
  * inside the ROM folder, next to it or anywhere up to [FolderSearch.MAX_DEPTH] deep; name match is case-insensitive and exact.
@@ -21,11 +21,19 @@ object SaveDiscovery {
         data class Use(val candidate: Candidate, val others: List<Candidate> = emptyList()) : Decision
         /** Several: ask the user (inline chooser). */
         data class Choose(val candidates: List<Candidate>) : Decision
-        /** Nothing usable anywhere: create `<ROM folder>/_nebulos-save-data`. */
+        /** Nothing usable anywhere: create `<ROM folder>/_Nebulos`. */
         data object Create : Decision
     }
 
-    fun isSaveFolderName(name: String) = name.equals(SaveRoot.FOLDER_NAME, ignoreCase = true)
+    fun isSaveFolderName(name: String) = name.equals(SaveRoot.FOLDER_NAME, ignoreCase = true) || name.equals(SaveRoot.LEGACY_FOLDER_NAME, ignoreCase = true)
+
+    /** A folder still carrying the old name is renamed to the new one next to it (same volume, instant). Returns the folder to use; the old one if it cannot be renamed. */
+    fun upgradeLegacyName(dir: File): File {
+        if (!dir.name.equals(SaveRoot.LEGACY_FOLDER_NAME, ignoreCase = true) || !dir.isDirectory) return dir
+        val target = File(dir.parentFile ?: return dir, SaveRoot.FOLDER_NAME)
+        if (target.exists()) return dir
+        return if (runCatching { dir.renameTo(target) }.getOrDefault(false)) target else dir
+    }
 
     fun describe(dir: File): Candidate = SaveRoot.stats(dir).let { Candidate(dir.path, it.files, it.dataFiles, it.bytes, it.lastModified, it.capped) }
 

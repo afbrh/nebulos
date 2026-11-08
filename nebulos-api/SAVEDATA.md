@@ -1,6 +1,6 @@
 # Portable save data - contract for core agents (PHASE 2)
 
-Goal: ALL game save data and save states of every core live in ONE user-visible folder, `_nebulos-save-data`, so the user can
+Goal: ALL game save data and save states of every core live in ONE user-visible folder, `_Nebulos` (named `_nebulos-save-data` in older builds; renamed in place automatically), so the user can
 move that folder to another device. The shell finds/creates it, persists the choice, migrates old data into it and stamps every
 game launch with its location. Phase 1 (shell, `SaveRoot`, `SaveMigration`, shared-menu states) is DONE. This file is the single
 source of truth for what each core must still do. Code: `com.noryan.nebulos.api.save.{SaveRoot,SaveMigration}`.
@@ -8,7 +8,7 @@ source of truth for what each core must still do. Code: `com.noryan.nebulos.api.
 ## Folder layout
 
 ```
-<root>/                               e.g. /storage/emulated/0/_ROMs/_nebulos-save-data   (found by exact name, case-insensitive)
+<root>/                               e.g. /storage/emulated/0/_ROMs/_Nebulos   (found by exact name, case-insensitive)
   README.txt                          written once by the shell
   .nebulos-migration.log              what SaveMigration moved / conflicts
   states/<coreId>-core/<gameKey>/slotN SHARED-MENU save states (CoreSessionBase) + slotN.png thumbnail   [DONE in phase 1]
@@ -85,7 +85,7 @@ they are portable as-is because the engine finds them by those ids on any device
 
 ## Shell behaviour you can rely on (phase 1)
 
-- Startup (after All files access and the ROM folder are known): search all volumes <= 5 deep for `_nebulos-save-data`
+- Startup (after All files access and the ROM folder are known): search all volumes <= 5 deep for `_Nebulos` (named `_nebulos-save-data` in older builds; renamed in place automatically)
   (case-insensitive). One -> used. Several -> inline chooser. None -> created inside the chosen ROM folder. Creation failure ->
   fallback `<externalFilesDir>/savedata` + a Settings warning. Re-checked on every start; if the persisted folder disappeared it
   searches again; an empty auto-created root is replaced by a lone copy that holds data.
@@ -101,7 +101,7 @@ they are portable as-is because the engine finds them by those ids on any device
 
 ## Phase 2 results: what each core really does (supersedes any conflicting row above)
 
-All paths are relative to `<root>` = `<ROM folder>/_nebulos-save-data`. Verified on the AYN Thor with a real game, Close Game,
+All paths are relative to `<root>` = `<ROM folder>/_Nebulos`. Verified on the AYN Thor with a real game, Close Game,
 `pm clear` ("new device") and relaunch. Config keys alone were NOT enough for several engines; native patches (local source trees) were needed.
 
 | Core | Saved under `<root>/` | Stays local | Mechanism |

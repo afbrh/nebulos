@@ -35,7 +35,16 @@ class ReleaseOrderTest {
         assertEquals("A Link to the Past", titleInSeries("The Legend of Zelda - A Link to the Past"))
         assertEquals("The Adventure of Link", titleInSeries("The Legend of Zelda II - The Adventure of Link"))
         assertEquals("Red Version", titleInSeries("Pokemon - Red Version"))
+        assertEquals("Super Mario Land 2 - 6 Golden Coins", titleInSeries("Super Mario Land 2 - 6 Golden Coins"))
+        assertEquals("Super Mario Land", titleInSeries("Super Mario Land"))
+        assertEquals("Super Mario World 2 - Yoshi's Island", titleInSeries("Super Mario World 2 - Yoshi's Island"))
         assertEquals("The Legend of Zelda", titleInSeries("The Legend of Zelda"))
         assertEquals("Super Mario Bros 3", titleInSeries("Super Mario Bros 3"))
+    }
+
+    @Test fun metroidSpinOffsSitByReleaseDate() {
+        val titles = listOf("Metroid - Dread", "Metroid Prime - Federation Force", "Metroid - Other M", "Metroid Prime - Hunters", "Metroid - Prime Trilogy", "Metroid - Fusion")
+        val sorted = titles.sortedBy { ReleaseOrder.rank("Metroid", it) }
+        assertEquals(listOf("Metroid - Fusion", "Metroid - Prime Trilogy", "Metroid Prime - Hunters", "Metroid - Other M", "Metroid Prime - Federation Force", "Metroid - Dread"), sorted)
     }
 }

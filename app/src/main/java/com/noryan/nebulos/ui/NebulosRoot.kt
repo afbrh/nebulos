@@ -7,6 +7,10 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.core.graphics.drawable.toBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -45,7 +49,7 @@ import com.noryan.nebulos.data.CoreSetup
 import com.noryan.nebulos.data.GameEntity
 import com.noryan.nebulos.ui.components.ExpandBox
 import com.noryan.nebulos.ui.components.FocusLine
-import com.noryan.nebulos.ui.components.LocalButtonLook
+import com.noryan.nebulos.ui.components.LocalListIndent
 import com.noryan.nebulos.ui.components.OptionButton
 import com.noryan.nebulos.ui.components.PixelIconButton
 import com.noryan.nebulos.ui.components.PlainTextButton
@@ -162,8 +166,6 @@ private fun MainScreen(vm: MainViewModel, pickRom: () -> Unit, pickBios: () -> U
     // A saved collection tab is only trusted once the DB has answered; a deleted collection falls back to GAMES (never written back here).
     val tab = if (collections == null) saved else CollectionRules.resolveTab(saved, cols)
     var tabOpts by remember { mutableStateOf<TabOptions?>(null) }
-    // The device's launcher apps, opened with X from the home screen (B closes it).
-    val appsOpen by vm.appsOpen.collectAsStateWithLifecycle()
     // True while controller focus is somewhere in the top bar (a tab or the +), false when it is down on a game.
     var tabsFocused by remember { mutableStateOf(false) }
     val tabFocus = remember { HashMap<Long, FocusRequester>() }
@@ -185,9 +187,6 @@ private fun MainScreen(vm: MainViewModel, pickRom: () -> Unit, pickBios: () -> U
     var sawEditor by remember { mutableStateOf(false) }
     LaunchedEffect(settingsOpen) { if (settingsOpen) sawSettings = true else if (sawSettings) { sawSettings = false; closedSettings = true } }
     LaunchedEffect(editor != null) { if (editor != null) sawEditor = true else if (sawEditor) { sawEditor = false; closedEditor = true } }
-    var sawApps by remember { mutableStateOf(false) }
-    LaunchedEffect(appsOpen) { if (appsOpen) sawApps = true else if (sawApps) { sawApps = false; runCatching { focusOf(tab).requestFocus() } } }
-    LaunchedEffect(settingsOpen, editor) { if (settingsOpen || editor != null) vm.appsOpen.value = false }
     LaunchedEffect(closedSettings) { if (closedSettings) { closedSettings = false; runCatching { focusOf(tab).requestFocus() } } }
     LaunchedEffect(closedEditor, tab, cols) {
         if (closedEditor) {
@@ -205,28 +204,18 @@ private fun MainScreen(vm: MainViewModel, pickRom: () -> Unit, pickBios: () -> U
         val o = tabOpts
         if (o != null && (editor != null || cols.none { it.id == o.id })) tabOpts = null
     }
-    // BACK (the B button) opens the Apps list from the home screen and closes it, Settings and the editor again; X opens Settings.
+    // BACK (the B button), Start and X open Settings (which lists the device's apps first) from the home screen; Back closes Settings and the editor again.
     BackHandler {
         when {
             editor != null -> vm.cancelEditor()
             tabOpts != null -> tabOpts = null
-            appsOpen -> vm.appsOpen.value = false
-            settingsOpen -> vm.toggleSettings()
-            else -> vm.toggleApps()
+            else -> vm.toggleSettings()
         }
     }
     Column(
         Modifier.fillMaxSize().onPreviewKeyEvent { e ->
             focusSeen.value = true
-            if (e.type == KeyEventType.KeyDown && (e.key == Key.ButtonL1 || e.key == Key.ButtonR1)) {
-                if (editor == null) {
-                    val to = CollectionRules.cycleTab(tab, if (e.key == Key.ButtonR1) 1 else -1, cols)
-                    tabOpts = null
-                    vm.selectTab(to)
-                    runCatching { focusOf(to).requestFocus() }
-                }
-                true
-            } else false
+            false
         }
     ) {
         val notice by vm.crashNotice.collectAsStateWithLifecycle()
@@ -241,25 +230,8 @@ private fun MainScreen(vm: MainViewModel, pickRom: () -> Unit, pickBios: () -> U
                 when {
                     editor != null -> CollectionEditorScreen(vm)
                     settingsOpen -> SettingsTab(vm, pickRom, pickBios, pickSave)
-                    appsOpen -> AppsScreen()
                     tab == CollectionRules.GAMES_TAB -> GameList(vm, null)
                     else -> GameList(vm, tab)
-                }
-            }
-            // Top right: the keys for this screen as a right-aligned list, label then coloured button letter.
-            // Each hint is also a touch button: B = Apps / Back, X = Settings.
-            Column(Modifier.width(IntrinsicSize.Max).widthIn(min = 150.dp).padding(top = 10.dp, end = 16.dp, start = 8.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                val keyHint = when { editor != null -> "A TOGGLE    B CANCEL"; settingsOpen || appsOpen -> "A SELECT    B BACK"; else -> "A SELECT    B APPS    X SETTINGS" }
-                keyHint.split("    ").forEach { part ->
-                    val tap: (() -> Unit)? = when {
-                        editor != null -> null
-                        part.startsWith("B ") -> { { if (settingsOpen) vm.toggleSettings() else vm.toggleApps() } }
-                        part.startsWith("X ") -> { { vm.toggleSettings() } }
-                        else -> null
-                    }
-                    Text(coloredKeyHint(part.substringAfter(' ') + " " + part.substringBefore(' ')),
-                        if (tap != null) Modifier.clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onClick = tap) else Modifier,
-                        style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false)
                 }
             }
         }
@@ -288,10 +260,13 @@ private fun MainScreen(vm: MainViewModel, pickRom: () -> Unit, pickBios: () -> U
     }
 }
 
-/** One line of the game list: a series heading, or a game (indented when it sits under a heading). */
-private sealed interface ListRow {
-    data class Group(val name: String) : ListRow
-    data class Item(val g: com.noryan.nebulos.data.GameEntity, val grouped: Boolean) : ListRow
+/** One line of the game list; [grouped] = it sits in a series tab, so the series part of its title is dropped. */
+private data class ListRow(val g: com.noryan.nebulos.data.GameEntity, val grouped: Boolean)
+
+/** A category tab across the top of the game list and the games under it. */
+private class Category(val name: String, val rows: List<ListRow>) {
+    /** Tab text: "The Legend of Zelda" -> "Zelda", "Super Mario" -> "Mario". */
+    val label: String get() = name.removePrefix("The Legend of ").removePrefix("Super ")
 }
 
 /** Series that fold into one heading in the list: title prefix -> heading. A series with a single game stays a plain line. */
@@ -301,27 +276,34 @@ private val SERIES = listOf("metroid" to "Metroid", "the legend of zelda" to "Th
 
 /** A game's line inside its series heading: the series part before " - " is dropped ("The Legend of Zelda - A Link to the Past" -> "A Link to the Past"). */
 internal fun titleInSeries(title: String): String =
-    if (seriesOf(title) != null && " - " in title) title.substringAfter(" - ").trim().ifEmpty { title } else title
+    if (title.startsWith("super mario land", ignoreCase = true) || title.startsWith("super mario world 2", ignoreCase = true)) title   // Land and Yoshi's Island keep their whole name
+    else if (seriesOf(title) != null && " - " in title) title.substringAfter(" - ").trim().ifEmpty { title } else title
+
+/** Every PlayStation 2 game folds into this one heading, whatever its series. */
+private const val PS2_HEADING = "PS2"
+
+private fun headingOf(g: com.noryan.nebulos.data.GameEntity): String? = if (g.system == "PS2") PS2_HEADING else seriesOf(g.title)
 
 private fun seriesOf(title: String): String? = SERIES.firstOrNull { title.startsWith(it.first, ignoreCase = true) }?.second
 
-private fun listRows(games: List<com.noryan.nebulos.data.GameEntity>, open: Set<String>): List<ListRow> {
-    val bySeries = games.groupBy { seriesOf(it.title) }
-    val groups = bySeries.filter { it.key != null && it.value.size >= 2 }
-    val out = ArrayList<ListRow>()
-    // Series with the most games first (ties by name), then every game that is not part of a series, in the usual order.
-    for ((s, members) in groups.entries.sortedWith(compareBy({ -it.value.size }, { it.key!!.lowercase() }))) {
-        out += ListRow.Group(s!!)
-        if (s in open) members.sortedWith(compareBy({ ReleaseOrder.rank(s, it.title) }, { it.title.lowercase() })).forEach { out += ListRow.Item(it, true) }
+/** Name of the tab that holds every game that is not part of a series. */
+private const val OTHER_TAB = "Other"
+
+/** Tabs: series with the most games first (ties by name; PS2 always counts as one), then OTHER with every game that is not part of one. */
+private fun categoriesOf(games: List<com.noryan.nebulos.data.GameEntity>): List<Category> {
+    val groups = games.groupBy { headingOf(it) }.filter { it.key != null && (it.value.size >= 2 || it.key == PS2_HEADING) }
+    val out = groups.entries.sortedWith(compareBy({ -it.value.size }, { it.key!!.lowercase() })).map { (s, members) ->
+        Category(s!!, members.sortedWith(compareBy({ if (s == PS2_HEADING) 0 else ReleaseOrder.rank(s, it.title) }, { it.title.lowercase() })).map { ListRow(it, true) })
     }
-    games.filter { g -> seriesOf(g.title)?.let { it in groups.keys.filterNotNull() } != true }.forEach { out += ListRow.Item(it, false) }
-    return out
+    val rest = games.filter { g -> headingOf(g)?.let { it in groups.keys } != true }
+    return if (rest.isEmpty()) out else out + Category(OTHER_TAB, rest.map { ListRow(it, false) })
 }
 
 /** The game list: the whole library ([collectionId] == null) or one collection's games. Same rows; A / tap opens the launch panel. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun GameList(vm: MainViewModel, collectionId: Long?) {
+    val catStep by vm.catStep.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
     val all by vm.games.collectAsStateWithLifecycle()
     val members by vm.members.collectAsStateWithLifecycle()
@@ -342,9 +324,21 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
     BackHandler(enabled = launchFor != null || expanded != null) { launchFor = null; expanded = null; addOpen = null; coreOpen = null }
     val games = if (collectionId == null) all else CollectionRules.gamesOf(all, members[collectionId].orEmpty())
     val cols = collections.orEmpty()
-    // Games of one series (see [seriesOf]) fold into one heading, closed until the user opens it.
-    var groupsOpen by remember(collectionId) { mutableStateOf(setOf<String>()) }
-    val rows = remember(games, groupsOpen) { listRows(games, groupsOpen) }
+    // Series (see [seriesOf]) are tabs across the top; the selected tab's games are listed under them. Fewer than two tabs = a plain list.
+    val cats = remember(games) { categoriesOf(games) }
+    var catSel by remember(collectionId) { mutableStateOf<String?>(null) }
+    val cat = cats.firstOrNull { it.name == catSel } ?: cats.firstOrNull()
+    val rows = cat?.rows.orEmpty()
+    // Shoulder buttons step the selected tab (stops at the ends). A press that happened before this list appeared is ignored.
+    val stepSeen = remember { intArrayOf(catStep.second) }
+    LaunchedEffect(catStep) {
+        if (catStep.second == stepSeen[0]) return@LaunchedEffect
+        stepSeen[0] = catStep.second
+        val i = cats.indexOfFirst { it === cat }
+        if (i < 0) return@LaunchedEffect
+        val to = (i + catStep.first).coerceIn(0, cats.lastIndex)
+        if (to != i) { launchFor = null; expanded = null; addOpen = null; coreOpen = null; catSel = cats[to].name }
+    }
     if (collectionId == null && games.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(if (scanning) "SCANNING..." else "NO GAMES FOUND\nPress X to open SETTINGS and check the ROM folder.", textAlign = TextAlign.Center,
@@ -352,20 +346,23 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
         }
         return
     }
+    Column(Modifier.fillMaxSize()) {
+    if (cats.size > 1) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        cats.forEach { c ->
+            TabButton(c.label, selected = c === cat, modifier = Modifier.widthIn(min = 70.dp, max = 220.dp)) {
+                launchFor = null; expanded = null; addOpen = null; coreOpen = null; catSel = c.name
+            }
+        }
+    }
     // Pull the list down (touch) to rescan the ROM folder; the spinner shows while the scan runs.
-    PullToRefreshBox(isRefreshing = scanning, onRefresh = { vm.rescan() }, modifier = Modifier.fillMaxSize()) {
+    PullToRefreshBox(isRefreshing = scanning, onRefresh = { vm.rescan() }, modifier = Modifier.weight(1f).fillMaxWidth()) {
     LazyColumn(Modifier.fillMaxSize()) {
         if (launching) item { Text("PREPARING ROM...", Modifier.padding(16.dp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium) }
         if (collectionId != null && games.isEmpty()) item(key = "empty") {
             FocusLine("NO GAMES - PRESS A TO EDIT", dim = true, onClick = { vm.editCollection(collectionId) })
         }
-        items(rows, key = { if (it is ListRow.Group) "group:${it.name}" else (it as ListRow.Item).g.id }) { row ->
-            if (row is ListRow.Group) {
-                // Heading only shows the name; A / tap folds the group open or shut.
-                FocusLine(row.name, onClick = { groupsOpen = if (row.name in groupsOpen) groupsOpen - row.name else groupsOpen + row.name })
-                return@items
-            }
-            val g = (row as ListRow.Item).g
+        items(rows, key = { it.g.id }) { row ->
+            val g = row.g
             val sys = sysOf(g)
             val core = remember(g, tick, all.size, g.coreOverride) { vm.coreFor(g) }
             // Opens the launch panel under the game (a game with no core just launches, which explains why it can't).
@@ -377,13 +374,12 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
             }
             Column {
                 FocusLine(
-                    (if (g.favorite) "* " else "") + (if (row.grouped) titleInSeries(g.title) else g.title) + if (core == null) " (NO CORE)" else "",
+                    (if (g.favorite) "* " else "") + (if (row.grouped && g.system != "PS2") titleInSeries(g.title) else g.title) + if (core == null) " (NO CORE)" else "",
                     Modifier.onPreviewKeyEvent { e ->
                         // A acts on key up, like a tap; the press itself is consumed so the line does not also see it as a click.
                         if (e.key == Key.ButtonA) { if (e.type == KeyEventType.KeyUp) open(); true } else false
                     },
                     dim = core == null,
-                    indent = if (row.grouped) 24.dp else 0.dp,
                     onClick = open
                 )
                 if (launchFor == g.id) {
@@ -435,6 +431,7 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
                 }
             }
         }
+    }
     }
     }
 }
@@ -492,15 +489,15 @@ private fun SettingsTab(vm: MainViewModel, pickRom: () -> Unit, pickBios: () -> 
     var open by remember { mutableStateOf<String?>(null) }
     fun toggle(k: String) { open = if (open == k) null else k }
     val allFiles by rememberAllFilesGranted()
-    // Menu-style buttons in one narrow, centered column (like the in-game menu). A row that is open grows into ONE bordered
-    // box: its current value as the header, its options and notes inside.
-    CompositionLocalProvider(LocalButtonLook provides 1) {
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-    val side = ((maxWidth - 400.dp) / 2).coerceAtLeast(12.dp)
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = side, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val apps = remember { launchableApps(ctx) }   // re-read each time Settings opens
+    // A plain list: each setting's name on the left, its value on the right. A row that is open folds its options down under it, indented.
+    Box(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
         item {
-            SettingRow("ROM FOLDER", romDir?.substringAfterLast('/') ?: "-", open == "folder", { toggle("folder") }) {
-                Note(romDir ?: "No folder chosen")
+            Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { AppIconRow(apps) { launchApp(ctx, it) } }
+        }
+        item {
+            SettingRow("ROM FOLDER", romDir?.let(::friendlyPath) ?: "NONE CHOSEN", open == "folder", { toggle("folder") }) {
                 FocusLine("SEARCH AGAIN", right = "AUTO-FIND") { vm.startRomSearch() }
                 FocusLine("PICK FOLDER...") { pickRom() }
                 FocusLine("RESCAN NOW", right = status.ifEmpty { null }) { vm.rescan() }
@@ -509,8 +506,8 @@ private fun SettingsTab(vm: MainViewModel, pickRom: () -> Unit, pickBios: () -> 
             }
         }
         item {
-            SettingRow("BIOS FOLDER", biosDir?.substringAfterLast('/') ?: "NONE   OPTIONAL", open == "bios", { toggle("bios") }) {
-                Note(biosDir ?: "No BIOS folder chosen. Games that need one will say so.")
+            SettingRow("BIOS FOLDER", biosDir?.let(::friendlyPath) ?: "NONE (OPTIONAL)", open == "bios", { toggle("bios") }) {
+                if (biosDir == null) Note("No BIOS folder chosen. Games that need one will say so.")
                 FocusLine("SEARCH AGAIN", right = "AUTO-FIND") { vm.searchBios(first = false) }
                 FocusLine("PICK FOLDER...") { pickBios() }
                 if (biosDir != null) FocusLine("IMPORT NOW") { vm.runBiosImport() }
@@ -520,11 +517,9 @@ private fun SettingsTab(vm: MainViewModel, pickRom: () -> Unit, pickBios: () -> 
             }
         }
         item {
-            val saveName = if (saveWarning != null) "APP STORAGE (WARNING)" else saveInfo?.path?.substringAfterLast('/') ?: "-"
-            val saveSize = saveInfo?.let { com.noryan.nebulos.api.save.SaveRoot.sizeLabel(it.bytes) }
-            SettingRow("SAVE DATA FOLDER", if (saveSize != null) "$saveName   $saveSize" else saveName, open == "save", { toggle("save") }) {
+            val saveName = if (saveWarning != null) "APP STORAGE (WARNING)" else saveInfo?.path?.let(::friendlyPath) ?: "NOT SET UP YET"
+            SettingRow("SAVE DATA FOLDER", saveName, open == "save", { toggle("save") }) {
                 if (saveWarning != null) Note("WARNING: $saveWarning")
-                Note(saveInfo?.path ?: "Not set up yet")
                 saveInfo?.let { i -> Note("${i.dataFiles}${if (i.capped) "+" else ""} save files, ${com.noryan.nebulos.api.save.SaveRoot.sizeLabel(i.bytes)}, last changed ${saveDate(i.lastModified)}") }
                 FocusLine("SEARCH AGAIN", right = "AUTO-FIND") { vm.searchSaveAgain() }
                 FocusLine("PICK FOLDER...") { pickSave() }
@@ -536,33 +531,10 @@ private fun SettingsTab(vm: MainViewModel, pickRom: () -> Unit, pickBios: () -> 
         if (saveWarning != null && open != "save") item { Note("WARNING: $saveWarning") }
         item {
             val isHome by rememberIsHomeApp()
-            FocusLine("HOME SCREEN", right = if (isHome) "NEBULOS" else "OFF   OPEN TO CHANGE", onClick = { openHomeAppSettings(ctx) })
+            FocusLine("NEBULOS LAUNCHER", right = if (isHome) "YES" else "NO", onClick = { openHomeAppSettings(ctx) })
         }
-        item { Note("Make Nebulos the launcher: choose it as the Home app, and the Home button brings you back here.") }
         item { Section("ABOUT") }
         item { Note("Nebulos ${BuildConfig.VERSION_NAME} - GPLv3. Embedded emulator cores keep their own licenses.") }
-    }
-    }
-    }
-}
-
-/** Every installed app that has a launcher icon (X on the home screen), so Nebulos still works as the device's home screen. */
-@Composable
-private fun AppsScreen() {
-    val ctx = LocalContext.current
-    val apps = remember { launchableApps(ctx) }   // re-read each time the list opens
-    val first = remember { androidx.compose.ui.focus.FocusRequester() }
-    LaunchedEffect(Unit) { kotlinx.coroutines.delay(50); runCatching { first.requestFocus() } }
-    CompositionLocalProvider(LocalButtonLook provides 1) {
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-    val side = ((maxWidth - 400.dp) / 2).coerceAtLeast(12.dp)
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = side, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item { Section("APPS (${apps.size})") }
-        if (apps.isEmpty()) item { Note("No other apps found.") }
-        itemsIndexed(apps, key = { _, a -> a.component.flattenToString() }) { i, a ->
-            FocusLine(a.label, if (i == 0) Modifier.focusRequester(first) else Modifier, onClick = { launchApp(ctx, a) })
-        }
-    }
     }
     }
 }
@@ -573,13 +545,28 @@ private fun AppsScreen() {
  */
 @Composable
 private fun SettingRow(label: String, value: String?, expanded: Boolean, onToggle: () -> Unit, dim: Boolean = false, children: @Composable () -> Unit) {
-    if (!expanded) OptionButton(label, sub = value, dim = dim, onAlt = onToggle, onClick = onToggle)
-    else ExpandBox(header = { OptionButton(label, sub = value, selected = true, flat = true, dim = dim, onAlt = onToggle, onClick = onToggle) }) {
-        CompositionLocalProvider(LocalButtonLook provides 2) { children() }
-    }
+    FocusLine(label, right = value, marked = expanded, dim = dim, onAlt = onToggle, onClick = onToggle)
+    if (expanded) CompositionLocalProvider(LocalListIndent provides 28.dp) { Column { children() } }
 }
 
-private class LaunchableApp(val label: String, val component: android.content.ComponentName)
+private class LaunchableApp(val label: String, val component: android.content.ComponentName, val icon: android.graphics.drawable.Drawable)
+
+/** The device's apps as a row of icons (scrolls sideways); controller focus shows as an orange border. */
+@Composable
+private fun AppIconRow(apps: List<LaunchableApp>, onLaunch: (LaunchableApp) -> Unit) {
+    if (apps.isEmpty()) return
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+    androidx.compose.foundation.lazy.LazyRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
+        items(apps, key = { it.component.flattenToString() }) { a ->
+            val src = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+            val focused by src.collectIsFocusedAsState()
+            val bitmap = remember(a) { a.icon.toBitmap(128, 128).asImageBitmap() }
+            Image(bitmap, a.label, Modifier.size(56.dp).clip(shape)
+                .border(androidx.compose.foundation.BorderStroke(if (focused) 3.dp else 2.dp, if (focused) androidx.compose.ui.graphics.Color(0xFFFF6B4A) else androidx.compose.ui.graphics.Color(0xFF2A2A31)), shape)
+                .clickable(interactionSource = src, indication = null) { onLaunch(a) }.padding(4.dp))
+        }
+    }
+}
 
 /** Launcher-visible apps other than Nebulos, A-Z. Needs the LAUNCHER <queries> entry in the manifest (Android 11+ package visibility). */
 private fun launchableApps(ctx: android.content.Context): List<LaunchableApp> {
@@ -587,7 +574,7 @@ private fun launchableApps(ctx: android.content.Context): List<LaunchableApp> {
     val main = android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_LAUNCHER)
     return pm.queryIntentActivities(main, 0)
         .filter { it.activityInfo.packageName != ctx.packageName }
-        .map { LaunchableApp(it.loadLabel(pm).toString(), android.content.ComponentName(it.activityInfo.packageName, it.activityInfo.name)) }
+        .map { LaunchableApp(it.loadLabel(pm).toString(), android.content.ComponentName(it.activityInfo.packageName, it.activityInfo.name), it.loadIcon(pm)) }
         .sortedBy { it.label.lowercase() }
 }
 
@@ -600,14 +587,26 @@ private fun launchApp(ctx: android.content.Context, a: LaunchableApp) {
 
 @Composable
 internal fun Section(t: String) {
-    val centered = LocalButtonLook.current > 0
-    Text(t, if (centered) Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 2.dp) else Modifier.padding(start = 16.dp, top = 14.dp, bottom = 2.dp),
-        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, textAlign = if (centered) TextAlign.Center else TextAlign.Start)
+    Text(t, Modifier.padding(start = 16.dp, top = 14.dp, bottom = 2.dp),
+        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
 }
 
 @Composable
 internal fun Note(t: String) {
-    val centered = LocalButtonLook.current > 0
-    Text(t, if (centered) Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp) else Modifier.padding(start = 44.dp, end = 16.dp, top = 2.dp, bottom = 6.dp),
-        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = if (centered) TextAlign.Center else TextAlign.Start)
+    Text(t, Modifier.padding(start = 16.dp + LocalListIndent.current, end = 16.dp, top = 2.dp, bottom = 6.dp),
+        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/**
+ * A folder path for people: `/storage/emulated/0/_ROMS` -> `Internal Storage/_ROMS`, `/storage/6ADF-AE4E/_ROMS/x` -> `SD Card/_ROMS/x`.
+ * Every folder of the real path is kept; only the volume part is renamed. Anything else keeps its own path, split the same way.
+ */
+internal fun friendlyPath(path: String): String {
+    val parts = path.trim('/').split('/').filter { it.isNotEmpty() }
+    if (parts.firstOrNull() == "storage" && parts.size >= 2) {
+        return if (parts[1] == "emulated") (listOf("Internal Storage") + parts.drop(3)).joinToString("/")
+        else (listOf("SD Card") + parts.drop(2)).joinToString("/")
+    }
+    if (parts.firstOrNull() == "sdcard") return (listOf("Internal Storage") + parts.drop(1)).joinToString("/")
+    return parts.joinToString("/").ifEmpty { "/" }
 }

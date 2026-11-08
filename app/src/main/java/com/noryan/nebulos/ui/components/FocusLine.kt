@@ -39,11 +39,8 @@ fun FocusLine(
     onAlt: (() -> Unit)? = null,
     onClick: () -> Unit
 ) {
-    val look = LocalButtonLook.current
-    if (look > 0) {
-        OptionButton(text, selected = marked, small = look >= 2, flat = look >= 2, sub = right, dim = dim, onAlt = onAlt, onClick = onClick)
-        return
-    }
+    val nested = LocalListIndent.current
+    val style = if (nested > 0.dp) MaterialTheme.typography.titleSmall else style   // options under an open row read smaller
     val src = remember { MutableInteractionSource() }
     val focused by src.collectIsFocusedAsState()
     val base = if (dim) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f) else MaterialTheme.colorScheme.onSurface
@@ -60,7 +57,7 @@ fun FocusLine(
                     (e.key == Key.ButtonX || e.key == Key.ButtonY || e.key == Key.Menu)) { onAlt(); true } else false
             }
             .combinedClickable(interactionSource = src, indication = null, onClick = onClick, onLongClick = onAlt)
-            .padding(start = 16.dp + indent, end = 16.dp, top = 4.dp, bottom = 4.dp),
+            .padding(start = 16.dp + indent + nested, end = 16.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = if (center) Arrangement.Center else Arrangement.Start
     ) {
@@ -68,7 +65,8 @@ fun FocusLine(
             textAlign = if (center) TextAlign.Center else TextAlign.Start, modifier = if (center) Modifier else Modifier.weight(1f))
         if (right != null) {
             Spacer(Modifier.width(12.dp))
-            Text(right, style = style, color = c2, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End)
+            // The value: right-aligned in the right ~60% of the line, wrapping to a few lines for a full folder path.
+            Text(right, Modifier.fillMaxWidth(0.62f), style = style, color = c2, maxLines = 3, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End)
         }
     }
 }

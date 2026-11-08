@@ -40,7 +40,7 @@ sealed interface Setup {
     data class Choose(val kind: FolderSearch.Kind, val candidates: List<FolderSearch.Candidate>, val cancellable: Boolean) : Setup
     /** Nothing found for [kind]: offer the folder picker (ROMs only; a missing BIOS folder is skipped silently). */
     data class NotFound(val kind: FolderSearch.Kind, val cancellable: Boolean) : Setup
-    /** Several `_nebulos-save-data` folders were found: pick one. [cancellable] = a folder is already in use (keep it). */
+    /** Several `_Nebulos` folders were found: pick one. [cancellable] = a folder is already in use (keep it). */
     data class ChooseSave(val candidates: List<SaveDiscovery.Candidate>, val cancellable: Boolean) : Setup
     data object Ready : Setup
 }
@@ -65,8 +65,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val selectedTab = MutableStateFlow(prefs.selectedTab)
     /** The Settings screen replaces the games area while true. */
     val settingsOpen = MutableStateFlow(false)
+    /** Shoulder-button presses for the game list's category tabs: (direction -1/+1, press count). The count keeps repeated presses distinct. */
+    val catStep = MutableStateFlow(0 to 0)
+    fun stepCategory(dir: Int) { catStep.value = dir to catStep.value.second + 1 }
     /** The device's launcher apps list (X on the home screen). */
-    val appsOpen = MutableStateFlow(false)
     /** The NEW COLLECTION / EDIT GAMES screen; null = closed. */
     val editor = MutableStateFlow<CollectionEditor?>(null)
     val accessGranted = MutableStateFlow(Environment.isExternalStorageManager())
@@ -288,8 +290,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun useSaveRoot(path: String) {
         val ctx: Context = getApplication()
-        val ok = withContext(Dispatchers.IO) { SaveRoot.set(ctx, File(path)) }
-        if (!ok) { useFallbackRoot("Could not use $path - using app storage"); return }
+        val dir = withContext(Dispatchers.IO) { SaveDiscovery.upgradeLegacyName(File(path)) }   // `_nebulos-save-data` -> `_Nebulos`
+        val ok = withContext(Dispatchers.IO) { SaveRoot.set(ctx, dir) }
+        if (!ok) { useFallbackRoot("Could not use ${dir.path} - using app storage"); return }
         saveWarning.value = null
         saveResolved = true
         refreshSaveInfo()
@@ -392,14 +395,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // ---- collections ----
     fun selectTab(id: Long) { selectedTab.value = id; prefs.selectedTab = id; settingsOpen.value = false }
     fun toggleSettings() { settingsOpen.value = !settingsOpen.value }
-    /** B (Back): show/hide the apps list, only from the plain home screen (not over Settings or the collection editor). */
-    fun toggleApps(): Boolean {
-        if (settingsOpen.value || editor.value != null) return false
-        appsOpen.value = !appsOpen.value
-        return true
-    }
     /** The Home button while Nebulos is the home app: back to the games list. */
-    fun showHome() { settingsOpen.value = false; appsOpen.value = false; editor.value = null }
+    fun showHome() { settingsOpen.value = false; editor.value = null }
 
     private fun names(except: Long? = null) = collections.value.orEmpty().filter { it.id != except }.map { it.name }
 
