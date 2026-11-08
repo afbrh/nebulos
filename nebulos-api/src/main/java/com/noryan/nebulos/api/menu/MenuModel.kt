@@ -52,6 +52,8 @@ class MenuModel(
     var notice: (String) -> Unit = {},
     val slots: Int = CoreSessionBase.SLOTS,
 ) {
+    /** Called (main thread) after the quick slot was written from the menu, so the host can tell the home screen a state exists. */
+    var onQuickSaved: (() -> Unit)? = null
     var isOpen by mutableStateOf(false); private set
     var expanded by mutableStateOf<MenuAction?>(null); private set
     var cursor by mutableStateOf(0); private set
@@ -259,6 +261,7 @@ class MenuModel(
             main.post {
                 revision++; if (saving) refreshUndo()
                 if (saving) {
+                    if (ok && slot == com.noryan.nebulos.api.NebulosCoreHost.QUICK_SLOT) onQuickSaved?.invoke()
                     if (!isOpen && wasPausedByUs) { wasPausedByUs = false; session.resume() }
                     notice(if (ok) "State saved" else "Save failed")
                 } else if (ok) close()

@@ -67,6 +67,7 @@ object NebulosCoreHost {
             menu.model.onFastForward = { setFastForward(!fastForwarding) }
             menu.model.isFastForwarding = { fastForwarding }
             menu.model.notice = { toast(it) }
+            menu.model.onQuickSaved = { noteQuickState(true) }
             ui.attachTopLayer()
             ui.onErrorShown = {
                 if (menu.isOpen) menu.model.close()
@@ -118,7 +119,9 @@ object NebulosCoreHost {
             val fresh = activity.intent?.getBooleanExtra(EXTRA_FRESH_START, false) == true   // home screen: "launch without loading save"
             if (resuming || fresh || !statesWork || (session as? NativeBootState)?.bootedIntoState == true) return false
             val slots = session as? StateSlotProvider ?: return false
-            if (!runCatching { slots.slotInfo(QUICK_SLOT).exists }.getOrDefault(false)) return false
+            val hasState = runCatching { slots.slotInfo(QUICK_SLOT).exists }.getOrDefault(false)
+            noteQuickState(hasState)
+            if (!hasState) return false
             autoLoading = true
             worker.execute {
                 // The load itself runs on its own thread and is waited for with a time limit: a state load that never returns (seen with
@@ -183,6 +186,7 @@ object NebulosCoreHost {
                 MenuAction.CLOSE_GAME -> session.close()
                 MenuAction.SAVE_STATE -> worker.execute {
                     val ok = runCatching { session.saveStateKeepingUndo(QUICK_SLOT) }.getOrDefault(false)
+                    if (ok) noteQuickState(true)
                     toast(if (ok) "State saved" else "Save failed")
                 }
                 MenuAction.LOAD_STATE -> worker.execute {
@@ -191,6 +195,15 @@ object NebulosCoreHost {
                 }
                 else -> {}
             }
+        }
+
+        /** Leaves the home screen a note (see [QuickState]) of whether this game has a state to resume. */
+        private fun noteQuickState(on: Boolean) {
+            val x = activity.intent ?: return
+            val core = x.getStringExtra(com.noryan.nebulos.api.crash.NebulosCrashGuard.EXTRA_CORE) ?: return
+            val key = x.getStringExtra(com.noryan.nebulos.api.save.SaveRoot.EXTRA_GAME_KEY) ?: return
+            val root = com.noryan.nebulos.api.save.SaveRoot.current(activity)
+            com.noryan.nebulos.api.save.QuickState.note(root, core, key, on)
         }
 
         private fun toast(msg: String) = ui.notice(msg)

@@ -113,7 +113,7 @@ data class SubCore(
     val license: String,
 )
 
-/** Intent extra (Boolean): launch the game fresh, without auto-loading the Save State slot. Set by the home screen's hold-A prompt. */
+/** Intent extra (Boolean): launch the game fresh, without auto-loading the Save State slot. Set by the home screen's START GAME when the game has a save state. */
 const val EXTRA_FRESH_START = "nebulos.fresh_start"
 
 /** [subCoreId]: a [SubCore.id] of the descriptor to run, or null = the descriptor's own choice for this ROM. */

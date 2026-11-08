@@ -249,7 +249,7 @@ private fun MainScreen(vm: MainViewModel, pickRom: () -> Unit, pickBios: () -> U
             // Top right: the keys for this screen as a right-aligned list, label then coloured button letter.
             // Each hint is also a touch button: B = Apps / Back, X = Settings.
             Column(Modifier.width(IntrinsicSize.Max).widthIn(min = 150.dp).padding(top = 10.dp, end = 16.dp, start = 8.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                val keyHint = when { editor != null -> "A TOGGLE    B CANCEL"; settingsOpen || appsOpen -> "A SELECT    B BACK"; else -> "A SELECT    B APPS    X SETTINGS    Y GAME OPTIONS" }
+                val keyHint = when { editor != null -> "A TOGGLE    B CANCEL"; settingsOpen || appsOpen -> "A SELECT    B BACK"; else -> "A SELECT    B APPS    X SETTINGS" }
                 keyHint.split("    ").forEach { part ->
                     val tap: (() -> Unit)? = when {
                         editor != null -> null
@@ -318,7 +318,7 @@ private fun listRows(games: List<com.noryan.nebulos.data.GameEntity>, open: Set<
     return out
 }
 
-/** The game list: the whole library ([collectionId] == null) or one collection's games. Same rows, launch and X options. */
+/** The game list: the whole library ([collectionId] == null) or one collection's games. Same rows; A / tap opens the launch panel. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun GameList(vm: MainViewModel, collectionId: Long?) {
@@ -334,10 +334,12 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
     LaunchedEffect(expanded) { if (expanded != null) runCatching { optFocus.requestFocus() } }
     var addOpen by remember(collectionId) { mutableStateOf<Long?>(null) }
     var coreOpen by remember(collectionId) { mutableStateOf<Long?>(null) }
-    var freshFor by remember(collectionId) { mutableStateOf<Long?>(null) }   // hold A on a game: "Launch without loading save?"
-    val freshFocus = remember { androidx.compose.ui.focus.FocusRequester() }
-    LaunchedEffect(freshFor) { if (freshFor != null) runCatching { freshFocus.requestFocus() } }
-    BackHandler(enabled = freshFor != null) { freshFor = null }
+    // A / tap on a game opens its launch panel (RESUME GAME when it has a save state, START GAME, GAME OPTIONS) instead of launching at once.
+    var launchFor by remember(collectionId) { mutableStateOf<Long?>(null) }
+    var launchResume by remember(collectionId) { mutableStateOf(false) }
+    val launchFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(launchFor) { if (launchFor != null) runCatching { launchFocus.requestFocus() } }
+    BackHandler(enabled = launchFor != null || expanded != null) { launchFor = null; expanded = null; addOpen = null; coreOpen = null }
     val games = if (collectionId == null) all else CollectionRules.gamesOf(all, members[collectionId].orEmpty())
     val cols = collections.orEmpty()
     // Games of one series (see [seriesOf]) fold into one heading, closed until the user opens it.
@@ -366,37 +368,31 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
             val g = (row as ListRow.Item).g
             val sys = sysOf(g)
             val core = remember(g, tick, all.size, g.coreOverride) { vm.coreFor(g) }
-            val holdFired = remember { booleanArrayOf(false) }
+            // Opens the launch panel under the game (a game with no core just launches, which explains why it can't).
+            val open = {
+                addOpen = null; coreOpen = null
+                if (launchFor == g.id) launchFor = null
+                else if (core == null) { launchFor = null; expanded = null; vm.launch(ctx, g) }
+                else { expanded = null; launchResume = vm.hasSaveState(ctx, g); launchFor = g.id }
+            }
             Column {
-                // A / tap launches the game; Y opens its options (Game Options).
                 FocusLine(
                     (if (g.favorite) "* " else "") + (if (row.grouped) titleInSeries(g.title) else g.title) + if (core == null) " (NO CORE)" else "",
                     Modifier.onPreviewKeyEvent { e ->
-                        // A: tap = launch (as before); hold (~0.6 s) = ask "Launch without loading save?" instead.
-                        if (e.key == Key.ButtonA) {
-                            val ne = e.nativeKeyEvent
-                            if (e.type == KeyEventType.KeyDown) {
-                                if (ne.repeatCount == 0) holdFired[0] = false
-                                else if (!holdFired[0] && ne.eventTime - ne.downTime >= 600) { holdFired[0] = true; expanded = null; addOpen = null; coreOpen = null; freshFor = g.id }
-                            } else if (e.type == KeyEventType.KeyUp) {
-                                if (!holdFired[0]) { expanded = null; addOpen = null; coreOpen = null; freshFor = null; vm.launch(ctx, g) }
-                                holdFired[0] = false
-                            }
-                            true
-                        } else false
-                    }.onKeyEvent { e ->
-                        if (e.type == KeyEventType.KeyUp && e.key == Key.ButtonY) { expanded = if (expanded == g.id) null else g.id; addOpen = null; coreOpen = null; freshFor = null; true } else false
+                        // A acts on key up, like a tap; the press itself is consumed so the line does not also see it as a click.
+                        if (e.key == Key.ButtonA) { if (e.type == KeyEventType.KeyUp) open(); true } else false
                     },
                     dim = core == null,
                     indent = if (row.grouped) 24.dp else 0.dp,
-                    onClick = { expanded = null; addOpen = null; coreOpen = null; vm.launch(ctx, g) }
+                    onClick = open
                 )
-                if (freshFor == g.id) {
+                if (launchFor == g.id) {
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopStart) {
                         Column(Modifier.padding(start = 16.dp, top = 4.dp, bottom = 10.dp).widthIn(max = 296.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("LAUNCH WITHOUT LOADING SAVE?", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            OptionButton("YES, START FRESH", Modifier.focusRequester(freshFocus)) { freshFor = null; vm.launch(ctx, g, fresh = true) }
-                            OptionButton("NO") { freshFor = null }
+                            // The first button is the one that continues: RESUME GAME with a save state, else START GAME.
+                            if (launchResume) OptionButton("RESUME GAME", Modifier.focusRequester(launchFocus)) { launchFor = null; vm.launch(ctx, g) }
+                            OptionButton("START GAME", if (launchResume) Modifier else Modifier.focusRequester(launchFocus)) { launchFor = null; vm.launch(ctx, g, fresh = launchResume) }
+                            OptionButton("GAME OPTIONS") { launchFor = null; expanded = g.id }
                         }
                     }
                 }

@@ -459,6 +459,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun coreFor(g: GameEntity): CoreChoice? = CoreRouter.choose(g, prefs)
 
+    /** True when [g] has a Save State to resume with the core it would launch on (checked just before the launch panel opens). */
+    fun hasSaveState(ctx: Context, g: GameEntity): Boolean {
+        val core = coreFor(g)?.core ?: return false
+        return runCatching {
+            com.noryan.nebulos.api.save.QuickState.exists(SaveRoot.current(ctx), core.id, SaveRoot.gameKey(ctx, g.realPath ?: g.uri))
+        }.getOrDefault(false)
+    }
+
     fun launch(ctx: Context, g: GameEntity, resume: Boolean = false, fresh: Boolean = false) {
         if (launching.value) return
         val choice = coreFor(g)
