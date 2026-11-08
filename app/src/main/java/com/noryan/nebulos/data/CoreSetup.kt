@@ -77,7 +77,7 @@ object CoreSetup {
  */
 object GameSpecificCores {
     private val TP_GC_IDS = setOf("GZ2E01", "GZ2P01", "GZ2J01")
-    private val WWHD_TITLE = Regex("wind\\s*waker\\s*hd", RegexOption.IGNORE_CASE)
+    private val WWHD_TITLE = Regex("wind\\s*waker", RegexOption.IGNORE_CASE)   // only reached for Wii U games (candidates are per system), where it is always the HD version
     private val OOT_TITLE = Regex("ocarina\\s*of\\s*time", RegexOption.IGNORE_CASE)
     private val MM_TITLE = Regex("majora", RegexOption.IGNORE_CASE)
 

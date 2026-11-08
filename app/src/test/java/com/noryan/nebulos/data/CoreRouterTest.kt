@@ -93,6 +93,8 @@ class CoreRouterTest {
         val c = CoreRouter.candidates(System.WIIU, wiiu)
         assertEquals("wwhd", CoreRouter.autoChoice(System.WIIU, "The Legend of Zelda: The Wind Waker HD", c)!!.id)
         assertEquals("cemu", CoreRouter.autoChoice(System.WIIU, "Mario Kart 8", c)!!.id)
+        // a .wua renamed without "HD" is still the only Wind Waker on Wii U (it lost its 60 fps core and its save when named this way)
+        assertEquals("wwhd", CoreRouter.autoChoice(System.WIIU, "The Legend of Zelda - The Wind Waker", c)!!.id)
         assertEquals(listOf("cemu", "wwhd"), CoreRouter.candidatesFor(System.WIIU, null, wiiu, "Zelda - Wind Waker HD").map { it.id })
         assertEquals(listOf("cemu"), CoreRouter.candidatesFor(System.WIIU, null, wiiu, "Mario Kart 8").map { it.id })
         // per-game override to Cemu wins for Wind Waker HD; a stale wwhd override on another game falls back

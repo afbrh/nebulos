@@ -32,7 +32,7 @@ object WwhdCore : CoreDescriptor {
     const val GAME_TITLE = "The Legend of Zelda: The Wind Waker HD"
     const val STATE_UNAVAILABLE_REASON = "Wind Waker HD could not save a state here."
 
-    private val TITLE = Regex("wind\\s*waker\\s*hd", RegexOption.IGNORE_CASE)
+    private val TITLE = Regex("wind\\s*waker", RegexOption.IGNORE_CASE)   // Wii U only has the HD one, so "The Wind Waker.wua" counts too
 
     /** The `.wua` carries no cheap, readable title ID, so the game is recognised by its (file) name; the core checks the game on launch. */
     fun isWindWakerHdTitle(title: String?): Boolean = title != null && TITLE.containsMatchIn(title)
