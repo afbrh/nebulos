@@ -19,6 +19,10 @@ class ReleaseOrderTest {
         listOf("The Legend of Zelda", "The Legend of Zelda II - The Adventure of Link", "The Legend of Zelda - Ocarina of Time", "The Legend of Zelda - Ocarina of Time 3D", "The Legend of Zelda - Twilight Princess", "The Legend of Zelda - Twilight Princess HD"),
         sorted("The Legend of Zelda", "The Legend of Zelda - Twilight Princess HD", "The Legend of Zelda - Ocarina of Time 3D", "The Legend of Zelda - Twilight Princess", "The Legend of Zelda II - The Adventure of Link", "The Legend of Zelda - Ocarina of Time", "The Legend of Zelda"))
 
+    @Test fun windWakerSitsBetweenFourSwordsAndItsHdRemake() = assertEquals(
+        listOf("The Legend of Zelda - Oracle of Ages", "The Legend of Zelda - The Wind Waker", "The Legend of Zelda - The Wind Waker HD", "The Legend of Zelda - Twilight Princess"),
+        sorted("The Legend of Zelda", "The Legend of Zelda - Twilight Princess", "The Legend of Zelda - The Wind Waker HD", "The Legend of Zelda - The Wind Waker", "The Legend of Zelda - Oracle of Ages"))
+
     @Test fun marioAndOthers() {
         assertEquals(listOf("Super Mario Bros", "Super Mario Bros 3", "Super Mario World 2 - Yoshi's Island", "Super Mario Bros New", "Super Mario Bros New 2", "Super Mario Bros U Deluxe", "Super Mario 3D World + Bowser's Fury", "Super Mario Bros Wonder"),
             sorted("Super Mario", "Super Mario 3D World + Bowser's Fury", "Super Mario Bros U Deluxe", "Super Mario Bros Wonder", "Super Mario Bros New 2", "Super Mario Bros New", "Super Mario World 2 - Yoshi's Island", "Super Mario Bros 3", "Super Mario Bros"))
