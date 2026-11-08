@@ -91,6 +91,9 @@ object BiosImporter {
             }
         }
 
+        // ---- DS / DSi BIOS, firmware and NAND -> WatermelonDS
+        lines += CoreSetup.dsBiosImport(ctx, all).also { if (it.any { l -> "IMPORTED" in l }) changed = true }
+
         // ---- PS1 + other libretro BIOS -> RetroArch system dir
         val sysDir = File(ctx.getExternalFilesDir(null) ?: ctx.filesDir, "retroarch/system")
         val ra = all.filter { isPs1Bios(it) || isRetroBios(it) }

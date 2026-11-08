@@ -50,6 +50,9 @@ object CoreSetup {
 
     // ---- BiosImporter hooks (file level, reflective like the rest) ----
     fun armsx2BiosDir(ctx: Context): java.io.File? = call(armsx2, "biosDir", ctx) as? java.io.File
+    @Suppress("UNCHECKED_CAST")
+    fun dsBiosImport(ctx: Context, files: List<java.io.File>): List<String> =
+        call(obj("com.noryan.nebulos.core.watermelonds.WatermelonDsCore"), "importBios", ctx, files) as? List<String> ?: emptyList()
     fun edenPresent() = eden != null
     fun edenKeysFile(ctx: Context): java.io.File? = call(eden, "keysFile", ctx) as? java.io.File
     fun edenFirmwareDir(ctx: Context): java.io.File? = call(eden, "firmwareDir", ctx) as? java.io.File

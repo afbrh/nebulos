@@ -26,9 +26,9 @@ object SystemDetector {
     /** Extensions that need folder/content hints. */
     /** Compressed/disc containers shared by several systems: each core's sniff() decides (cso: PS2, gz: PS2/GC, ...). */
     val AMBIGUOUS = setOf("iso", "bin", "cue", "chd", "img", "mdf", "ciso", "rvz", "wia", "tgc", "zip", "7z", "dol", "elf", "gdi", "cdi",
-        "cso", "zso", "gz")
+        "cso", "zso", "gz", "cia")   // cia: 3DS, unless it is DSiWare (WatermelonDS sniffs that)
     /** Detector revision: bump to re-detect already-scanned games after a detection change. */
-    const val VERSION = 4
+    const val VERSION = 5
 
     /** (normalised folder name -> system); exact match for short names, `contains` for long ones. */
     private val FOLDER_EXACT: List<Pair<Set<String>, System>> = listOf(
@@ -96,6 +96,14 @@ object SystemDetector {
                 runCatching { c.sniff(path, h) }.getOrNull()?.takeIf { it == System.PS1 || it == System.PS2 }?.let { return it }
             }
             return builtinSniff(h, ext, size, path)?.takeIf { it == System.PS1 || it == System.PS2 }
+        }
+        if (ext == "cia") {   // 3DS, unless the package holds a DSi game (a core's own sniffer says so, whatever folder it sits in)
+            val h = header()
+            if (h != null) for (c in CoreRegistry.all()) {
+                if ("cia" !in c.extensions) continue
+                runCatching { c.sniff(path, h) }.getOrNull()?.let { return it }
+            }
+            return System.N3DS
         }
         fromFolders(folders)?.let { return it }
         val h = header()

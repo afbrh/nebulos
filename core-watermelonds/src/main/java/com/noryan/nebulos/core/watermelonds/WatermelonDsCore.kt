@@ -27,22 +27,37 @@ object WatermelonDsCore : CoreDescriptor {
     override val displayName = "WatermelonDS (Nintendo DS)"
     override val systems = setOf(System.NDS)
     override val version = "WatermelonDS 0.8.0.rc2 (melonDS)"
-    override val extensions = setOf("nds", "dsi", "ids")
+    override val extensions = setOf("nds", "dsi", "ids", "cia")   // cia: only DSiWare ones (sniff), the rest stay 3DS
 
     const val EXTRA_ROM_PATH = "nebulos.romPath"
     const val EXTRA_RESUME = "nebulos.resume"
 
+    /** A `.cia` is a DS game only when it is DSiWare (3DS title ID 00048004-<game code>); everything else is left to the 3DS core. */
+    override fun sniff(path: String, header: ByteArray): System? =
+        if (path.endsWith(".cia", ignoreCase = true) && DsiWareCia.isDsiWare(header)) System.NDS else null
+
+    /** BiosImporter hook (reflective): copies the user's DS/DSi BIOS, firmware and NAND dumps into WatermelonDS' directories. */
+    fun importBios(ctx: Context, files: List<java.io.File>): List<String> = DsiBios.import(ctx, files)
+
     override fun launchIntent(ctx: Context, request: LaunchRequest): Intent {
         WatermelonDsDefaults.applyIfNeeded(ctx)
+        // DSiWare .cia: the game inside is extracted once to a plain .nds, which WatermelonDS boots in DSi mode.
+        var romPath = request.romPath
+        if (romPath.endsWith(".cia", ignoreCase = true)) {
+            val cia = java.io.File(romPath)
+            val out = DsiWareCia.extractedFile(ctx, cia)
+            val err = DsiWareCia.extract(cia, out) ?: DsiWareCia.writeDsiTmd(cia, out, DsiWareCia.tmdDir(ctx))
+            if (err == null) romPath = out.absolutePath else android.util.Log.e("NebulosDsi", "DSiWare extract failed: $err")
+        }
         // The bridge (RomUris.romDocumentFor) is built around plain file paths: prefer a readable real path, and only
         // fall back to the shell's SAF uri when the file is not directly readable.
-        val real = java.io.File(request.romPath)
+        val real = java.io.File(romPath)
         val uri = if (real.isFile && real.canRead()) Uri.fromFile(real)
         else request.romUri?.let { runCatching { Uri.parse(it) }.getOrNull() } ?: Uri.fromFile(real)
         return Intent(ctx, EmulatorActivity::class.java).apply {
             data = uri
             putExtra(NebulosBridge.EXTRA_NEBULOS, true)
-            putExtra(EXTRA_ROM_PATH, request.romPath)
+            putExtra(EXTRA_ROM_PATH, romPath)
             putExtra(EXTRA_RESUME, request.resumeState)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
         }
@@ -83,7 +98,13 @@ internal object WatermelonDsDefaults {
         val saveDir = SaveRoot.coreSubDir(ctx, WatermelonDsCore.id, "saves")
         val saveUri = android.net.Uri.fromFile(saveDir).toString()
         val savesOk = !prefs.getBoolean("use_rom_dir", true) && prefs.getStringSet("sram_dir", null)?.singleOrNull() == saveUri
-        val needs = firstRun || !savesOk ||
+        // DSi mode (DSiWare) reads its BIOS/firmware/NAND from directories of the user's own dumps; set only once they are imported.
+        // DS games keep the built-in BIOS: only a ROM that runs as DSi uses these.
+        val dsUri = android.net.Uri.fromFile(DsiBios.dir(ctx, false)).toString()
+        val dsiUri = android.net.Uri.fromFile(DsiBios.dir(ctx, true)).toString()
+        val biosOk = !DsiBios.dsiReady(ctx) ||
+            (prefs.getStringSet("bios_dir", null)?.singleOrNull() == dsUri && prefs.getStringSet("dsi_bios_dir", null)?.singleOrNull() == dsiUri)
+        val needs = firstRun || !savesOk || !biosOk ||
             prefs.getString("video_renderer", null) != renderer ||
             prefs.getString("video_internal_resolution", null) != RESOLUTION
         if (!needs) return
@@ -93,6 +114,7 @@ internal object WatermelonDsDefaults {
             .putString("video_internal_resolution", RESOLUTION)
             .putBoolean("use_rom_dir", false)
             .putStringSet("sram_dir", setOf(saveUri))
+            .apply { if (DsiBios.dsiReady(ctx)) putStringSet("bios_dir", setOf(dsUri)).putStringSet("dsi_bios_dir", setOf(dsiUri)) }
             .commit() // commit(): the :melonds process reads this file right after launch
         if (firstRun) mark.edit().putBoolean(MARK, true).commit()
     }
