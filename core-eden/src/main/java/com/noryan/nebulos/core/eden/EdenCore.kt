@@ -39,7 +39,9 @@ object EdenCore : CoreDescriptor {
         // EmulationFragment reads the game from the nav-graph argument "game" (populated from intent.extras), NOT from
         // EmulationActivity.EXTRA_SELECTED_GAME. Do not set intent.data: that routes through Eden's own library-scan metadata.
         return Intent(ctx, EmulationActivity::class.java).apply {
-            putExtra("game", Game(title = title, path = path))
+            // The full constructor, not Kotlin default arguments: R8 reshapes Game's synthetic default-argument constructor, and a call
+            // compiled against the unshrunk class then fails with NoSuchMethodError at launch (title, path, programId, developer, version, isHomebrew).
+            putExtra("game", Game(title, path, "", "", "", false))
             putExtra("nebulos.title", title)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
         }

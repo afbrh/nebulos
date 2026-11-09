@@ -1,7 +1,7 @@
 From 86edf53c5f4510f9130dada992097a8d7901fa23 Mon Sep 17 00:00:00 2001
 From: ry <noreply@local>
 Date: Sun, 8 Nov 2026 19:55:09 -0600
-Subject: [PATCH 1/4] Nebulos embedding: library :app,
+Subject: [PATCH 1/7] Nebulos embedding: library :app,
  NebulosBridge/NebulosToast, embedding entry point, save-dir hook, error
  routing, loading hooks; UDP-socket and NSO-bss fixes
 

@@ -28,6 +28,19 @@ app/build.gradle.kts read the same property; `app/src/noWatermelon` supplies a s
 | retroarch-src | libretro/RetroArch 4c61f9fede (2026-09-29, inferred from the old binary) | `core-retroarch/patches`, `patches-rebuilt` | `nebulos_bridge.c` ops 0-6 RECONSTRUCTED from the old binary's disassembly (op 2 omits an OSD message after a state load). JNI symbols match (14/14). |
 | wwhd-src | Nycolazs/WindWakerHD-Android-Plus tag v1.11.1 | `core-wwhd/patches` | One CMake fix for Mac hosts. LLVM 20.1.8 built at `../wwhd-llvm/install`. JNI symbols match (48/48). |
 
+## Things that only showed up when the engines ran together on the device (2026-11-08)
+
+- Several libraries define resources with the same names (layouts, navigation graphs, menus). The merged app keeps one of each, so Eden's
+  18 colliding layouts, 2 navigation graphs and 4 menus are prefixed `eden_` in eden-src (as the old build did). If a new engine
+  is added, check `res/layout`, `res/navigation`, `res/menu` for name clashes first.
+- Eden's library must NOT run R8 on itself (`isMinifyEnabled = false`): its own rules stripped `NebulosBridge` and reshaped `Game`'s
+  constructors. The app's R8 does the shrinking, with the keep rules in `app/proguard-rules.pro`.
+- Do not use Kotlin default arguments when calling an engine class from a Nebulos core (`EdenCore` calls `Game`'s full constructor).
+- Azahar save states are tied to the Azahar build that made them ("Savestate version mismatch" on load): a rebuilt Azahar cannot load
+  states made by the old one. In-game saves are unaffected.
+- On-device test harness: scripts in the session scratchpad drove the Nova with controller key events (R1 switches tab, D-pad down +
+  A opens the launch panel). The Nova must be kept awake (`adb shell svc power stayon true`).
+
 Not an engine: PPSSPP (`ppsspp-src`) has no Nebulos core module; it was not rebuilt.
 
 Nothing here has been run on a device since the rebuild: test every engine on hardware before releasing.

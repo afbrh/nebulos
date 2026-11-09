@@ -1,0 +1,1059 @@
+From e90aefac699f53a0067d2afb94f83348300dfc0d Mon Sep 17 00:00:00 2001
+From: ry <noreply@local>
+Date: Sun, 8 Nov 2026 22:52:16 -0600
+Subject: [PATCH 6/7] Nebulos: prefix Eden's colliding layouts with eden_
+ (Azahar and others define layouts of the same names; the merged app picked
+ the wrong one)
+
+---
+ .../yuzu_emu/activities/EmulationActivity.kt  |  6 ++--
+ .../yuzu/yuzu_emu/adapters/LicenseAdapter.kt  |  6 ++--
+ .../yuzu/yuzu_emu/adapters/SetupAdapter.kt    |  8 ++---
+ .../yuzu/yuzu_emu/dialogs/NetPlayDialog.kt    |  4 +--
+ .../features/settings/ui/SettingsActivity.kt  |  6 ++--
+ .../features/settings/ui/SettingsAdapter.kt   | 36 +++++++++----------
+ .../settings/ui/SettingsDialogFragment.kt     |  6 ++--
+ .../features/settings/ui/SettingsFragment.kt  |  6 ++--
+ .../settings/ui/SettingsSubscreenActivity.kt  |  6 ++--
+ .../ui/viewholder/DateTimeViewHolder.kt       |  4 +--
+ .../ui/viewholder/GpuUnswizzleViewHolder.kt   |  4 +--
+ .../ui/viewholder/HeaderViewHolder.kt         |  4 +--
+ .../ui/viewholder/InputProfileViewHolder.kt   |  4 +--
+ .../ui/viewholder/LaunchableViewHolder.kt     |  4 +--
+ .../settings/ui/viewholder/PathViewHolder.kt  |  4 +--
+ .../ui/viewholder/RunnableViewHolder.kt       |  4 +--
+ .../ui/viewholder/SettingViewHolder.kt        |  8 ++---
+ .../ui/viewholder/SingleChoiceViewHolder.kt   |  4 +--
+ .../ui/viewholder/SliderViewHolder.kt         |  4 +--
+ .../ui/viewholder/SpinBoxViewHolder.kt        |  4 +--
+ .../ui/viewholder/StringInputViewHolder.kt    |  4 +--
+ .../ui/viewholder/SubmenuViewHolder.kt        |  4 +--
+ .../ui/viewholder/SwitchSettingViewHolder.kt  |  4 +--
+ .../yuzu/yuzu_emu/fragments/AboutFragment.kt  |  6 ++--
+ .../fragments/DriverManagerFragment.kt        |  6 ++--
+ .../yuzu_emu/fragments/EmulationFragment.kt   |  6 ++--
+ .../fragments/HomeSettingsFragment.kt         |  6 ++--
+ .../LicenseBottomSheetDialogFragment.kt       |  6 ++--
+ .../yuzu_emu/fragments/LicensesFragment.kt    |  6 ++--
+ .../yuzu/yuzu_emu/fragments/SetupFragment.kt  |  6 ++--
+ ...ment_about.xml => eden_fragment_about.xml} |  0
+ ...ment_setup.xml => eden_fragment_setup.xml} |  0
+ .../{page_setup.xml => eden_page_setup.xml}   |  0
+ ...lation.xml => eden_activity_emulation.xml} |  0
+ ...ettings.xml => eden_activity_settings.xml} |  2 +-
+ ...og_license.xml => eden_dialog_license.xml} |  0
+ ...alog_slider.xml => eden_dialog_slider.xml} |  0
+ ...opdown_item.xml => eden_dropdown_item.xml} |  0
+ ...ment_about.xml => eden_fragment_about.xml} |  0
+ ...r.xml => eden_fragment_driver_manager.xml} |  0
+ ...lation.xml => eden_fragment_emulation.xml} |  2 +-
+ ...gs.xml => eden_fragment_home_settings.xml} |  0
+ ...icenses.xml => eden_fragment_licenses.xml} |  0
+ ...ettings.xml => eden_fragment_settings.xml} |  0
+ ...ment_setup.xml => eden_fragment_setup.xml} |  0
+ ...er_in_game.xml => eden_header_in_game.xml} |  0
+ ...setting.xml => eden_list_item_setting.xml} |  0
+ ....xml => eden_list_item_setting_switch.xml} |  0
+ ...xml => eden_list_item_settings_header.xml} |  0
+ .../{page_button.xml => eden_page_button.xml} |  0
+ .../{page_setup.xml => eden_page_setup.xml}   |  0
+ .../res/navigation/emulation_navigation.xml   |  2 +-
+ 52 files changed, 96 insertions(+), 96 deletions(-)
+ rename src/android/app/src/main/res/layout-w600dp/{fragment_about.xml => eden_fragment_about.xml} (100%)
+ rename src/android/app/src/main/res/layout-w600dp/{fragment_setup.xml => eden_fragment_setup.xml} (100%)
+ rename src/android/app/src/main/res/layout-w600dp/{page_setup.xml => eden_page_setup.xml} (100%)
+ rename src/android/app/src/main/res/layout/{activity_emulation.xml => eden_activity_emulation.xml} (100%)
+ rename src/android/app/src/main/res/layout/{activity_settings.xml => eden_activity_settings.xml} (96%)
+ rename src/android/app/src/main/res/layout/{dialog_license.xml => eden_dialog_license.xml} (100%)
+ rename src/android/app/src/main/res/layout/{dialog_slider.xml => eden_dialog_slider.xml} (100%)
+ rename src/android/app/src/main/res/layout/{dropdown_item.xml => eden_dropdown_item.xml} (100%)
+ rename src/android/app/src/main/res/layout/{fragment_about.xml => eden_fragment_about.xml} (100%)
+ rename src/android/app/src/main/res/layout/{fragment_driver_manager.xml => eden_fragment_driver_manager.xml} (100%)
+ rename src/android/app/src/main/res/layout/{fragment_emulation.xml => eden_fragment_emulation.xml} (99%)
+ rename src/android/app/src/main/res/layout/{fragment_home_settings.xml => eden_fragment_home_settings.xml} (100%)
+ rename src/android/app/src/main/res/layout/{fragment_licenses.xml => eden_fragment_licenses.xml} (100%)
+ rename src/android/app/src/main/res/layout/{fragment_settings.xml => eden_fragment_settings.xml} (100%)
+ rename src/android/app/src/main/res/layout/{fragment_setup.xml => eden_fragment_setup.xml} (100%)
+ rename src/android/app/src/main/res/layout/{header_in_game.xml => eden_header_in_game.xml} (100%)
+ rename src/android/app/src/main/res/layout/{list_item_setting.xml => eden_list_item_setting.xml} (100%)
+ rename src/android/app/src/main/res/layout/{list_item_setting_switch.xml => eden_list_item_setting_switch.xml} (100%)
+ rename src/android/app/src/main/res/layout/{list_item_settings_header.xml => eden_list_item_settings_header.xml} (100%)
+ rename src/android/app/src/main/res/layout/{page_button.xml => eden_page_button.xml} (100%)
+ rename src/android/app/src/main/res/layout/{page_setup.xml => eden_page_setup.xml} (100%)
+
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/activities/EmulationActivity.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/activities/EmulationActivity.kt
+index a7ffdcf76..e621811c9 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/activities/EmulationActivity.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/activities/EmulationActivity.kt
+@@ -48,7 +48,7 @@ import androidx.preference.PreferenceManager
+ import org.yuzu.yuzu_emu.NativeLibrary
+ import org.yuzu.yuzu_emu.R
+ import org.yuzu.yuzu_emu.YuzuApplication
+-import org.yuzu.yuzu_emu.databinding.ActivityEmulationBinding
++import org.yuzu.yuzu_emu.databinding.EdenActivityEmulationBinding
+ import org.yuzu.yuzu_emu.dialogs.NetPlayDialog
+ import org.yuzu.yuzu_emu.features.input.NativeInput
+ import org.yuzu.yuzu_emu.features.settings.model.BooleanSetting
+@@ -70,7 +70,7 @@ import org.yuzu.yuzu_emu.utils.ForegroundService
+ import androidx.core.os.BundleCompat
+ 
+ class EmulationActivity : AppCompatActivity(), SensorEventListener, InputManager.InputDeviceListener {
+-    private lateinit var binding: ActivityEmulationBinding
++    private lateinit var binding: EdenActivityEmulationBinding
+ 
+     var isActivityRecreated = false
+     private lateinit var nfcReader: NfcReader
+@@ -154,7 +154,7 @@ class EmulationActivity : AppCompatActivity(), SensorEventListener, InputManager
+             }
+         }
+ 
+-        binding = ActivityEmulationBinding.inflate(layoutInflater)
++        binding = EdenActivityEmulationBinding.inflate(layoutInflater)
+         setContentView(binding.root)
+ 
+         val launchIntent = Intent(intent)
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/adapters/LicenseAdapter.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/adapters/LicenseAdapter.kt
+index 1379968f9..6a7e97d81 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/adapters/LicenseAdapter.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/adapters/LicenseAdapter.kt
+@@ -6,7 +6,7 @@ package org.yuzu.yuzu_emu.adapters
+ import android.view.LayoutInflater
+ import android.view.ViewGroup
+ import androidx.appcompat.app.AppCompatActivity
+-import org.yuzu.yuzu_emu.databinding.ListItemSettingBinding
++import org.yuzu.yuzu_emu.databinding.EdenListItemSettingBinding
+ import org.yuzu.yuzu_emu.fragments.LicenseBottomSheetDialogFragment
+ import org.yuzu.yuzu_emu.model.License
+ import org.yuzu.yuzu_emu.utils.ViewUtils.setVisible
+@@ -15,11 +15,11 @@ import org.yuzu.yuzu_emu.viewholder.AbstractViewHolder
+ class LicenseAdapter(private val activity: AppCompatActivity, licenses: List<License>) :
+     AbstractListAdapter<License, LicenseAdapter.LicenseViewHolder>(licenses) {
+     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LicenseViewHolder {
+-        ListItemSettingBinding.inflate(LayoutInflater.from(parent.context), parent, false)
++        EdenListItemSettingBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+             .also { return LicenseViewHolder(it) }
+     }
+ 
+-    inner class LicenseViewHolder(val binding: ListItemSettingBinding) :
++    inner class LicenseViewHolder(val binding: EdenListItemSettingBinding) :
+         AbstractViewHolder<License>(binding) {
+         override fun bind(model: License) {
+             binding.apply {
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/adapters/SetupAdapter.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/adapters/SetupAdapter.kt
+index 3057eea3e..60c59a235 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/adapters/SetupAdapter.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/adapters/SetupAdapter.kt
+@@ -12,7 +12,7 @@ import android.view.ViewGroup
+ import androidx.appcompat.app.AppCompatActivity
+ import androidx.core.content.res.ResourcesCompat
+ import com.google.android.material.button.MaterialButton
+-import org.yuzu.yuzu_emu.databinding.PageSetupBinding
++import org.yuzu.yuzu_emu.databinding.EdenPageSetupBinding
+ import org.yuzu.yuzu_emu.model.PageState
+ import org.yuzu.yuzu_emu.model.SetupCallback
+ import org.yuzu.yuzu_emu.model.SetupPage
+@@ -25,11 +25,11 @@ import org.yuzu.yuzu_emu.model.ButtonState
+ class SetupAdapter(val activity: AppCompatActivity, pages: List<SetupPage>) :
+     AbstractListAdapter<SetupPage, SetupAdapter.SetupPageViewHolder>(pages) {
+     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SetupPageViewHolder {
+-        PageSetupBinding.inflate(LayoutInflater.from(parent.context), parent, false)
++        EdenPageSetupBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+             .also { return SetupPageViewHolder(it) }
+     }
+ 
+-    inner class SetupPageViewHolder(val binding: PageSetupBinding) :
++    inner class SetupPageViewHolder(val binding: EdenPageSetupBinding) :
+         AbstractViewHolder<SetupPage>(binding), SetupCallback {
+         override fun bind(model: SetupPage) {
+             if (model.pageSteps.invoke() == PageState.COMPLETE) {
+@@ -40,7 +40,7 @@ class SetupAdapter(val activity: AppCompatActivity, pages: List<SetupPage>) :
+                 for (pageButton in model.pageButtons) {
+                     val pageButtonView = LayoutInflater.from(activity)
+                         .inflate(
+-                            R.layout.page_button,
++                            R.layout.eden_page_button,
+                             binding.pageButtonContainer,
+                             false
+                         ) as MaterialButton
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/dialogs/NetPlayDialog.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/dialogs/NetPlayDialog.kt
+index 55ee33184..53f4ce31f 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/dialogs/NetPlayDialog.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/dialogs/NetPlayDialog.kt
+@@ -465,7 +465,7 @@ class NetPlayDialog(context: Context) : BottomSheetDialog(context) {
+                 setAdapter(
+                     ArrayAdapter(
+                         activity,
+-                        R.layout.dropdown_item,
++                        R.layout.eden_dropdown_item,
+                         gameNameList.map { it[0] }
+                     )
+                 )
+@@ -479,7 +479,7 @@ class NetPlayDialog(context: Context) : BottomSheetDialog(context) {
+                 setAdapter(
+                     ArrayAdapter(
+                         activity,
+-                        R.layout.dropdown_item,
++                        R.layout.eden_dropdown_item,
+                         visibilityList
+                     )
+                 )
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsActivity.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsActivity.kt
+index 4efeda6a5..073a89461 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsActivity.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsActivity.kt
+@@ -24,7 +24,7 @@ import com.google.android.material.color.MaterialColors
+ import org.yuzu.yuzu_emu.NativeLibrary
+ import java.io.IOException
+ import org.yuzu.yuzu_emu.R
+-import org.yuzu.yuzu_emu.databinding.ActivitySettingsBinding
++import org.yuzu.yuzu_emu.databinding.EdenActivitySettingsBinding
+ import org.yuzu.yuzu_emu.features.input.NativeInput
+ import org.yuzu.yuzu_emu.features.settings.utils.SettingsFile
+ import org.yuzu.yuzu_emu.fragments.ResetSettingsDialogFragment
+@@ -32,7 +32,7 @@ import org.yuzu.yuzu_emu.utils.*
+ import org.yuzu.yuzu_emu.utils.collect
+ 
+ class SettingsActivity : AppCompatActivity() {
+-    private lateinit var binding: ActivitySettingsBinding
++    private lateinit var binding: EdenActivitySettingsBinding
+ 
+     private val args by navArgs<SettingsActivityArgs>()
+ 
+@@ -47,7 +47,7 @@ class SettingsActivity : AppCompatActivity() {
+ 
+         super.onCreate(savedInstanceState)
+ 
+-        binding = ActivitySettingsBinding.inflate(layoutInflater)
++        binding = EdenActivitySettingsBinding.inflate(layoutInflater)
+         setContentView(binding.root)
+ 
+         if (!NativeConfig.isPerGameConfigLoaded() && args.game != null) {
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsAdapter.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsAdapter.kt
+index 8d47db94e..6f4baa45c 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsAdapter.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsAdapter.kt
+@@ -22,14 +22,14 @@ import com.google.android.material.timepicker.MaterialTimePicker
+ import com.google.android.material.timepicker.TimeFormat
+ import org.yuzu.yuzu_emu.R
+ import org.yuzu.yuzu_emu.SettingsNavigationDirections
+-import org.yuzu.yuzu_emu.databinding.ListItemSettingBinding
++import org.yuzu.yuzu_emu.databinding.EdenListItemSettingBinding
+ import org.yuzu.yuzu_emu.databinding.ListItemSettingFxButtonBinding
+ import org.yuzu.yuzu_emu.databinding.ListItemSettingFxPresetBinding
+ import org.yuzu.yuzu_emu.databinding.ListItemSettingFxShaderBinding
+ import org.yuzu.yuzu_emu.databinding.ListItemSettingFxToolbarBinding
+ import org.yuzu.yuzu_emu.databinding.ListItemSettingInputBinding
+-import org.yuzu.yuzu_emu.databinding.ListItemSettingSwitchBinding
+-import org.yuzu.yuzu_emu.databinding.ListItemSettingsHeaderBinding
++import org.yuzu.yuzu_emu.databinding.EdenListItemSettingSwitchBinding
++import org.yuzu.yuzu_emu.databinding.EdenListItemSettingsHeaderBinding
+ import org.yuzu.yuzu_emu.features.input.NativeInput
+ import org.yuzu.yuzu_emu.features.input.model.AnalogDirection
+ import org.yuzu.yuzu_emu.features.settings.model.AbstractIntSetting
+@@ -51,35 +51,35 @@ class SettingsAdapter(
+         val inflater = LayoutInflater.from(parent.context)
+         return when (viewType) {
+             SettingsItem.TYPE_HEADER -> {
+-                HeaderViewHolder(ListItemSettingsHeaderBinding.inflate(inflater), this)
++                HeaderViewHolder(EdenListItemSettingsHeaderBinding.inflate(inflater), this)
+             }
+ 
+             SettingsItem.TYPE_SWITCH -> {
+-                SwitchSettingViewHolder(ListItemSettingSwitchBinding.inflate(inflater), this)
++                SwitchSettingViewHolder(EdenListItemSettingSwitchBinding.inflate(inflater), this)
+             }
+ 
+             SettingsItem.TYPE_SINGLE_CHOICE, SettingsItem.TYPE_STRING_SINGLE_CHOICE -> {
+-                SingleChoiceViewHolder(ListItemSettingBinding.inflate(inflater), this)
++                SingleChoiceViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+             }
+ 
+             SettingsItem.TYPE_SLIDER -> {
+-                SliderViewHolder(ListItemSettingBinding.inflate(inflater), this)
++                SliderViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+             }
+ 
+             SettingsItem.TYPE_SPINBOX -> {
+-                SpinBoxViewHolder(ListItemSettingBinding.inflate(inflater), this)
++                SpinBoxViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+             }
+ 
+             SettingsItem.TYPE_SUBMENU -> {
+-                SubmenuViewHolder(ListItemSettingBinding.inflate(inflater), this)
++                SubmenuViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+             }
+ 
+             SettingsItem.TYPE_DATETIME_SETTING -> {
+-                DateTimeViewHolder(ListItemSettingBinding.inflate(inflater), this)
++                DateTimeViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+             }
+ 
+             SettingsItem.TYPE_RUNNABLE -> {
+-                RunnableViewHolder(ListItemSettingBinding.inflate(inflater), this)
++                RunnableViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+             }
+ 
+             SettingsItem.TYPE_INPUT -> {
+@@ -87,27 +87,27 @@ class SettingsAdapter(
+             }
+ 
+             SettingsItem.TYPE_INT_SINGLE_CHOICE -> {
+-                SingleChoiceViewHolder(ListItemSettingBinding.inflate(inflater), this)
++                SingleChoiceViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+             }
+ 
+             SettingsItem.TYPE_INPUT_PROFILE -> {
+-                InputProfileViewHolder(ListItemSettingBinding.inflate(inflater), this)
++                InputProfileViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+             }
+ 
+             SettingsItem.TYPE_STRING_INPUT -> {
+-                StringInputViewHolder(ListItemSettingBinding.inflate(inflater), this)
++                StringInputViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+             }
+ 
+             SettingsItem.TYPE_LAUNCHABLE -> {
+-                LaunchableViewHolder(ListItemSettingBinding.inflate(inflater), this)
++                LaunchableViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+             }
+ 			
+             SettingsItem.TYPE_PATH -> {
+-                PathViewHolder(ListItemSettingBinding.inflate(inflater), this)
++                PathViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+             }
+ 
+             SettingsItem.TYPE_GPU_UNSWIZZLE -> {
+-                GpuUnswizzleViewHolder(ListItemSettingBinding.inflate(inflater), this)
++                GpuUnswizzleViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+             }
+ 
+             SettingsItem.TYPE_FX_TOOLBAR -> {
+@@ -139,7 +139,7 @@ class SettingsAdapter(
+             }
+ 
+             else -> {
+-                HeaderViewHolder(ListItemSettingsHeaderBinding.inflate(inflater), this)
++                HeaderViewHolder(EdenListItemSettingsHeaderBinding.inflate(inflater), this)
+             }
+         }
+     }
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsDialogFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsDialogFragment.kt
+index 3ab864f90..ac27ff36b 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsDialogFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsDialogFragment.kt
+@@ -25,7 +25,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
+ import com.google.android.material.slider.Slider
+ import org.yuzu.yuzu_emu.R
+ import org.yuzu.yuzu_emu.databinding.DialogEditTextBinding
+-import org.yuzu.yuzu_emu.databinding.DialogSliderBinding
++import org.yuzu.yuzu_emu.databinding.EdenDialogSliderBinding
+ import org.yuzu.yuzu_emu.databinding.DialogSpinboxBinding
+ import org.yuzu.yuzu_emu.features.input.NativeInput
+ import org.yuzu.yuzu_emu.features.input.model.AnalogDirection
+@@ -51,7 +51,7 @@ class SettingsDialogFragment : DialogFragment(), DialogInterface.OnClickListener
+ 
+     private val settingsViewModel: SettingsViewModel by activityViewModels()
+ 
+-    private lateinit var sliderBinding: DialogSliderBinding
++    private lateinit var sliderBinding: EdenDialogSliderBinding
+     private lateinit var stringInputBinding: DialogEditTextBinding
+     private lateinit var spinboxBinding: DialogSpinboxBinding
+ 
+@@ -135,7 +135,7 @@ class SettingsDialogFragment : DialogFragment(), DialogInterface.OnClickListener
+             }
+ 
+             SettingsItem.TYPE_SLIDER -> {
+-                sliderBinding = DialogSliderBinding.inflate(layoutInflater)
++                sliderBinding = EdenDialogSliderBinding.inflate(layoutInflater)
+                 val item = settingsViewModel.clickedItem as SliderSetting
+ 
+                 settingsViewModel.setSliderTextValue(item.getSelectedValue().toFloat(), item.units)
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsFragment.kt
+index 3651c4871..687108bc0 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsFragment.kt
+@@ -28,7 +28,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
+ import com.google.android.material.dialog.MaterialAlertDialogBuilder
+ import com.google.android.material.transition.MaterialSharedAxis
+ import org.yuzu.yuzu_emu.R
+-import org.yuzu.yuzu_emu.databinding.FragmentSettingsBinding
++import org.yuzu.yuzu_emu.databinding.EdenFragmentSettingsBinding
+ import org.yuzu.yuzu_emu.features.input.NativeInput
+ import org.yuzu.yuzu_emu.features.settings.model.Settings
+ import org.yuzu.yuzu_emu.features.settings.model.view.PathSetting
+@@ -43,7 +43,7 @@ class SettingsFragment : Fragment() {
+     private lateinit var presenter: SettingsFragmentPresenter
+     private var settingsAdapter: SettingsAdapter? = null
+ 
+-    private var _binding: FragmentSettingsBinding? = null
++    private var _binding: EdenFragmentSettingsBinding? = null
+     private val binding get() = _binding!!
+ 
+     private val args by navArgs<SettingsFragmentArgs>()
+@@ -83,7 +83,7 @@ class SettingsFragment : Fragment() {
+         container: ViewGroup?,
+         savedInstanceState: Bundle?
+     ): View {
+-        _binding = FragmentSettingsBinding.inflate(layoutInflater)
++        _binding = EdenFragmentSettingsBinding.inflate(layoutInflater)
+         return binding.root
+     }
+ 
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsSubscreenActivity.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsSubscreenActivity.kt
+index 8c0d6d055..2f86b4cce 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsSubscreenActivity.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsSubscreenActivity.kt
+@@ -18,7 +18,7 @@ import androidx.navigation.navArgs
+ import com.google.android.material.color.MaterialColors
+ import org.yuzu.yuzu_emu.R
+ import org.yuzu.yuzu_emu.YuzuApplication
+-import org.yuzu.yuzu_emu.databinding.ActivitySettingsBinding
++import org.yuzu.yuzu_emu.databinding.EdenActivitySettingsBinding
+ import org.yuzu.yuzu_emu.utils.DirectoryInitialization
+ import org.yuzu.yuzu_emu.utils.FullscreenHelper
+ import org.yuzu.yuzu_emu.utils.InsetsHelper
+@@ -40,7 +40,7 @@ enum class SettingsSubscreen {
+ }
+ 
+ class SettingsSubscreenActivity : AppCompatActivity() {
+-    private lateinit var binding: ActivitySettingsBinding
++    private lateinit var binding: EdenActivitySettingsBinding
+ 
+     private val args by navArgs<SettingsSubscreenActivityArgs>()
+ 
+@@ -53,7 +53,7 @@ class SettingsSubscreenActivity : AppCompatActivity() {
+ 
+         super.onCreate(savedInstanceState)
+ 
+-        binding = ActivitySettingsBinding.inflate(layoutInflater)
++        binding = EdenActivitySettingsBinding.inflate(layoutInflater)
+         setContentView(binding.root)
+ 
+         val navHostFragment =
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/DateTimeViewHolder.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/DateTimeViewHolder.kt
+index 0309fad59..0543bdf38 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/DateTimeViewHolder.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/DateTimeViewHolder.kt
+@@ -9,13 +9,13 @@ import java.time.ZoneId
+ import java.time.ZonedDateTime
+ import java.time.format.DateTimeFormatter
+ import java.time.format.FormatStyle
+-import org.yuzu.yuzu_emu.databinding.ListItemSettingBinding
++import org.yuzu.yuzu_emu.databinding.EdenListItemSettingBinding
+ import org.yuzu.yuzu_emu.features.settings.model.view.DateTimeSetting
+ import org.yuzu.yuzu_emu.features.settings.model.view.SettingsItem
+ import org.yuzu.yuzu_emu.features.settings.ui.SettingsAdapter
+ import org.yuzu.yuzu_emu.utils.ViewUtils.setVisible
+ 
+-class DateTimeViewHolder(val binding: ListItemSettingBinding, adapter: SettingsAdapter) :
++class DateTimeViewHolder(val binding: EdenListItemSettingBinding, adapter: SettingsAdapter) :
+     SettingViewHolder(binding.root, adapter) {
+     private lateinit var setting: DateTimeSetting
+ 
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/GpuUnswizzleViewHolder.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/GpuUnswizzleViewHolder.kt
+index 06701eb07..77e692830 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/GpuUnswizzleViewHolder.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/GpuUnswizzleViewHolder.kt
+@@ -5,13 +5,13 @@ package org.yuzu.yuzu_emu.features.settings.ui.viewholder
+ 
+ import android.view.View
+ import org.yuzu.yuzu_emu.R
+-import org.yuzu.yuzu_emu.databinding.ListItemSettingBinding
++import org.yuzu.yuzu_emu.databinding.EdenListItemSettingBinding
+ import org.yuzu.yuzu_emu.features.settings.model.view.GpuUnswizzleSetting
+ import org.yuzu.yuzu_emu.features.settings.model.view.SettingsItem
+ import org.yuzu.yuzu_emu.features.settings.ui.SettingsAdapter
+ import org.yuzu.yuzu_emu.utils.ViewUtils.setVisible
+ 
+-class GpuUnswizzleViewHolder(val binding: ListItemSettingBinding, adapter: SettingsAdapter) :
++class GpuUnswizzleViewHolder(val binding: EdenListItemSettingBinding, adapter: SettingsAdapter) :
+     SettingViewHolder(binding.root, adapter) {
+     private lateinit var setting: GpuUnswizzleSetting
+ 
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/HeaderViewHolder.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/HeaderViewHolder.kt
+index 0815c36e2..9cb7cb077 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/HeaderViewHolder.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/HeaderViewHolder.kt
+@@ -4,11 +4,11 @@
+ package org.yuzu.yuzu_emu.features.settings.ui.viewholder
+ 
+ import android.view.View
+-import org.yuzu.yuzu_emu.databinding.ListItemSettingsHeaderBinding
++import org.yuzu.yuzu_emu.databinding.EdenListItemSettingsHeaderBinding
+ import org.yuzu.yuzu_emu.features.settings.model.view.SettingsItem
+ import org.yuzu.yuzu_emu.features.settings.ui.SettingsAdapter
+ 
+-class HeaderViewHolder(val binding: ListItemSettingsHeaderBinding, adapter: SettingsAdapter) :
++class HeaderViewHolder(val binding: EdenListItemSettingsHeaderBinding, adapter: SettingsAdapter) :
+     SettingViewHolder(binding.root, adapter) {
+ 
+     init {
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/InputProfileViewHolder.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/InputProfileViewHolder.kt
+index 86af3a226..ebd783251 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/InputProfileViewHolder.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/InputProfileViewHolder.kt
+@@ -4,14 +4,14 @@
+ package org.yuzu.yuzu_emu.features.settings.ui.viewholder
+ 
+ import android.view.View
+-import org.yuzu.yuzu_emu.databinding.ListItemSettingBinding
++import org.yuzu.yuzu_emu.databinding.EdenListItemSettingBinding
+ import org.yuzu.yuzu_emu.features.settings.model.view.InputProfileSetting
+ import org.yuzu.yuzu_emu.features.settings.model.view.SettingsItem
+ import org.yuzu.yuzu_emu.features.settings.ui.SettingsAdapter
+ import org.yuzu.yuzu_emu.R
+ import org.yuzu.yuzu_emu.utils.ViewUtils.setVisible
+ 
+-class InputProfileViewHolder(val binding: ListItemSettingBinding, adapter: SettingsAdapter) :
++class InputProfileViewHolder(val binding: EdenListItemSettingBinding, adapter: SettingsAdapter) :
+     SettingViewHolder(binding.root, adapter) {
+     private lateinit var setting: InputProfileSetting
+ 
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/LaunchableViewHolder.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/LaunchableViewHolder.kt
+index 833651755..103115cdc 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/LaunchableViewHolder.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/LaunchableViewHolder.kt
+@@ -5,13 +5,13 @@ package org.yuzu.yuzu_emu.features.settings.ui.viewholder
+ 
+ import android.view.View
+ import org.yuzu.yuzu_emu.R
+-import org.yuzu.yuzu_emu.databinding.ListItemSettingBinding
++import org.yuzu.yuzu_emu.databinding.EdenListItemSettingBinding
+ import org.yuzu.yuzu_emu.features.settings.model.view.LaunchableSetting
+ import org.yuzu.yuzu_emu.features.settings.model.view.SettingsItem
+ import org.yuzu.yuzu_emu.features.settings.ui.SettingsAdapter
+ import org.yuzu.yuzu_emu.utils.ViewUtils.setVisible
+ 
+-class LaunchableViewHolder(val binding: ListItemSettingBinding, adapter: SettingsAdapter) :
++class LaunchableViewHolder(val binding: EdenListItemSettingBinding, adapter: SettingsAdapter) :
+     SettingViewHolder(binding.root, adapter) {
+     private lateinit var setting: LaunchableSetting
+ 
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/PathViewHolder.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/PathViewHolder.kt
+index 7e0517a6d..36ee0e148 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/PathViewHolder.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/PathViewHolder.kt
+@@ -6,14 +6,14 @@ package org.yuzu.yuzu_emu.features.settings.ui.viewholder
+ import android.view.View
+ import androidx.core.content.res.ResourcesCompat
+ import org.yuzu.yuzu_emu.R
+-import org.yuzu.yuzu_emu.databinding.ListItemSettingBinding
++import org.yuzu.yuzu_emu.databinding.EdenListItemSettingBinding
+ import org.yuzu.yuzu_emu.features.settings.model.view.PathSetting
+ import org.yuzu.yuzu_emu.features.settings.model.view.SettingsItem
+ import org.yuzu.yuzu_emu.features.settings.ui.SettingsAdapter
+ import org.yuzu.yuzu_emu.utils.PathUtil
+ import org.yuzu.yuzu_emu.utils.ViewUtils.setVisible
+ 
+-class PathViewHolder(val binding: ListItemSettingBinding, adapter: SettingsAdapter) :
++class PathViewHolder(val binding: EdenListItemSettingBinding, adapter: SettingsAdapter) :
+     SettingViewHolder(binding.root, adapter) {
+ 
+     private lateinit var setting: PathSetting
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/RunnableViewHolder.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/RunnableViewHolder.kt
+index fc2ffb515..39ad80c81 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/RunnableViewHolder.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/RunnableViewHolder.kt
+@@ -5,13 +5,13 @@ package org.yuzu.yuzu_emu.features.settings.ui.viewholder
+ 
+ import android.view.View
+ import androidx.core.content.res.ResourcesCompat
+-import org.yuzu.yuzu_emu.databinding.ListItemSettingBinding
++import org.yuzu.yuzu_emu.databinding.EdenListItemSettingBinding
+ import org.yuzu.yuzu_emu.features.settings.model.view.RunnableSetting
+ import org.yuzu.yuzu_emu.features.settings.model.view.SettingsItem
+ import org.yuzu.yuzu_emu.features.settings.ui.SettingsAdapter
+ import org.yuzu.yuzu_emu.utils.ViewUtils.setVisible
+ 
+-class RunnableViewHolder(val binding: ListItemSettingBinding, adapter: SettingsAdapter) :
++class RunnableViewHolder(val binding: EdenListItemSettingBinding, adapter: SettingsAdapter) :
+     SettingViewHolder(binding.root, adapter) {
+     private lateinit var setting: RunnableSetting
+ 
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SettingViewHolder.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SettingViewHolder.kt
+index d26887df8..8fbbe1c31 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SettingViewHolder.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SettingViewHolder.kt
+@@ -5,8 +5,8 @@ package org.yuzu.yuzu_emu.features.settings.ui.viewholder
+ 
+ import android.view.View
+ import androidx.recyclerview.widget.RecyclerView
+-import org.yuzu.yuzu_emu.databinding.ListItemSettingBinding
+-import org.yuzu.yuzu_emu.databinding.ListItemSettingSwitchBinding
++import org.yuzu.yuzu_emu.databinding.EdenListItemSettingBinding
++import org.yuzu.yuzu_emu.databinding.EdenListItemSettingSwitchBinding
+ import org.yuzu.yuzu_emu.features.settings.model.view.SettingsItem
+ import org.yuzu.yuzu_emu.features.settings.ui.SettingsAdapter
+ 
+@@ -36,7 +36,7 @@ abstract class SettingViewHolder(itemView: View, protected val adapter: Settings
+ 
+     abstract override fun onLongClick(clicked: View): Boolean
+ 
+-    fun setStyle(isEditable: Boolean, binding: ListItemSettingBinding) {
++    fun setStyle(isEditable: Boolean, binding: EdenListItemSettingBinding) {
+         val opacity = if (isEditable) 1.0f else 0.5f
+         binding.textSettingName.alpha = opacity
+         binding.textSettingDescription.alpha = opacity
+@@ -44,7 +44,7 @@ abstract class SettingViewHolder(itemView: View, protected val adapter: Settings
+         binding.buttonClear.isEnabled = isEditable
+     }
+ 
+-    fun setStyle(isEditable: Boolean, binding: ListItemSettingSwitchBinding) {
++    fun setStyle(isEditable: Boolean, binding: EdenListItemSettingSwitchBinding) {
+         binding.switchWidget.isEnabled = isEditable
+         val opacity = if (isEditable) 1.0f else 0.5f
+         binding.textSettingName.alpha = opacity
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SingleChoiceViewHolder.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SingleChoiceViewHolder.kt
+index 489f55455..8d736a2d6 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SingleChoiceViewHolder.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SingleChoiceViewHolder.kt
+@@ -4,7 +4,7 @@
+ package org.yuzu.yuzu_emu.features.settings.ui.viewholder
+ 
+ import android.view.View
+-import org.yuzu.yuzu_emu.databinding.ListItemSettingBinding
++import org.yuzu.yuzu_emu.databinding.EdenListItemSettingBinding
+ import org.yuzu.yuzu_emu.features.settings.model.view.IntSingleChoiceSetting
+ import org.yuzu.yuzu_emu.features.settings.model.view.SettingsItem
+ import org.yuzu.yuzu_emu.features.settings.model.view.SingleChoiceSetting
+@@ -12,7 +12,7 @@ import org.yuzu.yuzu_emu.features.settings.model.view.StringSingleChoiceSetting
+ import org.yuzu.yuzu_emu.features.settings.ui.SettingsAdapter
+ import org.yuzu.yuzu_emu.utils.ViewUtils.setVisible
+ 
+-class SingleChoiceViewHolder(val binding: ListItemSettingBinding, adapter: SettingsAdapter) :
++class SingleChoiceViewHolder(val binding: EdenListItemSettingBinding, adapter: SettingsAdapter) :
+     SettingViewHolder(binding.root, adapter) {
+     private lateinit var setting: SettingsItem
+ 
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SliderViewHolder.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SliderViewHolder.kt
+index 90a7138cb..f137ccd2f 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SliderViewHolder.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SliderViewHolder.kt
+@@ -5,13 +5,13 @@ package org.yuzu.yuzu_emu.features.settings.ui.viewholder
+ 
+ import android.view.View
+ import org.yuzu.yuzu_emu.R
+-import org.yuzu.yuzu_emu.databinding.ListItemSettingBinding
++import org.yuzu.yuzu_emu.databinding.EdenListItemSettingBinding
+ import org.yuzu.yuzu_emu.features.settings.model.view.SettingsItem
+ import org.yuzu.yuzu_emu.features.settings.model.view.SliderSetting
+ import org.yuzu.yuzu_emu.features.settings.ui.SettingsAdapter
+ import org.yuzu.yuzu_emu.utils.ViewUtils.setVisible
+ 
+-class SliderViewHolder(val binding: ListItemSettingBinding, adapter: SettingsAdapter) :
++class SliderViewHolder(val binding: EdenListItemSettingBinding, adapter: SettingsAdapter) :
+     SettingViewHolder(binding.root, adapter) {
+     private lateinit var setting: SliderSetting
+ 
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SpinBoxViewHolder.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SpinBoxViewHolder.kt
+index 1f9a16b79..2f4477f8d 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SpinBoxViewHolder.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SpinBoxViewHolder.kt
+@@ -5,13 +5,13 @@ package org.yuzu.yuzu_emu.features.settings.ui.viewholder
+ 
+ import android.view.View
+ import org.yuzu.yuzu_emu.R
+-import org.yuzu.yuzu_emu.databinding.ListItemSettingBinding
++import org.yuzu.yuzu_emu.databinding.EdenListItemSettingBinding
+ import org.yuzu.yuzu_emu.features.settings.model.view.SettingsItem
+ import org.yuzu.yuzu_emu.features.settings.model.view.SpinBoxSetting
+ import org.yuzu.yuzu_emu.features.settings.ui.SettingsAdapter
+ import org.yuzu.yuzu_emu.utils.ViewUtils.setVisible
+ 
+-class SpinBoxViewHolder(val binding: ListItemSettingBinding, adapter: SettingsAdapter) :
++class SpinBoxViewHolder(val binding: EdenListItemSettingBinding, adapter: SettingsAdapter) :
+     SettingViewHolder(binding.root, adapter) {
+     private lateinit var setting: SpinBoxSetting
+ 
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/StringInputViewHolder.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/StringInputViewHolder.kt
+index a4fd36f62..ba56ff1fb 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/StringInputViewHolder.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/StringInputViewHolder.kt
+@@ -4,13 +4,13 @@
+ package org.yuzu.yuzu_emu.features.settings.ui.viewholder
+ 
+ import android.view.View
+-import org.yuzu.yuzu_emu.databinding.ListItemSettingBinding
++import org.yuzu.yuzu_emu.databinding.EdenListItemSettingBinding
+ import org.yuzu.yuzu_emu.features.settings.model.view.SettingsItem
+ import org.yuzu.yuzu_emu.features.settings.model.view.StringInputSetting
+ import org.yuzu.yuzu_emu.features.settings.ui.SettingsAdapter
+ import org.yuzu.yuzu_emu.utils.ViewUtils.setVisible
+ 
+-class StringInputViewHolder(val binding: ListItemSettingBinding, adapter: SettingsAdapter) :
++class StringInputViewHolder(val binding: EdenListItemSettingBinding, adapter: SettingsAdapter) :
+     SettingViewHolder(binding.root, adapter) {
+     private lateinit var setting: StringInputSetting
+ 
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SubmenuViewHolder.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SubmenuViewHolder.kt
+index f7a9c08c3..d24168e19 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SubmenuViewHolder.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SubmenuViewHolder.kt
+@@ -5,13 +5,13 @@ package org.yuzu.yuzu_emu.features.settings.ui.viewholder
+ 
+ import android.view.View
+ import androidx.core.content.res.ResourcesCompat
+-import org.yuzu.yuzu_emu.databinding.ListItemSettingBinding
++import org.yuzu.yuzu_emu.databinding.EdenListItemSettingBinding
+ import org.yuzu.yuzu_emu.features.settings.model.view.SettingsItem
+ import org.yuzu.yuzu_emu.features.settings.model.view.SubmenuSetting
+ import org.yuzu.yuzu_emu.features.settings.ui.SettingsAdapter
+ import org.yuzu.yuzu_emu.utils.ViewUtils.setVisible
+ 
+-class SubmenuViewHolder(val binding: ListItemSettingBinding, adapter: SettingsAdapter) :
++class SubmenuViewHolder(val binding: EdenListItemSettingBinding, adapter: SettingsAdapter) :
+     SettingViewHolder(binding.root, adapter) {
+     private lateinit var setting: SubmenuSetting
+ 
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SwitchSettingViewHolder.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SwitchSettingViewHolder.kt
+index e4a2a82c9..b41fbd1c4 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SwitchSettingViewHolder.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/viewholder/SwitchSettingViewHolder.kt
+@@ -5,13 +5,13 @@ package org.yuzu.yuzu_emu.features.settings.ui.viewholder
+ 
+ import android.view.View
+ import android.widget.CompoundButton
+-import org.yuzu.yuzu_emu.databinding.ListItemSettingSwitchBinding
++import org.yuzu.yuzu_emu.databinding.EdenListItemSettingSwitchBinding
+ import org.yuzu.yuzu_emu.features.settings.model.view.SettingsItem
+ import org.yuzu.yuzu_emu.features.settings.model.view.SwitchSetting
+ import org.yuzu.yuzu_emu.features.settings.ui.SettingsAdapter
+ import org.yuzu.yuzu_emu.utils.ViewUtils.setVisible
+ 
+-class SwitchSettingViewHolder(val binding: ListItemSettingSwitchBinding, adapter: SettingsAdapter) :
++class SwitchSettingViewHolder(val binding: EdenListItemSettingSwitchBinding, adapter: SettingsAdapter) :
+     SettingViewHolder(binding.root, adapter) {
+ 
+     private lateinit var setting: SwitchSetting
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/AboutFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/AboutFragment.kt
+index 027469771..6b79c59b5 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/AboutFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/AboutFragment.kt
+@@ -23,14 +23,14 @@ import androidx.navigation.findNavController
+ import com.google.android.material.transition.MaterialSharedAxis
+ import org.yuzu.yuzu_emu.HomeNavigationDirections
+ import org.yuzu.yuzu_emu.R
+-import org.yuzu.yuzu_emu.databinding.FragmentAboutBinding
++import org.yuzu.yuzu_emu.databinding.EdenFragmentAboutBinding
+ import org.yuzu.yuzu_emu.features.settings.ui.SettingsSubscreen
+ import org.yuzu.yuzu_emu.model.HomeViewModel
+ import org.yuzu.yuzu_emu.utils.ViewUtils.updateMargins
+ import org.yuzu.yuzu_emu.NativeLibrary
+ 
+ class AboutFragment : Fragment() {
+-    private var _binding: FragmentAboutBinding? = null
++    private var _binding: EdenFragmentAboutBinding? = null
+     private val binding get() = _binding!!
+ 
+     private val homeViewModel: HomeViewModel by activityViewModels()
+@@ -47,7 +47,7 @@ class AboutFragment : Fragment() {
+         container: ViewGroup?,
+         savedInstanceState: Bundle?
+     ): View {
+-        _binding = FragmentAboutBinding.inflate(layoutInflater)
++        _binding = EdenFragmentAboutBinding.inflate(layoutInflater)
+         return binding.root
+     }
+ 
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/DriverManagerFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/DriverManagerFragment.kt
+index 3aa55522e..da145f14e 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/DriverManagerFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/DriverManagerFragment.kt
+@@ -25,7 +25,7 @@ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
+ import org.yuzu.yuzu_emu.R
+ import org.yuzu.yuzu_emu.adapters.DriverAdapter
+-import org.yuzu.yuzu_emu.databinding.FragmentDriverManagerBinding
++import org.yuzu.yuzu_emu.databinding.EdenFragmentDriverManagerBinding
+ import org.yuzu.yuzu_emu.features.settings.model.Settings
+ import org.yuzu.yuzu_emu.features.settings.model.StringSetting
+ import org.yuzu.yuzu_emu.features.settings.ui.SettingsSubscreen
+@@ -40,7 +40,7 @@ import java.io.File
+ import java.io.IOException
+ 
+ class DriverManagerFragment : Fragment() {
+-    private var _binding: FragmentDriverManagerBinding? = null
++    private var _binding: EdenFragmentDriverManagerBinding? = null
+     private val binding get() = _binding!!
+ 
+     private val homeViewModel: HomeViewModel by activityViewModels()
+@@ -60,7 +60,7 @@ class DriverManagerFragment : Fragment() {
+         container: ViewGroup?,
+         savedInstanceState: Bundle?
+     ): View {
+-        _binding = FragmentDriverManagerBinding.inflate(inflater)
++        _binding = EdenFragmentDriverManagerBinding.inflate(inflater)
+         return binding.root
+     }
+ 
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt
+index da38c6967..052a6531d 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt
+@@ -70,7 +70,7 @@ import org.yuzu.yuzu_emu.NativeLibrary
+ import org.yuzu.yuzu_emu.R
+ import org.yuzu.yuzu_emu.activities.EmulationActivity
+ import org.yuzu.yuzu_emu.databinding.DialogOverlayAdjustBinding
+-import org.yuzu.yuzu_emu.databinding.FragmentEmulationBinding
++import org.yuzu.yuzu_emu.databinding.EdenFragmentEmulationBinding
+ import org.yuzu.yuzu_emu.dialogs.QuickSettings
+ import org.yuzu.yuzu_emu.features.input.NativeInput
+ import org.yuzu.yuzu_emu.features.settings.model.BooleanSetting
+@@ -121,7 +121,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
+     private var hasPhysicalControllerConnected = false
+     private var overlayHiddenByPhysicalController = false
+ 
+-    private var _binding: FragmentEmulationBinding? = null
++    private var _binding: EdenFragmentEmulationBinding? = null
+ 
+     private val binding get() = _binding!!
+ 
+@@ -610,7 +610,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
+         container: ViewGroup?,
+         savedInstanceState: Bundle?
+     ): View {
+-        _binding = FragmentEmulationBinding.inflate(layoutInflater)
++        _binding = EdenFragmentEmulationBinding.inflate(layoutInflater)
+         return binding.root
+     }
+ 
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/HomeSettingsFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/HomeSettingsFragment.kt
+index 0ed007865..dd046c931 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/HomeSettingsFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/HomeSettingsFragment.kt
+@@ -32,7 +32,7 @@ import org.yuzu.yuzu_emu.NativeLibrary
+ import org.yuzu.yuzu_emu.R
+ import org.yuzu.yuzu_emu.YuzuApplication
+ import org.yuzu.yuzu_emu.adapters.HomeSettingAdapter
+-import org.yuzu.yuzu_emu.databinding.FragmentHomeSettingsBinding
++import org.yuzu.yuzu_emu.databinding.EdenFragmentHomeSettingsBinding
+ import org.yuzu.yuzu_emu.features.DocumentProvider
+ import org.yuzu.yuzu_emu.features.fetcher.SpacingItemDecoration
+ import org.yuzu.yuzu_emu.features.settings.model.Settings
+@@ -48,7 +48,7 @@ import org.yuzu.yuzu_emu.utils.LosslessScalingHelper
+ import org.yuzu.yuzu_emu.utils.ViewUtils.updateMargins
+ 
+ class HomeSettingsFragment : Fragment() {
+-    private var _binding: FragmentHomeSettingsBinding? = null
++    private var _binding: EdenFragmentHomeSettingsBinding? = null
+     private val binding get() = _binding!!
+ 
+     private lateinit var mainActivity: MainActivity
+@@ -66,7 +66,7 @@ class HomeSettingsFragment : Fragment() {
+         container: ViewGroup?,
+         savedInstanceState: Bundle?
+     ): View {
+-        _binding = FragmentHomeSettingsBinding.inflate(layoutInflater)
++        _binding = EdenFragmentHomeSettingsBinding.inflate(layoutInflater)
+         return binding.root
+     }
+ 
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/LicenseBottomSheetDialogFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/LicenseBottomSheetDialogFragment.kt
+index 78419191c..daeb1acf7 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/LicenseBottomSheetDialogFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/LicenseBottomSheetDialogFragment.kt
+@@ -9,12 +9,12 @@ import android.view.View
+ import android.view.ViewGroup
+ import com.google.android.material.bottomsheet.BottomSheetBehavior
+ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+-import org.yuzu.yuzu_emu.databinding.DialogLicenseBinding
++import org.yuzu.yuzu_emu.databinding.EdenDialogLicenseBinding
+ import org.yuzu.yuzu_emu.model.License
+ import org.yuzu.yuzu_emu.utils.SerializableHelper.parcelable
+ 
+ class LicenseBottomSheetDialogFragment : BottomSheetDialogFragment() {
+-    private var _binding: DialogLicenseBinding? = null
++    private var _binding: EdenDialogLicenseBinding? = null
+     private val binding get() = _binding!!
+ 
+     override fun onCreateView(
+@@ -22,7 +22,7 @@ class LicenseBottomSheetDialogFragment : BottomSheetDialogFragment() {
+         container: ViewGroup?,
+         savedInstanceState: Bundle?
+     ): View {
+-        _binding = DialogLicenseBinding.inflate(layoutInflater)
++        _binding = EdenDialogLicenseBinding.inflate(layoutInflater)
+         return binding.root
+     }
+ 
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/LicensesFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/LicensesFragment.kt
+index 32b72fe38..51877ac9d 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/LicensesFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/LicensesFragment.kt
+@@ -17,13 +17,13 @@ import androidx.recyclerview.widget.LinearLayoutManager
+ import com.google.android.material.transition.MaterialSharedAxis
+ import org.yuzu.yuzu_emu.R
+ import org.yuzu.yuzu_emu.adapters.LicenseAdapter
+-import org.yuzu.yuzu_emu.databinding.FragmentLicensesBinding
++import org.yuzu.yuzu_emu.databinding.EdenFragmentLicensesBinding
+ import org.yuzu.yuzu_emu.model.HomeViewModel
+ import org.yuzu.yuzu_emu.model.License
+ import org.yuzu.yuzu_emu.utils.ViewUtils.updateMargins
+ 
+ class LicensesFragment : Fragment() {
+-    private var _binding: FragmentLicensesBinding? = null
++    private var _binding: EdenFragmentLicensesBinding? = null
+     private val binding get() = _binding!!
+ 
+     private val homeViewModel: HomeViewModel by activityViewModels()
+@@ -39,7 +39,7 @@ class LicensesFragment : Fragment() {
+         container: ViewGroup?,
+         savedInstanceState: Bundle?
+     ): View {
+-        _binding = FragmentLicensesBinding.inflate(layoutInflater)
++        _binding = EdenFragmentLicensesBinding.inflate(layoutInflater)
+         return binding.root
+     }
+ 
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/SetupFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/SetupFragment.kt
+index fd59304eb..8c7bde828 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/SetupFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/SetupFragment.kt
+@@ -31,7 +31,7 @@ import java.io.File
+ import org.yuzu.yuzu_emu.R
+ import org.yuzu.yuzu_emu.YuzuApplication
+ import org.yuzu.yuzu_emu.adapters.SetupAdapter
+-import org.yuzu.yuzu_emu.databinding.FragmentSetupBinding
++import org.yuzu.yuzu_emu.databinding.EdenFragmentSetupBinding
+ import org.yuzu.yuzu_emu.features.settings.model.Settings
+ import org.yuzu.yuzu_emu.model.ButtonState
+ import org.yuzu.yuzu_emu.model.GamesViewModel
+@@ -49,7 +49,7 @@ import org.yuzu.yuzu_emu.utils.ViewUtils.setVisible
+ import org.yuzu.yuzu_emu.utils.collect
+ 
+ class SetupFragment : Fragment() {
+-    private var _binding: FragmentSetupBinding? = null
++    private var _binding: EdenFragmentSetupBinding? = null
+     private val binding get() = _binding!!
+ 
+     private val homeViewModel: HomeViewModel by activityViewModels()
+@@ -79,7 +79,7 @@ class SetupFragment : Fragment() {
+         container: ViewGroup?,
+         savedInstanceState: Bundle?
+     ): View {
+-        _binding = FragmentSetupBinding.inflate(layoutInflater)
++        _binding = EdenFragmentSetupBinding.inflate(layoutInflater)
+         return binding.root
+     }
+ 
+diff --git a/src/android/app/src/main/res/layout-w600dp/fragment_about.xml b/src/android/app/src/main/res/layout-w600dp/eden_fragment_about.xml
+similarity index 100%
+rename from src/android/app/src/main/res/layout-w600dp/fragment_about.xml
+rename to src/android/app/src/main/res/layout-w600dp/eden_fragment_about.xml
+diff --git a/src/android/app/src/main/res/layout-w600dp/fragment_setup.xml b/src/android/app/src/main/res/layout-w600dp/eden_fragment_setup.xml
+similarity index 100%
+rename from src/android/app/src/main/res/layout-w600dp/fragment_setup.xml
+rename to src/android/app/src/main/res/layout-w600dp/eden_fragment_setup.xml
+diff --git a/src/android/app/src/main/res/layout-w600dp/page_setup.xml b/src/android/app/src/main/res/layout-w600dp/eden_page_setup.xml
+similarity index 100%
+rename from src/android/app/src/main/res/layout-w600dp/page_setup.xml
+rename to src/android/app/src/main/res/layout-w600dp/eden_page_setup.xml
+diff --git a/src/android/app/src/main/res/layout/activity_emulation.xml b/src/android/app/src/main/res/layout/eden_activity_emulation.xml
+similarity index 100%
+rename from src/android/app/src/main/res/layout/activity_emulation.xml
+rename to src/android/app/src/main/res/layout/eden_activity_emulation.xml
+diff --git a/src/android/app/src/main/res/layout/activity_settings.xml b/src/android/app/src/main/res/layout/eden_activity_settings.xml
+similarity index 96%
+rename from src/android/app/src/main/res/layout/activity_settings.xml
+rename to src/android/app/src/main/res/layout/eden_activity_settings.xml
+index a187665f2..1e1d7e12c 100644
+--- a/src/android/app/src/main/res/layout/activity_settings.xml
++++ b/src/android/app/src/main/res/layout/eden_activity_settings.xml
+@@ -18,7 +18,7 @@
+         app:layout_constraintLeft_toLeftOf="parent"
+         app:layout_constraintRight_toRightOf="parent"
+         app:layout_constraintTop_toTopOf="parent"
+-        tools:layout="@layout/fragment_settings" />
++        tools:layout="@layout/eden_fragment_settings" />
+ 
+     <View
+         android:id="@+id/navigation_bar_shade"
+diff --git a/src/android/app/src/main/res/layout/dialog_license.xml b/src/android/app/src/main/res/layout/eden_dialog_license.xml
+similarity index 100%
+rename from src/android/app/src/main/res/layout/dialog_license.xml
+rename to src/android/app/src/main/res/layout/eden_dialog_license.xml
+diff --git a/src/android/app/src/main/res/layout/dialog_slider.xml b/src/android/app/src/main/res/layout/eden_dialog_slider.xml
+similarity index 100%
+rename from src/android/app/src/main/res/layout/dialog_slider.xml
+rename to src/android/app/src/main/res/layout/eden_dialog_slider.xml
+diff --git a/src/android/app/src/main/res/layout/dropdown_item.xml b/src/android/app/src/main/res/layout/eden_dropdown_item.xml
+similarity index 100%
+rename from src/android/app/src/main/res/layout/dropdown_item.xml
+rename to src/android/app/src/main/res/layout/eden_dropdown_item.xml
+diff --git a/src/android/app/src/main/res/layout/fragment_about.xml b/src/android/app/src/main/res/layout/eden_fragment_about.xml
+similarity index 100%
+rename from src/android/app/src/main/res/layout/fragment_about.xml
+rename to src/android/app/src/main/res/layout/eden_fragment_about.xml
+diff --git a/src/android/app/src/main/res/layout/fragment_driver_manager.xml b/src/android/app/src/main/res/layout/eden_fragment_driver_manager.xml
+similarity index 100%
+rename from src/android/app/src/main/res/layout/fragment_driver_manager.xml
+rename to src/android/app/src/main/res/layout/eden_fragment_driver_manager.xml
+diff --git a/src/android/app/src/main/res/layout/fragment_emulation.xml b/src/android/app/src/main/res/layout/eden_fragment_emulation.xml
+similarity index 99%
+rename from src/android/app/src/main/res/layout/fragment_emulation.xml
+rename to src/android/app/src/main/res/layout/eden_fragment_emulation.xml
+index db363bc72..01b044e51 100644
+--- a/src/android/app/src/main/res/layout/fragment_emulation.xml
++++ b/src/android/app/src/main/res/layout/eden_fragment_emulation.xml
+@@ -217,7 +217,7 @@
+     android:layout_height="match_parent"
+     android:layout_gravity="start"
+     android:focusedByDefault="true"
+-    app:headerLayout="@layout/header_in_game"
++    app:headerLayout="@layout/eden_header_in_game"
+     app:menu="@menu/menu_in_game"
+     android:background="?attr/colorSurface"
+     tools:visibility="gone" />
+diff --git a/src/android/app/src/main/res/layout/fragment_home_settings.xml b/src/android/app/src/main/res/layout/eden_fragment_home_settings.xml
+similarity index 100%
+rename from src/android/app/src/main/res/layout/fragment_home_settings.xml
+rename to src/android/app/src/main/res/layout/eden_fragment_home_settings.xml
+diff --git a/src/android/app/src/main/res/layout/fragment_licenses.xml b/src/android/app/src/main/res/layout/eden_fragment_licenses.xml
+similarity index 100%
+rename from src/android/app/src/main/res/layout/fragment_licenses.xml
+rename to src/android/app/src/main/res/layout/eden_fragment_licenses.xml
+diff --git a/src/android/app/src/main/res/layout/fragment_settings.xml b/src/android/app/src/main/res/layout/eden_fragment_settings.xml
+similarity index 100%
+rename from src/android/app/src/main/res/layout/fragment_settings.xml
+rename to src/android/app/src/main/res/layout/eden_fragment_settings.xml
+diff --git a/src/android/app/src/main/res/layout/fragment_setup.xml b/src/android/app/src/main/res/layout/eden_fragment_setup.xml
+similarity index 100%
+rename from src/android/app/src/main/res/layout/fragment_setup.xml
+rename to src/android/app/src/main/res/layout/eden_fragment_setup.xml
+diff --git a/src/android/app/src/main/res/layout/header_in_game.xml b/src/android/app/src/main/res/layout/eden_header_in_game.xml
+similarity index 100%
+rename from src/android/app/src/main/res/layout/header_in_game.xml
+rename to src/android/app/src/main/res/layout/eden_header_in_game.xml
+diff --git a/src/android/app/src/main/res/layout/list_item_setting.xml b/src/android/app/src/main/res/layout/eden_list_item_setting.xml
+similarity index 100%
+rename from src/android/app/src/main/res/layout/list_item_setting.xml
+rename to src/android/app/src/main/res/layout/eden_list_item_setting.xml
+diff --git a/src/android/app/src/main/res/layout/list_item_setting_switch.xml b/src/android/app/src/main/res/layout/eden_list_item_setting_switch.xml
+similarity index 100%
+rename from src/android/app/src/main/res/layout/list_item_setting_switch.xml
+rename to src/android/app/src/main/res/layout/eden_list_item_setting_switch.xml
+diff --git a/src/android/app/src/main/res/layout/list_item_settings_header.xml b/src/android/app/src/main/res/layout/eden_list_item_settings_header.xml
+similarity index 100%
+rename from src/android/app/src/main/res/layout/list_item_settings_header.xml
+rename to src/android/app/src/main/res/layout/eden_list_item_settings_header.xml
+diff --git a/src/android/app/src/main/res/layout/page_button.xml b/src/android/app/src/main/res/layout/eden_page_button.xml
+similarity index 100%
+rename from src/android/app/src/main/res/layout/page_button.xml
+rename to src/android/app/src/main/res/layout/eden_page_button.xml
+diff --git a/src/android/app/src/main/res/layout/page_setup.xml b/src/android/app/src/main/res/layout/eden_page_setup.xml
+similarity index 100%
+rename from src/android/app/src/main/res/layout/page_setup.xml
+rename to src/android/app/src/main/res/layout/eden_page_setup.xml
+diff --git a/src/android/app/src/main/res/navigation/emulation_navigation.xml b/src/android/app/src/main/res/navigation/emulation_navigation.xml
+index 2adc60a47..530fbda32 100644
+--- a/src/android/app/src/main/res/navigation/emulation_navigation.xml
++++ b/src/android/app/src/main/res/navigation/emulation_navigation.xml
+@@ -9,7 +9,7 @@
+         android:id="@+id/emulationFragment"
+         android:name="org.yuzu.yuzu_emu.fragments.EmulationFragment"
+         android:label="fragment_emulation"
+-        tools:layout="@layout/fragment_emulation" >
++        tools:layout="@layout/eden_fragment_emulation" >
+         <argument
+             android:name="game"
+             app:argType="org.yuzu.yuzu_emu.model.Game"

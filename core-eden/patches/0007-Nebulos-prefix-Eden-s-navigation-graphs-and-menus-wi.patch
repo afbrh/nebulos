@@ -1,0 +1,152 @@
+From a9f63f12c6ebdd0cf3bc6fc43db427b3a5374f1e Mon Sep 17 00:00:00 2001
+From: ry <noreply@local>
+Date: Sun, 8 Nov 2026 23:14:32 -0600
+Subject: [PATCH 7/7] Nebulos: prefix Eden's navigation graphs and menus with
+ eden_ (Azahar defines the same names; the merged app mixed them up)
+
+---
+ .../java/org/yuzu/yuzu_emu/activities/EmulationActivity.kt    | 4 ++--
+ .../src/main/java/org/yuzu/yuzu_emu/dialogs/NetPlayDialog.kt  | 2 +-
+ .../yuzu/yuzu_emu/features/settings/ui/SettingsFragment.kt    | 2 +-
+ .../java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt     | 2 +-
+ src/android/app/src/main/res/layout-w600dp/activity_main.xml  | 2 +-
+ src/android/app/src/main/res/layout/activity_main.xml         | 2 +-
+ .../app/src/main/res/layout/eden_fragment_emulation.xml       | 2 +-
+ .../main/res/menu/{menu_in_game.xml => eden_menu_in_game.xml} | 0
+ .../{menu_netplay_member.xml => eden_menu_netplay_member.xml} | 0
+ ...menu_overlay_options.xml => eden_menu_overlay_options.xml} | 0
+ .../res/menu/{menu_settings.xml => eden_menu_settings.xml}    | 0
+ ...emulation_navigation.xml => eden_emulation_navigation.xml} | 0
+ .../{home_navigation.xml => eden_home_navigation.xml}         | 0
+ 13 files changed, 8 insertions(+), 8 deletions(-)
+ rename src/android/app/src/main/res/menu/{menu_in_game.xml => eden_menu_in_game.xml} (100%)
+ rename src/android/app/src/main/res/menu/{menu_netplay_member.xml => eden_menu_netplay_member.xml} (100%)
+ rename src/android/app/src/main/res/menu/{menu_overlay_options.xml => eden_menu_overlay_options.xml} (100%)
+ rename src/android/app/src/main/res/menu/{menu_settings.xml => eden_menu_settings.xml} (100%)
+ rename src/android/app/src/main/res/navigation/{emulation_navigation.xml => eden_emulation_navigation.xml} (100%)
+ rename src/android/app/src/main/res/navigation/{home_navigation.xml => eden_home_navigation.xml} (100%)
+
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/activities/EmulationActivity.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/activities/EmulationActivity.kt
+index e621811c9..de4d6c075 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/activities/EmulationActivity.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/activities/EmulationActivity.kt
+@@ -174,7 +174,7 @@ class EmulationActivity : AppCompatActivity(), SensorEventListener, InputManager
+         } else {
+             intent.extras
+         }
+-        navHostFragment.navController.setGraph(R.navigation.emulation_navigation, initialArgs)
++        navHostFragment.navController.setGraph(R.navigation.eden_emulation_navigation, initialArgs)
+         if (shouldDeferLaunchForSwap) {
+             mainHandler.post {
+                 handleSwapIntent(launchIntent)
+@@ -392,7 +392,7 @@ class EmulationActivity : AppCompatActivity(), SensorEventListener, InputManager
+             navController.navigate(R.id.emulationFragment, startArgs, navOptions)
+         }.onFailure {
+             Log.warning("[EmulationActivity] ROM swap navigate fallback to setGraph: ${it.message}")
+-            navController.setGraph(R.navigation.emulation_navigation, startArgs)
++            navController.setGraph(R.navigation.eden_emulation_navigation, startArgs)
+         }
+     }
+ 
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/dialogs/NetPlayDialog.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/dialogs/NetPlayDialog.kt
+index 53f4ce31f..69827a2db 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/dialogs/NetPlayDialog.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/dialogs/NetPlayDialog.kt
+@@ -204,7 +204,7 @@ class NetPlayDialog(context: Context) : BottomSheetDialog(context) {
+ 
+             private fun showPopupMenu(view: View) {
+                 PopupMenu(view.context, view).apply {
+-                    menuInflater.inflate(R.menu.menu_netplay_member, menu)
++                    menuInflater.inflate(R.menu.eden_menu_netplay_member, menu)
+                     menu.findItem(R.id.action_kick).isEnabled = isModerator &&
+                         netPlayItems.name != StringSetting.WEB_USERNAME.getString()
+                     menu.findItem(R.id.action_ban).isEnabled = isModerator &&
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsFragment.kt
+index 687108bc0..8eacc304d 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsFragment.kt
+@@ -163,7 +163,7 @@ class SettingsFragment : Fragment() {
+         }
+ 
+         if (args.menuTag == Settings.MenuTag.SECTION_ROOT) {
+-            binding.toolbarSettings.inflateMenu(R.menu.menu_settings)
++            binding.toolbarSettings.inflateMenu(R.menu.eden_menu_settings)
+             binding.toolbarSettings.setOnMenuItemClickListener {
+                 when (it.itemId) {
+                     R.id.action_search -> {
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt
+index 052a6531d..d0ba568c0 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt
+@@ -2077,7 +2077,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
+         val anchor = binding.inGameMenu.findViewById<View>(R.id.menu_overlay_controls)
+         val popup = PopupMenu(requireContext(), anchor)
+ 
+-        popup.menuInflater.inflate(R.menu.menu_overlay_options, popup.menu)
++        popup.menuInflater.inflate(R.menu.eden_menu_overlay_options, popup.menu)
+ 
+         popup.menu.apply {
+             findItem(R.id.menu_show_stats_overlay).isChecked =
+diff --git a/src/android/app/src/main/res/layout-w600dp/activity_main.xml b/src/android/app/src/main/res/layout-w600dp/activity_main.xml
+index b0960223a..a72696f11 100644
+--- a/src/android/app/src/main/res/layout-w600dp/activity_main.xml
++++ b/src/android/app/src/main/res/layout-w600dp/activity_main.xml
+@@ -19,7 +19,7 @@
+         app:layout_constraintEnd_toEndOf="parent"
+         app:layout_constraintStart_toStartOf="parent"
+         app:layout_constraintTop_toTopOf="parent"
+-        app:navGraph="@navigation/home_navigation"
++        app:navGraph="@navigation/eden_home_navigation"
+         tools:layout="@layout/fragment_games" />
+ 
+     <View
+diff --git a/src/android/app/src/main/res/layout/activity_main.xml b/src/android/app/src/main/res/layout/activity_main.xml
+index 933f5fd5c..341f806d1 100644
+--- a/src/android/app/src/main/res/layout/activity_main.xml
++++ b/src/android/app/src/main/res/layout/activity_main.xml
+@@ -19,7 +19,7 @@
+         app:layout_constraintLeft_toLeftOf="parent"
+         app:layout_constraintRight_toRightOf="parent"
+         app:layout_constraintTop_toTopOf="parent"
+-        app:navGraph="@navigation/home_navigation"
++        app:navGraph="@navigation/eden_home_navigation"
+         tools:layout="@layout/fragment_games" />
+ 
+     <View
+diff --git a/src/android/app/src/main/res/layout/eden_fragment_emulation.xml b/src/android/app/src/main/res/layout/eden_fragment_emulation.xml
+index 01b044e51..0d26ed141 100644
+--- a/src/android/app/src/main/res/layout/eden_fragment_emulation.xml
++++ b/src/android/app/src/main/res/layout/eden_fragment_emulation.xml
+@@ -218,7 +218,7 @@
+     android:layout_gravity="start"
+     android:focusedByDefault="true"
+     app:headerLayout="@layout/eden_header_in_game"
+-    app:menu="@menu/menu_in_game"
++    app:menu="@menu/eden_menu_in_game"
+     android:background="?attr/colorSurface"
+     tools:visibility="gone" />
+ 
+diff --git a/src/android/app/src/main/res/menu/menu_in_game.xml b/src/android/app/src/main/res/menu/eden_menu_in_game.xml
+similarity index 100%
+rename from src/android/app/src/main/res/menu/menu_in_game.xml
+rename to src/android/app/src/main/res/menu/eden_menu_in_game.xml
+diff --git a/src/android/app/src/main/res/menu/menu_netplay_member.xml b/src/android/app/src/main/res/menu/eden_menu_netplay_member.xml
+similarity index 100%
+rename from src/android/app/src/main/res/menu/menu_netplay_member.xml
+rename to src/android/app/src/main/res/menu/eden_menu_netplay_member.xml
+diff --git a/src/android/app/src/main/res/menu/menu_overlay_options.xml b/src/android/app/src/main/res/menu/eden_menu_overlay_options.xml
+similarity index 100%
+rename from src/android/app/src/main/res/menu/menu_overlay_options.xml
+rename to src/android/app/src/main/res/menu/eden_menu_overlay_options.xml
+diff --git a/src/android/app/src/main/res/menu/menu_settings.xml b/src/android/app/src/main/res/menu/eden_menu_settings.xml
+similarity index 100%
+rename from src/android/app/src/main/res/menu/menu_settings.xml
+rename to src/android/app/src/main/res/menu/eden_menu_settings.xml
+diff --git a/src/android/app/src/main/res/navigation/emulation_navigation.xml b/src/android/app/src/main/res/navigation/eden_emulation_navigation.xml
+similarity index 100%
+rename from src/android/app/src/main/res/navigation/emulation_navigation.xml
+rename to src/android/app/src/main/res/navigation/eden_emulation_navigation.xml
+diff --git a/src/android/app/src/main/res/navigation/home_navigation.xml b/src/android/app/src/main/res/navigation/eden_home_navigation.xml
+similarity index 100%
+rename from src/android/app/src/main/res/navigation/home_navigation.xml
+rename to src/android/app/src/main/res/navigation/eden_home_navigation.xml

@@ -1,7 +1,7 @@
 From 25a7bbb7490b3a6770b3f1c5125edf75e4fba43d Mon Sep 17 00:00:00 2001
 From: ry <noreply@local>
 Date: Sun, 8 Nov 2026 21:00:49 -0600
-Subject: [PATCH 2/4] Nebulos embedding: build under AGP 9.2.1 + Kotlin 2.4.0
+Subject: [PATCH 2/7] Nebulos embedding: build under AGP 9.2.1 + Kotlin 2.4.0
  (library DSL, buildConfig/resValues, parcelize runtime, Kotlin plugin on
  classpath), document-provider authority from the host package
 

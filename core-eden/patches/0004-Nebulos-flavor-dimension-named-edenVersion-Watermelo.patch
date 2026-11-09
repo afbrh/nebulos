@@ -1,7 +1,7 @@
 From bf0ec514468c3ce97e99d85cfc5c5aea501ff76f Mon Sep 17 00:00:00 2001
 From: ry <noreply@local>
 Date: Sun, 8 Nov 2026 22:10:54 -0600
-Subject: [PATCH 4/4] Nebulos: flavor dimension named edenVersion (WatermelonDS
+Subject: [PATCH 4/7] Nebulos: flavor dimension named edenVersion (WatermelonDS
  has its own 'version' dimension)
 
 ---

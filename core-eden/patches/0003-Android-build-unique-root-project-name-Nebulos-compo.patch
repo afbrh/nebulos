@@ -1,7 +1,7 @@
 From 0950294731ee4fe7377966c4d3c5b7b616f2f393 Mon Sep 17 00:00:00 2001
 From: ry <noreply@local>
 Date: Sun, 8 Nov 2026 22:05:46 -0600
-Subject: [PATCH 3/4] Android build: unique root project name (Nebulos
+Subject: [PATCH 3/7] Android build: unique root project name (Nebulos
  composite build rejects duplicate default names)
 
 ---

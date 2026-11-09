@@ -1,0 +1,23 @@
+From 9c6ada314fd91b38a82ea30fe3cc4db477e1d6a5 Mon Sep 17 00:00:00 2001
+From: ry <noreply@local>
+Date: Sun, 8 Nov 2026 22:49:09 -0600
+Subject: [PATCH 5/7] Nebulos: no library-level R8 (the host app shrinks;
+ Eden's own rules stripped NebulosBridge)
+
+---
+ src/android/app/build.gradle.kts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/android/app/build.gradle.kts b/src/android/app/build.gradle.kts
+index 312416f07..fb4eccc23 100644
+--- a/src/android/app/build.gradle.kts
++++ b/src/android/app/build.gradle.kts
+@@ -101,7 +101,7 @@ android {
+                 manifestPlaceholders += mapOf("appNameSuffix" to "")
+             }
+ 
+-            isMinifyEnabled = true
++            isMinifyEnabled = false   // NEBULOS: the host app shrinks; shrinking the library on its own with Eden's rules strips NebulosBridge and reshapes Game's constructors
+             proguardFiles(
+                 getDefaultProguardFile("proguard-android-optimize.txt"),
+                 "proguard-rules.pro"
