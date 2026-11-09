@@ -1,0 +1,30 @@
+From a21a84400e29117d8efa7566bee76d6121701c0a Mon Sep 17 00:00:00 2001
+From: ry <noreply@local>
+Date: Sun, 8 Nov 2026 22:13:04 -0600
+Subject: [PATCH 4/4] Nebulos (RECONSTRUCTED): stand-in
+ m3_split_button_chevron_avd icon (Nebulos pins Material 1.12.0, which lacks
+ Material 1.13's drawable)
+
+---
+ .../res/drawable/m3_split_button_chevron_avd.xml     | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+ create mode 100644 app/src/main/res/drawable/m3_split_button_chevron_avd.xml
+
+diff --git a/app/src/main/res/drawable/m3_split_button_chevron_avd.xml b/app/src/main/res/drawable/m3_split_button_chevron_avd.xml
+new file mode 100644
+index 00000000..4fdb6c61
+--- /dev/null
++++ b/app/src/main/res/drawable/m3_split_button_chevron_avd.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Nebulos: stand-in for Material 1.13's drawable of the same name (a down chevron). Nebulos pins Material 1.12.0 (newer breaks Eden),
++     which lacks it; the layout editor's hide-controls button only needs the icon (tinted in the layout). -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path
++        android:fillColor="#FFFFFFFF"
++        android:pathData="M7.41,8.59L12,13.17l4.59,-4.58L18,10l-6,6 -6,-6z" />
++</vector>

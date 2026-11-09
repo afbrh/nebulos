@@ -1,0 +1,390 @@
+From ac1ffb29235382a1258b9d4ab9dae9dc5a8ee72d Mon Sep 17 00:00:00 2001
+From: Ry <ry@Mac.eau.wi.charter.com>
+Date: Sun, 8 Nov 2026 22:07:35 -0600
+Subject: [PATCH 1/4] Embed build: :app is an Android library (RECONSTRUCTED;
+ original patches lost)
+
+Base: SapphireRhodonite/WatermelonDS tag 0.8.0.rc2 (6f716d78). Recreated from the consumer side
+(Nebulos core-watermelonds) and the decompiled Release 15 build:
+- com.android.application -> com.android.library, group me.magnum / version embedded
+  (Nebulos: includeBuild substitute module me.magnum:app -> :app)
+- AGP 9.2.1 (already), Kotlin 2.4.0 on the buildscript classpath, KSP 2.3.12, Hilt 2.60.1, Room 2.8.5
+- JDK 17 (was 21) for all modules, foojay toolchain resolver removed
+- arm64-v8a only (native + librashader), only gitHub/prod variants enabled (consumer pins gitHubProd{Debug,Release})
+- signing/applicationId/version/minify removed (host app does R8), buildConfig on, CMake 3.31.6
+- Hilt Gradle plugin kept in the library so @AndroidEntryPoint classes extend Hilt_*
+- librashader NDK lookup prefers the pinned AppConfig.ndkVersion (28.0.13004108)
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ app/build.gradle.kts                          | 72 +++++++++----------
+ .../impl/NusDSiWareMetadataRepository.kt      | 30 --------
+ build.gradle.kts                              | 23 +++++-
+ common/build.gradle.kts                       |  2 +-
+ gradle/libs.versions.toml                     |  8 +--
+ gradle/wrapper/gradle-wrapper.properties      |  2 +-
+ masterswitch/build.gradle.kts                 |  6 +-
+ rcheevos-api/build.gradle.kts                 |  2 +-
+ settings.gradle.kts                           |  7 +-
+ 9 files changed, 68 insertions(+), 84 deletions(-)
+ delete mode 100644 app/src/main/java/me/magnum/melonds/impl/NusDSiWareMetadataRepository.kt
+
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index 0999f46f..76a1dd68 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -2,9 +2,13 @@ import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
+ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+ 
+ plugins {
+-    alias(libs.plugins.android.application)
+-    alias(libs.plugins.compose.compiler)
++    // Nebulos: converted from com.android.application to a library, consumed via includeBuild (me.magnum:app:embedded).
++    // The Hilt Gradle plugin stays applied HERE as well (it must rewrite this library's @AndroidEntryPoint classes to extend
++    // Hilt_*; the plugin in the host app does not touch classes coming from an included build). The @HiltAndroidApp root is
++    // NOT here any more: MelonDSApplication is a plain Application and Nebulos' own :app owns the Hilt component.
++    alias(libs.plugins.android.library)
+     alias(libs.plugins.hilt.android)
++    alias(libs.plugins.compose.compiler)
+     alias(libs.plugins.kotlin.parcelize)
+     alias(libs.plugins.kotlin.serialization)
+     alias(libs.plugins.ksp)
+@@ -20,29 +24,15 @@ data class LibrashaderAbiTarget(
+ android {
+     testBuildType = "release"
+ 
+-    signingConfigs {
+-        create("release") {
+-            val props = gradleLocalProperties(rootDir, providers)
+-            (props["MELONDS_KEYSTORE"] as String?)?.let { storeFile = file(it) }
+-            storePassword = props["MELONDS_KEYSTORE_PASSWORD"] as String? ?: ""
+-            keyAlias = props["MELONDS_KEY_ALIAS"] as String? ?: ""
+-            keyPassword = props["MELONDS_KEY_PASSWORD"] as String? ?: ""
+-        }
+-    }
+-
+     namespace = "me.magnum.melonds"
+     compileSdk = AppConfig.compileSdkVersion
+     ndkVersion = AppConfig.ndkVersion
+     defaultConfig {
+-        applicationId = "me.magnum.melondualds"
+         minSdk = AppConfig.minSdkVersion
+-        targetSdk = AppConfig.targetSdkVersion
+-        versionCode = AppConfig.versionCode
+-        versionName = AppConfig.versionName
+         manifestPlaceholders["appName"] = "@string/app_name"
+         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+-            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
++            abiFilters.add("arm64-v8a") // Nebulos: arm64-v8a only
+         }
+         externalNativeBuild {
+             cmake {
+@@ -55,12 +45,12 @@ android {
+         viewBinding = true
+         compose = true
+         resValues = true
++        buildConfig = true
+     }
+     buildTypes {
+         getByName("release") {
+-            isMinifyEnabled = true
+-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+-            signingConfig = signingConfigs.getByName("release")
++            // Nebulos: shrinking/obfuscation is done by the host app's R8 pass (it keeps me.magnum.**)
++            isMinifyEnabled = false
+             externalNativeBuild {
+                 cmake {
+                     arguments("-DMELONDS_ANDROID_DEBUG_BUILD=0")
+@@ -68,7 +58,6 @@ android {
+             }
+         }
+         getByName("debug") {
+-            applicationIdSuffix = ".dev"
+             externalNativeBuild {
+                 cmake {
+                     arguments("-DMELONDS_ANDROID_DEBUG_BUILD=1")
+@@ -106,13 +95,12 @@ android {
+         }
+         create("nightly") {
+             dimension = "build"
+-            applicationIdSuffix = ".nightly"
+         }
+     }
+     externalNativeBuild {
+         cmake {
+             path = file("CMakeLists.txt")
+-            version = "3.22.1"
++            version = "3.31.6" // Nebulos: the SDK on the build machine has 3.31.6
+         }
+     }
+     sourceSets {
+@@ -126,12 +114,20 @@ android {
+         }
+     }
+     compileOptions {
+-        sourceCompatibility = JavaVersion.VERSION_21
+-        targetCompatibility = JavaVersion.VERSION_21
++        sourceCompatibility = JavaVersion.VERSION_17 // Nebulos: JDK 17
++        targetCompatibility = JavaVersion.VERSION_17
+     }
+ }
+ 
+ androidComponents {
++    // Nebulos only ever consumes gitHub/prod (core-watermelonds pins gitHubProdDebug/gitHubProdRelease): do not build
++    // the playStore/nightly variants (each would compile the whole native tree again).
++    beforeVariants { builder ->
++        val flavors = builder.productFlavors.toMap()
++        if (flavors["version"] != "gitHub" || flavors["build"] != "prod") {
++            builder.enable = false
++        }
++    }
+     onVariants(selector().withName("gitHubProdDebug")) { variant ->
+         // Keep prod-debug distinct from other debug/release variants.
+         variant.manifestPlaceholders.put("appName", "debug WatermelonDS")
+@@ -139,6 +135,10 @@ androidComponents {
+     }
+ }
+ 
++// Nebulos: consumed as `me.magnum:app:embedded` (includeBuild substitution in Nebulos' settings.gradle.kts)
++group = "me.magnum"
++version = "embedded"
++
+ val vulkanShaderSources = listOf(
+     rootProject.file("melonDS-android-lib/src/GPU3D_Vulkan_InterpSpansShader.comp"),
+     rootProject.file("melonDS-android-lib/src/GPU3D_Vulkan_BinCombinedShader.comp"),
+@@ -229,25 +229,13 @@ val librashaderSourceDir = layout.buildDirectory.dir("librashader/src")
+ val librashaderOutputDir = layout.buildDirectory.dir("generated/librashader")
+ val librashaderSourceRevisionFile = librashaderSourceDir.map { it.file(".melonds-librashader-revision") }
+ val librashaderRevisionFile = librashaderOutputDir.map { it.file("REVISION") }
+-val librashaderAbiTargets = listOf(
++val librashaderAbiTargets = listOf<LibrashaderAbiTarget>(
+     LibrashaderAbiTarget(
+         abi = "arm64-v8a",
+         rustTarget = "aarch64-linux-android",
+         ndkLibTriple = "aarch64-linux-android",
+         clangPrefix = "aarch64-linux-android",
+     ),
+-    LibrashaderAbiTarget(
+-        abi = "armeabi-v7a",
+-        rustTarget = "armv7-linux-androideabi",
+-        ndkLibTriple = "arm-linux-androideabi",
+-        clangPrefix = "armv7a-linux-androideabi",
+-    ),
+-    LibrashaderAbiTarget(
+-        abi = "x86_64",
+-        rustTarget = "x86_64-linux-android",
+-        ndkLibTriple = "x86_64-linux-android",
+-        clangPrefix = "x86_64-linux-android",
+-    ),
+ )
+ 
+ fun librashaderToolSearchDirs(): List<File> {
+@@ -328,6 +316,12 @@ fun resolveAndroidNdkHome(): File {
+         return ndkHome
+     }
+ 
++    // Nebulos: prefer the NDK the project pins (AppConfig.ndkVersion) over "newest installed"
++    (System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT"))?.let { sdk ->
++        val pinned = file(sdk).resolve("ndk/${AppConfig.ndkVersion}")
++        if (pinned.isDirectory) return pinned
++    }
++
+     val androidHome = System.getenv("ANDROID_HOME")
+         ?: System.getenv("ANDROID_SDK_ROOT")
+         ?: localProperties["sdk.dir"] as? String
+@@ -529,7 +523,7 @@ tasks.matching {
+ 
+ kotlin {
+     compilerOptions {
+-        jvmTarget = JvmTarget.JVM_21
++        jvmTarget = JvmTarget.JVM_17
+         freeCompilerArgs.add("-opt-in=kotlin.ExperimentalUnsignedTypes")
+     }
+ 
+diff --git a/app/src/main/java/me/magnum/melonds/impl/NusDSiWareMetadataRepository.kt b/app/src/main/java/me/magnum/melonds/impl/NusDSiWareMetadataRepository.kt
+deleted file mode 100644
+index fb9e4449..00000000
+--- a/app/src/main/java/me/magnum/melonds/impl/NusDSiWareMetadataRepository.kt
++++ /dev/null
+@@ -1,30 +0,0 @@
+-package me.magnum.melonds.impl
+-
+-import kotlinx.coroutines.Dispatchers
+-import kotlinx.coroutines.withContext
+-import me.magnum.melonds.domain.repositories.DSiWareMetadataRepository
+-import java.io.EOFException
+-import java.net.URL
+-
+-class NusDSiWareMetadataRepository : DSiWareMetadataRepository {
+-
+-    private companion object {
+-        const val TMD_METADATA_SIZE = 520
+-    }
+-
+-    override suspend fun getDSiWareTitleMetadata(categoryId: UInt, titleId: UInt): ByteArray = withContext(Dispatchers.IO) {
+-        val categoryIdHex = categoryId.toString(16).padStart(8, '0')
+-        val titleIdHex = titleId.toString(16).padStart(8, '0')
+-        val url = "http://nus.cdn.t.shop.nintendowifi.net/ccs/download/$categoryIdHex$titleIdHex/tmd"
+-        val connection = URL(url).openConnection().apply {
+-            connectTimeout = 10_000
+-            readTimeout = 10_000
+-        }
+-        val tmdMetadata = connection.getInputStream().use { it.readBytes() }
+-        if (tmdMetadata.size < TMD_METADATA_SIZE) {
+-            throw EOFException("TMD response is too small: ${tmdMetadata.size} bytes")
+-        }
+-
+-        tmdMetadata.copyOf(TMD_METADATA_SIZE)
+-    }
+-}
+diff --git a/build.gradle.kts b/build.gradle.kts
+index 5b0db6e5..6b0283c2 100644
+--- a/build.gradle.kts
++++ b/build.gradle.kts
+@@ -1,5 +1,18 @@
++// Nebulos: this build is consumed as an included build (includeBuild("../watermelonds-src")) of Nebulos, whose Android Gradle
++// plugin is 9.2.1 (Kotlin built in, no kotlin-android plugin). `:app` is an Android *library* here; the application,
++// signing and Hilt Gradle plugins are gone (Nebulos' own :app owns them).
++buildscript {
++    repositories {
++        google()
++        mavenCentral()
++    }
++    dependencies {
++        // AGP 9 compiles with the Kotlin Gradle plugin found on this classpath; Nebulos is on Kotlin 2.4.0 and its libraries need a matching compiler.
++        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.0")
++    }
++}
++
+ plugins {
+-    alias(libs.plugins.android.application) apply false
+     alias(libs.plugins.android.library) apply false
+     alias(libs.plugins.compose.compiler) apply false
+     alias(libs.plugins.hilt.android) apply false
+@@ -9,6 +22,14 @@ plugins {
+     alias(libs.plugins.ksp) apply false
+ }
+ 
++subprojects {
++    // Nebulos: JDK 17 everywhere
++    tasks.withType<JavaCompile>().configureEach {
++        sourceCompatibility = "17"
++        targetCompatibility = "17"
++    }
++}
++
+ tasks.register("clean", Delete::class) {
+     delete(rootProject.layout.buildDirectory)
+ }
+diff --git a/common/build.gradle.kts b/common/build.gradle.kts
+index cf7a58de..864092fc 100644
+--- a/common/build.gradle.kts
++++ b/common/build.gradle.kts
+@@ -6,7 +6,7 @@ plugins {
+ 
+ kotlin {
+     compilerOptions {
+-        jvmTarget = JvmTarget.JVM_21
++        jvmTarget = JvmTarget.JVM_17
+     }
+ }
+ 
+diff --git a/gradle/libs.versions.toml b/gradle/libs.versions.toml
+index e06aa0d1..3dca5a2a 100644
+--- a/gradle/libs.versions.toml
++++ b/gradle/libs.versions.toml
+@@ -15,12 +15,12 @@ fragment = "1.8.9"
+ gradle = "9.2.1"
+ gson = "2.14.0"
+ hiltX = "1.3.0"
+-hilt = "2.59.2"
++hilt = "2.60.1"
+ junit = "4.13.2"
+-kotlin = "2.3.21"
++kotlin = "2.4.0"
+ kotlinxCoroutines = "1.10.2"
+ kotlinxSerialization = "1.11.0"
+-ksp = "2.3.4"
++ksp = "2.3.12"
+ lifecycleViewModel = "2.10.0"
+ markwon = "4.6.2"
+ material = "1.13.0"
+@@ -30,7 +30,7 @@ picasso = "2.71828"
+ preference = "1.2.1"
+ recyclerView = "1.4.0"
+ retrofit = "3.0.0"
+-room = "2.8.4"
++room = "2.8.5"
+ securityCrypto = "1.0.0"
+ splashscreen = "1.2.0"
+ startup = "1.2.0"
+diff --git a/gradle/wrapper/gradle-wrapper.properties b/gradle/wrapper/gradle-wrapper.properties
+index 4190480f..5ffa5977 100644
+--- a/gradle/wrapper/gradle-wrapper.properties
++++ b/gradle/wrapper/gradle-wrapper.properties
+@@ -3,4 +3,4 @@ distributionBase=GRADLE_USER_HOME
+ distributionPath=wrapper/dists
+ zipStoreBase=GRADLE_USER_HOME
+ zipStorePath=wrapper/dists
+-distributionUrl=https\://services.gradle.org/distributions/gradle-9.5.0-bin.zip
++distributionUrl=https\://services.gradle.org/distributions/gradle-9.4.1-bin.zip
+diff --git a/masterswitch/build.gradle.kts b/masterswitch/build.gradle.kts
+index 5791a59d..7b77c693 100644
+--- a/masterswitch/build.gradle.kts
++++ b/masterswitch/build.gradle.kts
+@@ -19,14 +19,14 @@ android {
+         }
+     }
+     compileOptions {
+-        sourceCompatibility = JavaVersion.VERSION_21
+-        targetCompatibility = JavaVersion.VERSION_21
++        sourceCompatibility = JavaVersion.VERSION_17
++        targetCompatibility = JavaVersion.VERSION_17
+     }
+ }
+ 
+ kotlin {
+     compilerOptions {
+-        jvmTarget = JvmTarget.JVM_21
++        jvmTarget = JvmTarget.JVM_17
+     }
+ }
+ 
+diff --git a/rcheevos-api/build.gradle.kts b/rcheevos-api/build.gradle.kts
+index 239549b1..8fdd7988 100644
+--- a/rcheevos-api/build.gradle.kts
++++ b/rcheevos-api/build.gradle.kts
+@@ -7,7 +7,7 @@ plugins {
+ 
+ kotlin {
+     compilerOptions {
+-        jvmTarget = JvmTarget.JVM_21
++        jvmTarget = JvmTarget.JVM_17
+     }
+ }
+ 
+diff --git a/settings.gradle.kts b/settings.gradle.kts
+index 65aae046..cb67bcd1 100644
+--- a/settings.gradle.kts
++++ b/settings.gradle.kts
+@@ -5,9 +5,7 @@ pluginManagement {
+         mavenCentral()
+     }
+ }
+-plugins {
+-    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+-}
++// Nebulos: foojay toolchain resolver removed (JDK 17 from JAVA_HOME is used; no toolchain downloads)
+ 
+ dependencyResolutionManagement {
+     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+@@ -22,4 +20,5 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+ include(":app")
+ include(":common")
+ include(":masterswitch")
+-include(":rcheevos-api")
+\ No newline at end of file
++include(":rcheevos-api")
++rootProject.name = "watermelonds"
+\ No newline at end of file

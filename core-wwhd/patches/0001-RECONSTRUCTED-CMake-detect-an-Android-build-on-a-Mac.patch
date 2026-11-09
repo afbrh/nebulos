@@ -1,0 +1,25 @@
+From 1d2dbc89ee0b42f4d87f6797ec7e9e1ec93cff41 Mon Sep 17 00:00:00 2001
+From: Ry <ry@Mac.eau.wi.charter.com>
+Date: Sun, 8 Nov 2026 22:04:30 -0600
+Subject: [PATCH] RECONSTRUCTED: CMake: detect an Android build on a Mac before
+ project() (OBJCXX test broke the NDK configure)
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ CMakeLists.txt | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 537ecac..21e5a7b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,6 +1,8 @@
+ cmake_minimum_required(VERSION 3.20)
+ # macOS: the `wwhd` executable (Metal). Android: `libwwhd.so` (Vulkan), loaded by the app in android/.
+-if(APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "Android")  # APPLE is the host before project(): an Android build on a Mac too
++# RECONSTRUCTED (nebulos): CMAKE_SYSTEM_NAME is not set before project() with a toolchain file, so an Android build on a Mac
++# (ANDROID_ABI/ANDROID_PLATFORM from Gradle or cmake -DCMAKE_TOOLCHAIN_FILE=android.toolchain.cmake) must be detected by those instead
++if(APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "Android" AND NOT ANDROID_ABI AND NOT ANDROID_PLATFORM)  # APPLE is the host before project()
+   project(wwhd_recomp C CXX OBJCXX)
+ else()
+   project(wwhd_recomp C CXX ASM)

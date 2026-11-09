@@ -1,0 +1,880 @@
+From 86edf53c5f4510f9130dada992097a8d7901fa23 Mon Sep 17 00:00:00 2001
+From: ry <noreply@local>
+Date: Sun, 8 Nov 2026 19:55:09 -0600
+Subject: [PATCH 1/4] Nebulos embedding: library :app,
+ NebulosBridge/NebulosToast, embedding entry point, save-dir hook, error
+ routing, loading hooks; UDP-socket and NSO-bss fixes
+
+---
+ src/android/app/build.gradle.kts              | 79 +------------------
+ .../java/org/yuzu/yuzu_emu/NativeLibrary.kt   | 50 +++---------
+ .../java/org/yuzu/yuzu_emu/YuzuApplication.kt | 43 ++++++----
+ .../yuzu_emu/activities/EmulationActivity.kt  |  2 +-
+ .../yuzu/yuzu_emu/adapters/AppletAdapter.kt   |  2 +-
+ .../org/yuzu/yuzu_emu/adapters/GameAdapter.kt |  2 +-
+ .../yuzu/yuzu_emu/dialogs/NetPlayDialog.kt    |  2 +-
+ .../features/fetcher/ReleaseAdapter.kt        |  2 +-
+ .../settings/ui/InputProfileDialogFragment.kt |  2 +-
+ .../ui/NewInputProfileDialogFragment.kt       |  2 +-
+ .../features/settings/ui/SettingsActivity.kt  |  2 +-
+ .../features/settings/ui/SettingsFragment.kt  |  2 +-
+ .../settings/ui/SettingsFragmentPresenter.kt  |  2 +-
+ .../yuzu/yuzu_emu/fragments/AboutFragment.kt  |  2 +-
+ .../yuzu_emu/fragments/EmulationFragment.kt   | 13 ++-
+ .../yuzu_emu/fragments/GameFoldersFragment.kt |  2 +-
+ .../yuzu_emu/fragments/GameInfoFragment.kt    |  2 +-
+ .../fragments/GamePropertiesFragment.kt       |  2 +-
+ .../fragments/HomeSettingsFragment.kt         |  2 +-
+ .../yuzu_emu/fragments/InstallableFragment.kt |  2 +-
+ .../fragments/ProgressDialogFragment.kt       |  2 +-
+ .../org/yuzu/yuzu_emu/model/GamesViewModel.kt |  2 +-
+ .../yuzu/yuzu_emu/network/NetPlayManager.kt   |  2 +-
+ .../org/yuzu/yuzu_emu/ui/GamesFragment.kt     |  2 +-
+ .../org/yuzu/yuzu_emu/ui/main/MainActivity.kt |  2 +-
+ .../yuzu_emu/utils/CustomSettingsHandler.kt   |  2 +-
+ .../yuzu_emu/utils/DirectoryInitialization.kt |  2 +
+ .../yuzu/yuzu_emu/utils/InstallableActions.kt |  2 +-
+ .../org/yuzu/yuzu_emu/utils/NebulosBridge.kt  | 58 ++++++++++++++
+ .../org/yuzu/yuzu_emu/utils/NebulosToast.kt   | 26 ++++++
+ src/core/loader/nso.cpp                       |  6 +-
+ src/input_common/drivers/udp_client.cpp       | 10 ++-
+ 32 files changed, 175 insertions(+), 158 deletions(-)
+ create mode 100644 src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/NebulosBridge.kt
+ create mode 100644 src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/NebulosToast.kt
+
+diff --git a/src/android/app/build.gradle.kts b/src/android/app/build.gradle.kts
+index 984414a00..bf1a12c4a 100644
+--- a/src/android/app/build.gradle.kts
++++ b/src/android/app/build.gradle.kts
+@@ -7,17 +7,15 @@
+ // import android.annotation.SuppressLint
+ import kotlin.collections.setOf
+ import org.jlleitschuh.gradle.ktlint.reporter.ReporterType
+-import com.github.triplet.gradle.androidpublisher.ReleaseStatus
+ import org.gradle.api.tasks.Copy
+ 
+ plugins {
+-    id("com.android.application")
++    id("com.android.library")   // Nebulos embeds Eden: :app is a library, the Nebulos app is the application
+     id("org.jetbrains.kotlin.android")
+     id("kotlin-parcelize")
+     kotlin("plugin.serialization") version "1.9.20"
+     id("androidx.navigation.safeargs.kotlin")
+     id("org.jlleitschuh.gradle.ktlint") version "11.4.0"
+-    id("com.github.triplet.play") version "3.8.6"
+     id("idea")
+ }
+ 
+@@ -63,11 +61,8 @@ android {
+     }
+ 
+     defaultConfig {
+-        applicationId = "dev.eden.eden_emulator"
+         minSdk = 24
+         targetSdk = 36
+-        versionName = getGitVersion()
+-        versionCode = autoVersion
+ 
+         externalNativeBuild {
+             cmake {
+@@ -102,24 +97,6 @@ android {
+         }
+     }
+ 
+-    val keystoreFile = System.getenv("ANDROID_KEYSTORE_FILE")
+-    signingConfigs {
+-        if (keystoreFile != null) {
+-            create("release") {
+-                storeFile = file(keystoreFile)
+-                storePassword = System.getenv("ANDROID_KEYSTORE_PASS")
+-                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+-                keyPassword = System.getenv("ANDROID_KEYSTORE_PASS")
+-            }
+-        }
+-        create("default") {
+-            storeFile = file("$projectDir/debug.keystore")
+-            storePassword = "android"
+-            keyAlias = "androiddebugkey"
+-            keyPassword = "android"
+-        }
+-    }
+-
+     // The app name is constructed with the appNameSuffix and appNameBase manifest placeholders
+     // suffix is used for build type--remember to include a space beforehand
+ 
+@@ -127,14 +104,7 @@ android {
+     buildTypes {
+         // Signed by release key, allowing for upload to Play Store.
+         release {
+-            signingConfig = if (keystoreFile != null) {
+-                signingConfigs.getByName("release")
+-            } else {
+-                signingConfigs.getByName("default")
+-            }
+-
+             if (isNightly) {
+-                applicationIdSuffix = ".nightly"
+                 manifestPlaceholders += mapOf("appNameSuffix" to " Nightly")
+             } else {
+                 manifestPlaceholders += mapOf("appNameSuffix" to "")
+@@ -153,7 +123,6 @@ android {
+         register("relWithDebInfo") {
+             manifestPlaceholders += mapOf("appNameSuffix" to " Debug Release")
+             isDefault = true
+-            signingConfig = signingConfigs.getByName("default")
+             isDebuggable = true
+             proguardFiles(
+                 getDefaultProguardFile("proguard-android-optimize.txt"),
+@@ -161,7 +130,6 @@ android {
+             )
+ 
+             versionNameSuffix = "-relWithDebInfo"
+-            applicationIdSuffix = ".relWithDebInfo"
+             isJniDebuggable = true
+         }
+ 
+@@ -169,11 +137,9 @@ android {
+         // Attaches 'debug' suffix to version and package name, allowing installation alongside the release build.
+         debug {
+             manifestPlaceholders += mapOf("appNameSuffix" to " Debug")
+-            signingConfig = signingConfigs.getByName("default")
+             isDebuggable = true
+             isJniDebuggable = true
+             versionNameSuffix = "-debug"
+-            applicationIdSuffix = ".debug"
+         }
+     }
+ 
+@@ -199,7 +165,6 @@ android {
+             dimension = "version"
+             minSdk = 35
+             resValue("string", "app_name_suffixed", "Eden Optimized")
+-            applicationId = "com.miHoYo.Yuanshen"
+ 
+             externalNativeBuild {
+                 cmake {
+@@ -217,7 +182,6 @@ android {
+             dimension = "version"
+             minSdk = 29
+             resValue("string", "app_name_suffixed", "Eden Legacy")
+-            applicationId = "dev.legacy.eden_emulator"
+ 
+             externalNativeBuild {
+                 cmake {
+@@ -317,15 +281,6 @@ ktlint {
+     }
+ }
+ 
+-play {
+-    val keyPath = System.getenv("SERVICE_ACCOUNT_KEY_PATH")
+-    if (keyPath != null) {
+-        serviceAccountCredentials.set(File(keyPath))
+-    }
+-    track.set(System.getenv("STORE_TRACK") ?: "internal")
+-    releaseStatus.set(ReleaseStatus.COMPLETED)
+-}
+-
+ dependencies {
+     implementation("androidx.core:core-ktx:1.15.0")
+     implementation("androidx.appcompat:appcompat:1.7.0")
+@@ -384,35 +339,3 @@ fun getGitVersion(): String {
+     }
+     return versionName.ifEmpty { "0.0" }
+ }
+-
+-afterEvaluate {
+-    val artifactsDir = layout.projectDirectory.dir("${edenDir}/artifacts")
+-    val outputsDir = layout.buildDirectory.dir("outputs").get()
+-
+-    android.applicationVariants.forEach { variant ->
+-        val variantName = variant.name
+-        val variantTask = variantName.replaceFirstChar { it.uppercaseChar() }
+-
+-        val flavor = variant.flavorName
+-        val type = variant.buildType.name
+-
+-        val baseName = "app-$flavor-$type"
+-
+-        val apkFile = outputsDir.file("apk/$flavor/$type/$baseName.apk")
+-        val aabFile = outputsDir.file("bundle/$variantName/$baseName.aab")
+-
+-        val taskName = "copy${variantTask}Outputs"
+-
+-        tasks.register<Copy>(taskName) {
+-            group = "publishing"
+-            description = "Copy APK and AAB for $variantName to $artifactsDir"
+-
+-            from(apkFile)
+-            from(aabFile)
+-            into(artifactsDir)
+-
+-            dependsOn("assemble${variantTask}")
+-            dependsOn("bundle${variantTask}")
+-        }
+-    }
+-}
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/NativeLibrary.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/NativeLibrary.kt
+index de3477e8b..7be33246b 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/NativeLibrary.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/NativeLibrary.kt
+@@ -15,11 +15,10 @@ import android.view.View
+ import android.widget.TextView
+ import androidx.annotation.Keep
+ import androidx.core.net.toUri
+-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+ import org.libsdl.app.SDL
+ import java.lang.ref.WeakReference
+ import org.yuzu.yuzu_emu.activities.EmulationActivity
+-import org.yuzu.yuzu_emu.fragments.CoreErrorDialogFragment
++import org.yuzu.yuzu_emu.utils.NebulosBridge
+ import org.yuzu.yuzu_emu.utils.DocumentsTree
+ import org.yuzu.yuzu_emu.utils.FileUtil
+ import org.yuzu.yuzu_emu.utils.Log
+@@ -305,17 +304,6 @@ object NativeLibrary {
+     var coreErrorAlertResult = false
+     val coreErrorAlertLock = Object()
+ 
+-    private fun onCoreErrorImpl(title: String, message: String) {
+-        val emulationActivity = sEmulationActivity.get()
+-        if (emulationActivity == null) {
+-            Log.error("[NativeLibrary] EmulationActivity not present")
+-            return
+-        }
+-
+-        val fragment = CoreErrorDialogFragment.newInstance(title, message)
+-        fragment.show(emulationActivity.supportFragmentManager, "coreError")
+-    }
+-
+     /**
+      * Handles a core error.
+      *
+@@ -330,8 +318,10 @@ object NativeLibrary {
+ 
+         val title: String
+         val message: String
++        val fatal: Boolean
+         when (error) {
+             CoreError.ErrorSystemFiles -> {
++                fatal = true
+                 title = emulationActivity.getString(R.string.system_archive_not_found)
+                 message = emulationActivity.getString(
+                     R.string.system_archive_not_found_message,
+@@ -340,11 +330,13 @@ object NativeLibrary {
+             }
+ 
+             CoreError.ErrorSavestate -> {
++                fatal = false
+                 title = emulationActivity.getString(R.string.save_load_error)
+                 message = details
+             }
+ 
+             CoreError.ErrorUnknown -> {
++                fatal = true
+                 title = emulationActivity.getString(R.string.fatal_error)
+                 message = emulationActivity.getString(R.string.fatal_error_message)
+             }
+@@ -354,13 +346,10 @@ object NativeLibrary {
+             }
+         }
+ 
+-        // Show the AlertDialog on the main thread.
+-        emulationActivity.runOnUiThread { onCoreErrorImpl(title, message) }
+-
+-        // Wait for the lock to notify that it is complete.
+-        synchronized(coreErrorAlertLock) { coreErrorAlertLock.wait() }
+-
+-        return coreErrorAlertResult
++        // Nebulos: its own error panel instead of Eden's dialog. A fatal error parks the emulation thread (the panel closes the game).
++        NebulosBridge.error(title, message, fatal)
++        if (fatal) NebulosBridge.parkAfterFatal()
++        return true
+     }
+ 
+     @Keep
+@@ -418,24 +407,9 @@ object NativeLibrary {
+             return
+         }
+ 
+-        val builder = MaterialAlertDialogBuilder(emulationActivity)
+-            .setTitle(captionId)
+-            .setMessage(
+-                Html.fromHtml(
+-                    emulationActivity.getString(descriptionId),
+-                    Html.FROM_HTML_MODE_LEGACY
+-                )
+-            )
+-            .setPositiveButton(android.R.string.ok) { _: DialogInterface?, _: Int ->
+-                emulationActivity.finish()
+-            }
+-            .setOnDismissListener { emulationActivity.finish() }
+-        emulationActivity.runOnUiThread {
+-            val alert = builder.create()
+-            alert.show()
+-            (alert.findViewById<View>(android.R.id.message) as TextView).movementMethod =
+-                LinkMovementMethod.getInstance()
+-        }
++        // Nebulos: its own error panel instead of Eden's dialog.
++        val text = Html.fromHtml(emulationActivity.getString(descriptionId), Html.FROM_HTML_MODE_LEGACY).toString().trim()
++        NebulosBridge.error(emulationActivity.getString(captionId), text, true)
+     }
+ 
+     fun setEmulationActivity(emulationActivity: EmulationActivity?) {
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/YuzuApplication.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/YuzuApplication.kt
+index 55282cad1..2fe948cb5 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/YuzuApplication.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/YuzuApplication.kt
+@@ -60,21 +60,7 @@ class YuzuApplication : Application() {
+     override fun onCreate() {
+         super.onCreate()
+         application = this
+-        documentsTree = DocumentsTree()
+-        DirectoryInitialization.start()
+-
+-        // Initialize Freedreno config BEFORE loading native library
+-        // This ensures GPU driver environment variables are set before adrenotools initializes
+-        GpuDriverHelper.initializeFreedrenoConfigEarly()
+-
+-        NativeLibrary.playTimeManagerInit()
+-        GpuDriverHelper.initializeDriverParameters()
+-        NativeInput.reloadInputDevices()
+-        NativeLibrary.logDeviceInfo()
+-        PowerStateUpdater.start()
+-        Log.logDeviceInfo()
+-        ControllerNavigationGlobalHook.install(this)
+-
++        initializeCore(this)
+         createNotificationChannels()
+     }
+ 
+@@ -82,8 +68,33 @@ class YuzuApplication : Application() {
+         var documentsTree: DocumentsTree? = null
+         lateinit var application: YuzuApplication
+ 
++        /** Set when Eden runs embedded in another app (Nebulos): that app's Application context. */
++        private var hostContext: Context? = null
++
+         val appContext: Context
+-            get() = application.applicationContext
++            get() = hostContext ?: application.applicationContext
++
++        /** The whole of Eden's start-up, for [YuzuApplication.onCreate] and for a host app that has its own Application class. */
++        private fun initializeCore(hostApplication: Application) {
++            hostContext = hostApplication.applicationContext
++            if (documentsTree == null) documentsTree = DocumentsTree()
++            DirectoryInitialization.start()
++
++            // Initialize Freedreno config BEFORE loading native library
++            // This ensures GPU driver environment variables are set before adrenotools initializes
++            GpuDriverHelper.initializeFreedrenoConfigEarly()
++
++            NativeLibrary.playTimeManagerInit()
++            GpuDriverHelper.initializeDriverParameters()
++            NativeInput.reloadInputDevices()
++            NativeLibrary.logDeviceInfo()
++            PowerStateUpdater.start()
++            Log.logDeviceInfo()
++            ControllerNavigationGlobalHook.install(hostApplication)
++        }
++
++        /** Nebulos: Eden's own YuzuApplication is never instantiated, so the host calls this from its content provider before anything else. */
++        fun initializeForEmbedding(hostApplication: Application) = initializeCore(hostApplication)
+ 
+         private val LANGUAGE_CODES = arrayOf(
+             "system", "en", "es", "fr", "de", "it", "pt", "pt-BR", "ru", "ja", "ko",
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/activities/EmulationActivity.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/activities/EmulationActivity.kt
+index aaabcc95b..a7ffdcf76 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/activities/EmulationActivity.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/activities/EmulationActivity.kt
+@@ -37,7 +37,7 @@ import android.view.MotionEvent
+ import android.view.Surface
+ import android.view.View
+ import android.view.inputmethod.InputMethodManager
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.activity.viewModels
+ import androidx.appcompat.app.AppCompatActivity
+ import androidx.core.view.WindowCompat
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/adapters/AppletAdapter.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/adapters/AppletAdapter.kt
+index a54733440..b48fcce42 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/adapters/AppletAdapter.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/adapters/AppletAdapter.kt
+@@ -8,7 +8,7 @@ package org.yuzu.yuzu_emu.adapters
+ 
+ import android.view.LayoutInflater
+ import android.view.ViewGroup
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.core.os.bundleOf
+ import androidx.core.content.res.ResourcesCompat
+ import androidx.fragment.app.FragmentActivity
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/adapters/GameAdapter.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/adapters/GameAdapter.kt
+index 9ea2a9ee1..ace43c652 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/adapters/GameAdapter.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/adapters/GameAdapter.kt
+@@ -8,7 +8,7 @@ import android.text.Html
+ import android.view.LayoutInflater
+ import android.view.ViewGroup
+ import android.widget.ImageView
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.appcompat.app.AppCompatActivity
+ import androidx.core.content.pm.ShortcutInfoCompat
+ import androidx.core.content.pm.ShortcutManagerCompat
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/dialogs/NetPlayDialog.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/dialogs/NetPlayDialog.kt
+index 45ce5fb0c..55ee33184 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/dialogs/NetPlayDialog.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/dialogs/NetPlayDialog.kt
+@@ -17,7 +17,7 @@ import android.view.ViewGroup
+ import android.widget.ArrayAdapter
+ import android.widget.Button
+ import android.widget.PopupMenu
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.recyclerview.widget.LinearLayoutManager
+ import androidx.recyclerview.widget.RecyclerView
+ import com.google.android.material.bottomsheet.BottomSheetBehavior
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/fetcher/ReleaseAdapter.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/fetcher/ReleaseAdapter.kt
+index 23b980d30..96237aa33 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/fetcher/ReleaseAdapter.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/fetcher/ReleaseAdapter.kt
+@@ -10,7 +10,7 @@ import android.text.Html.FROM_HTML_MODE_COMPACT
+ import android.text.TextUtils
+ import android.view.LayoutInflater
+ import android.view.ViewGroup
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.core.view.isVisible
+ import androidx.fragment.app.FragmentActivity
+ import androidx.recyclerview.widget.RecyclerView
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/InputProfileDialogFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/InputProfileDialogFragment.kt
+index 1bae593ae..34b251a9a 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/InputProfileDialogFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/InputProfileDialogFragment.kt
+@@ -8,7 +8,7 @@ import android.os.Bundle
+ import android.view.LayoutInflater
+ import android.view.View
+ import android.view.ViewGroup
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.fragment.app.DialogFragment
+ import androidx.fragment.app.activityViewModels
+ import androidx.recyclerview.widget.LinearLayoutManager
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/NewInputProfileDialogFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/NewInputProfileDialogFragment.kt
+index 6e52bea80..68f9f4a15 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/NewInputProfileDialogFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/NewInputProfileDialogFragment.kt
+@@ -5,7 +5,7 @@ package org.yuzu.yuzu_emu.features.settings.ui
+ 
+ import android.app.Dialog
+ import android.os.Bundle
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.fragment.app.DialogFragment
+ import androidx.fragment.app.activityViewModels
+ import com.google.android.material.dialog.MaterialAlertDialogBuilder
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsActivity.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsActivity.kt
+index ad1ecba64..4efeda6a5 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsActivity.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsActivity.kt
+@@ -11,7 +11,7 @@ import org.yuzu.yuzu_emu.YuzuApplication
+ import android.os.Bundle
+ import android.view.View
+ import android.view.ViewGroup.MarginLayoutParams
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.activity.OnBackPressedCallback
+ import androidx.activity.viewModels
+ import androidx.appcompat.app.AppCompatActivity
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsFragment.kt
+index 667141725..3651c4871 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsFragment.kt
+@@ -15,7 +15,7 @@ import android.provider.Settings as AndroidSettings
+ import android.view.LayoutInflater
+ import android.view.View
+ import android.view.ViewGroup
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.activity.result.contract.ActivityResultContracts
+ import androidx.core.view.ViewCompat
+ import androidx.core.view.WindowInsetsCompat
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsFragmentPresenter.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsFragmentPresenter.kt
+index 82d66db16..0a34469fd 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsFragmentPresenter.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/settings/ui/SettingsFragmentPresenter.kt
+@@ -5,7 +5,7 @@ package org.yuzu.yuzu_emu.features.settings.ui
+ 
+ import android.annotation.SuppressLint
+ import android.os.Build
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import org.yuzu.yuzu_emu.NativeLibrary
+ import org.yuzu.yuzu_emu.R
+ import org.yuzu.yuzu_emu.YuzuApplication
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/AboutFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/AboutFragment.kt
+index aa2b3c7df..027469771 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/AboutFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/AboutFragment.kt
+@@ -13,7 +13,7 @@ import android.os.Bundle
+ import android.view.LayoutInflater
+ import android.view.View
+ import android.view.ViewGroup
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.core.view.ViewCompat
+ import androidx.core.view.WindowInsetsCompat
+ import androidx.core.view.updatePadding
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt
+index 65043ec8d..da38c6967 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt
+@@ -34,7 +34,7 @@ import android.view.View
+ import android.view.ViewGroup
+ import android.widget.FrameLayout
+ import android.widget.TextView
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.activity.OnBackPressedCallback
+ import androidx.activity.result.contract.ActivityResultContracts
+ import androidx.annotation.StringRes
+@@ -98,6 +98,7 @@ import org.yuzu.yuzu_emu.utils.NativeFreedrenoConfig
+ import org.yuzu.yuzu_emu.utils.NativePostProcessing
+ import org.yuzu.yuzu_emu.utils.ViewUtils
+ import org.yuzu.yuzu_emu.utils.ViewUtils.setVisible
++import org.yuzu.yuzu_emu.utils.NebulosBridge
+ import org.yuzu.yuzu_emu.utils.collect
+ import org.yuzu.yuzu_emu.utils.CustomSettingsHandler
+ import java.io.ByteArrayOutputStream
+@@ -939,6 +940,14 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
+                 updateFoldableLayout(requireActivity() as EmulationActivity, it)
+             }
+         emulationViewModel.shaderProgress.collect(viewLifecycleOwner) {
++            val total = emulationViewModel.totalShaders.value
++            if (it > 0 && total > 0 && it != total) {
++                // Nebulos loading screen: shader build progress, with Eden's own message ("Building shaders %s" -> no argument).
++                NebulosBridge.progress?.invoke(
++                    it.toFloat() / total,
++                    emulationViewModel.shaderMessage.value.replace("%s", "").ifEmpty { null }
++                )
++            }
+             if (it > 0 && it != emulationViewModel.totalShaders.value) {
+                 binding.loadingProgressIndicator.isIndeterminate = false
+ 
+@@ -957,12 +966,14 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
+         }
+         emulationViewModel.shaderMessage.collect(viewLifecycleOwner) {
+             if (it.isNotEmpty()) {
++                NebulosBridge.loadingText?.invoke(it.replace("%s", ""))
+                 binding.loadingText.text = it
+             }
+         }
+ 
+         emulationViewModel.emulationStarted.collect(viewLifecycleOwner) {
+             if (it) {
++                NebulosBridge.fireReady()   // Nebulos: the game drew its first frame
+                 binding.drawerLayout.setDrawerLockMode(IntSetting.LOCK_DRAWER.getInt())
+                 ViewUtils.showView(binding.surfaceInputOverlay)
+                 ViewUtils.hideView(binding.loadingIndicator)
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/GameFoldersFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/GameFoldersFragment.kt
+index 6e05df799..481583fd1 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/GameFoldersFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/GameFoldersFragment.kt
+@@ -9,7 +9,7 @@ import android.os.Bundle
+ import android.view.LayoutInflater
+ import android.view.View
+ import android.view.ViewGroup
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.activity.result.contract.ActivityResultContracts
+ import androidx.core.view.ViewCompat
+ import androidx.core.view.WindowInsetsCompat
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/GameInfoFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/GameInfoFragment.kt
+index 5d6238e5a..8f4c1aa40 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/GameInfoFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/GameInfoFragment.kt
+@@ -12,7 +12,7 @@ import android.os.Bundle
+ import android.view.LayoutInflater
+ import android.view.View
+ import android.view.ViewGroup
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.core.view.ViewCompat
+ import androidx.core.view.WindowInsetsCompat
+ import androidx.core.view.updatePadding
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/GamePropertiesFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/GamePropertiesFragment.kt
+index d2505c5f6..e47acb189 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/GamePropertiesFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/GamePropertiesFragment.kt
+@@ -11,7 +11,7 @@ import android.provider.DocumentsContract
+ import android.view.LayoutInflater
+ import android.view.View
+ import android.view.ViewGroup
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.activity.result.contract.ActivityResultContracts
+ import androidx.core.view.ViewCompat
+ import androidx.core.view.WindowInsetsCompat
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/HomeSettingsFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/HomeSettingsFragment.kt
+index 2b4cfc5ca..0ed007865 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/HomeSettingsFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/HomeSettingsFragment.kt
+@@ -12,7 +12,7 @@ import android.provider.DocumentsContract
+ import android.view.LayoutInflater
+ import android.view.View
+ import android.view.ViewGroup
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.appcompat.app.AppCompatActivity
+ import androidx.core.app.ActivityCompat
+ import androidx.core.app.NotificationCompat
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/InstallableFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/InstallableFragment.kt
+index 6510c069e..cf93d3721 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/InstallableFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/InstallableFragment.kt
+@@ -7,7 +7,7 @@ import android.os.Bundle
+ import android.view.LayoutInflater
+ import android.view.View
+ import android.view.ViewGroup
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.activity.result.contract.ActivityResultContracts
+ import androidx.core.view.ViewCompat
+ import androidx.core.view.WindowInsetsCompat
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/ProgressDialogFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/ProgressDialogFragment.kt
+index 26fcf7c0d..6a84721a8 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/ProgressDialogFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/ProgressDialogFragment.kt
+@@ -12,7 +12,7 @@ import android.os.Bundle
+ import android.view.LayoutInflater
+ import android.view.View
+ import android.view.ViewGroup
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.appcompat.app.AlertDialog
+ import androidx.fragment.app.DialogFragment
+ import androidx.fragment.app.FragmentActivity
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/model/GamesViewModel.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/model/GamesViewModel.kt
+index 1a63a3ad8..44a94cdb3 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/model/GamesViewModel.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/model/GamesViewModel.kt
+@@ -4,7 +4,7 @@
+ package org.yuzu.yuzu_emu.model
+ 
+ import android.net.Uri
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.documentfile.provider.DocumentFile
+ import androidx.lifecycle.ViewModel
+ import androidx.lifecycle.viewModelScope
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/network/NetPlayManager.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/network/NetPlayManager.kt
+index 1e8e9f97d..c53fb2cff 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/network/NetPlayManager.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/network/NetPlayManager.kt
+@@ -10,7 +10,7 @@ import android.net.NetworkCapabilities
+ import android.os.Build
+ import android.os.Handler
+ import android.os.Looper
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.preference.PreferenceManager
+ import org.yuzu.yuzu_emu.R
+ import org.yuzu.yuzu_emu.YuzuApplication
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/ui/GamesFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/ui/GamesFragment.kt
+index a71978b4b..9aa66b4c1 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/ui/GamesFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/ui/GamesFragment.kt
+@@ -13,7 +13,7 @@ import android.view.View
+ import android.view.ViewGroup
+ import android.view.inputmethod.InputMethodManager
+ import android.widget.PopupMenu
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.activity.result.contract.ActivityResultContracts
+ import androidx.appcompat.app.AppCompatActivity
+ import androidx.core.view.ViewCompat
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/ui/main/MainActivity.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/ui/main/MainActivity.kt
+index 1da275ab8..94fe8f6fa 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/ui/main/MainActivity.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/ui/main/MainActivity.kt
+@@ -11,7 +11,7 @@ import android.view.View
+ import android.view.ViewGroup.MarginLayoutParams
+ import android.view.WindowManager
+ import android.view.animation.PathInterpolator
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.activity.result.contract.ActivityResultContracts
+ import androidx.activity.viewModels
+ import androidx.appcompat.app.AppCompatActivity
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/CustomSettingsHandler.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/CustomSettingsHandler.kt
+index 377313d0a..875c650d1 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/CustomSettingsHandler.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/CustomSettingsHandler.kt
+@@ -7,7 +7,7 @@
+ package org.yuzu.yuzu_emu.utils
+ 
+ import android.content.Context
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.fragment.app.FragmentActivity
+ import com.google.android.material.dialog.MaterialAlertDialogBuilder
+ import org.yuzu.yuzu_emu.R
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/DirectoryInitialization.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/DirectoryInitialization.kt
+index f961c5e98..ac2e0883e 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/DirectoryInitialization.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/DirectoryInitialization.kt
+@@ -24,6 +24,8 @@ object DirectoryInitialization {
+         if (!areDirectoriesReady) {
+             initializeInternalStorage()
+             NativeConfig.initializeGlobalConfig()
++            // Nebulos: portable save folder; must be set between config load and System init (the profile/user UUID is created there).
++            NebulosBridge.saveDir?.let { NativeConfig.setSaveDir(it) }
+             NativeLibrary.initializeSystem(false)
+             NativeLibrary.reloadProfiles()
+             migrateSettings()
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/InstallableActions.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/InstallableActions.kt
+index 882bae965..021a11e08 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/InstallableActions.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/InstallableActions.kt
+@@ -5,7 +5,7 @@ package org.yuzu.yuzu_emu.utils
+ 
+ import android.content.Intent
+ import android.net.Uri
+-import android.widget.Toast
++import org.yuzu.yuzu_emu.utils.NebulosToast as Toast
+ import androidx.fragment.app.FragmentActivity
+ import androidx.fragment.app.FragmentManager
+ import org.yuzu.yuzu_emu.NativeLibrary
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/NebulosBridge.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/NebulosBridge.kt
+new file mode 100644
+index 000000000..c8ff3ab83
+--- /dev/null
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/NebulosBridge.kt
+@@ -0,0 +1,58 @@
++// SPDX-FileCopyrightText: Copyright 2026 Nebulos
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++package org.yuzu.yuzu_emu.utils
++
++import android.util.Log
++
++/**
++ * The seam between Eden and the Nebulos shell. Eden never shows its own toasts or error dialogs when embedded: they are routed here, and
++ * the Nebulos core (core-eden, EdenHost) installs the callbacks while a game Activity is up. Results that arrive before the callbacks
++ * exist are held ([fireReady] keeps a pending flag, [flushPending] replays it).
++ */
++object NebulosBridge {
++    @Volatile var notice: ((String) -> Unit)? = null
++    @Volatile var error: ((String, String, Boolean) -> Unit)? = null
++    @Volatile var ready: (() -> Unit)? = null
++    @Volatile var progress: ((Float, String?) -> Unit)? = null
++    @Volatile var loadingText: ((String) -> Unit)? = null
++
++    /** Portable save folder (`<save root>/eden/save`); applied between config load and System init (see DirectoryInitialization). */
++    @Volatile var saveDir: String? = null
++
++    @Volatile private var pendingReady = false
++    @Volatile var fatalShown = false
++    private val errorLock = Object()
++
++    fun notice(msg: CharSequence) {
++        Log.i("Nebulos", " notice: $msg")
++        notice?.invoke(msg.toString())
++    }
++
++    fun error(title: String, message: String, fatal: Boolean) {
++        Log.e("Nebulos", " error: $title - $message")
++        if (fatal) fatalShown = true
++        error?.invoke(title, message, fatal)
++    }
++
++    /** The game drew its first frame. */
++    fun fireReady() {
++        val r = ready
++        if (r == null) pendingReady = true else r()
++    }
++
++    fun flushPending() {
++        if (pendingReady) {
++            pendingReady = false
++            ready?.invoke()
++        }
++    }
++
++    /** After a fatal error the emulation thread must not carry on: park it until the process ends. */
++    fun parkAfterFatal() {
++        fatalShown = true
++        synchronized(errorLock) {
++            while (true) errorLock.wait()
++        }
++    }
++}
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/NebulosToast.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/NebulosToast.kt
+new file mode 100644
+index 000000000..33fcc90d4
+--- /dev/null
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/NebulosToast.kt
+@@ -0,0 +1,26 @@
++// SPDX-FileCopyrightText: Copyright 2026 Nebulos
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++package org.yuzu.yuzu_emu.utils
++
++import android.content.Context
++
++/**
++ * Drop-in for android.widget.Toast (imported `as Toast` where Eden used Toast): the text goes to the Nebulos banner via [NebulosBridge]
++ * instead of an Android toast.
++ */
++class NebulosToast private constructor(private var text: CharSequence) {
++    fun show() = NebulosBridge.notice(text)
++    fun cancel() {}
++    fun setText(t: CharSequence) { text = t }
++    fun setDuration(d: Int) {}
++    fun setGravity(gravity: Int, x: Int, y: Int) {}
++
++    companion object {
++        const val LENGTH_SHORT = 0
++        const val LENGTH_LONG = 1
++
++        @JvmStatic fun makeText(ctx: Context?, resId: Int, duration: Int) = NebulosToast(ctx?.getText(resId) ?: "")
++        @JvmStatic fun makeText(ctx: Context?, text: CharSequence, duration: Int) = NebulosToast(text)
++    }
++}
+diff --git a/src/core/loader/nso.cpp b/src/core/loader/nso.cpp
+index ea1d1c9ec..17b18cfa2 100644
+--- a/src/core/loader/nso.cpp
++++ b/src/core/loader/nso.cpp
+@@ -165,7 +165,11 @@ std::optional<VAddr> AppLoader_NSO::LoadModule(Kernel::KProcess& process, Core::
+     // Apply patches if necessary
+     const auto name = nso_file.GetName();
+     if (pm && (pm->HasNSOPatch(nso_header.build_id, name) || Settings::values.dump_nso)) {
+-        std::span<u8> patchable_section(codeset.memory.data() + module_start, codeset.memory.size() - module_start);
++        // Only the code/data span is patchable. The image also holds the bss (Metroid Dread's is ~1.9 GB), which was being copied
++        // several times over while patching and got the process OOM-killed on devices with less memory.
++        const std::size_t file_span = std::size_t(nso_header.segments[2].location) + nso_header.segments[2].size;
++        std::span<u8> patchable_section(codeset.memory.data() + module_start,
++                                        std::min<std::size_t>(file_span, codeset.memory.size() - module_start));
+         std::vector<u8> pi_header(sizeof(NSOHeader) + patchable_section.size());
+         std::memcpy(pi_header.data(), &nso_header, sizeof(NSOHeader));
+         std::memcpy(pi_header.data() + sizeof(NSOHeader), patchable_section.data(),
+diff --git a/src/input_common/drivers/udp_client.cpp b/src/input_common/drivers/udp_client.cpp
+index 620e0cf63..d669cf991 100644
+--- a/src/input_common/drivers/udp_client.cpp
++++ b/src/input_common/drivers/udp_client.cpp
+@@ -180,7 +180,15 @@ void UDPClient::ReloadSockets() {
+             LOG_ERROR(Input, "Duplicated UDP servers found");
+             continue;
+         }
+-        StartCommunication(client++, udp_input_address, udp_input_port);
++        // Nebulos has no INTERNET permission, so the OS refuses to open the socket (boost throws "Operation not permitted").
++        // The motion-input server is optional: log it and carry on instead of aborting the whole process.
++        try {
++            StartCommunication(client++, udp_input_address, udp_input_port);
++        } catch (const std::exception& e) {
++            LOG_ERROR(Input, "UDP input server {}:{} unavailable: {}", udp_input_address, udp_input_port, e.what());
++            Reset();
++            return;
++        }
+     }
+ }
+ 

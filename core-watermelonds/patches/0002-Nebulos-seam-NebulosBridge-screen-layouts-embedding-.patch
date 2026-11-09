@@ -1,0 +1,827 @@
+From 1732d8e8c415b7455a709dca666b42cde4586b47 Mon Sep 17 00:00:00 2001
+From: Ry <ry@Mac.eau.wi.charter.com>
+Date: Sun, 8 Nov 2026 22:07:35 -0600
+Subject: [PATCH 2/4] Nebulos seam: NebulosBridge, screen layouts, embedding
+ init, UI hooks (RECONSTRUCTED)
+
+Recreated from the decompiled Release 15 classes (me.magnum.melonds.nebulos.*, EmulatorActivity & friends):
+- nebulos/NebulosBridge (Host callbacks notice/error/ready/loading/onKey/onMotion/onMenuRequested, queued until a host
+  registers, active flag, screenLayout flow), NebulosScreenLayout(s) (NEBULOS pip / SINGLE / STACKED), RomUris (file: URIs)
+- MelonDSApplication: no longer @HiltAndroidApp; companion loadNativeLib() + initializeForEmbedding(app) + EmbeddingEntryPoint
+- WatermelonDSFileProvider (host re-declares the provider authority)
+- EmulatorActivity: nebulosMode (intent extra "nebulos"), nebulosClose(), toasts/errors/loading to the bridge, key/motion/back
+  routed to the host, FPS/loading views removed, pause menu & RA modals suppressed
+- EmulatorViewModel/RuntimeLayoutView: Nebulos layout applied, soft controls hidden; settings: soft input always invisible
+- EmulatorLaunchValidatorDelegate: dialogs become bridge errors; toasts in repositories become bridge notices
+GUESSES: notice() long duration (5000 ms vs 2500 ms), nebulosClose() = closeEmulatorActivity() on the UI thread.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ app/src/main/AndroidManifest.xml              |  4 +-
+ .../me/magnum/melonds/MelonDSApplication.kt   | 53 +++++++++++-
+ .../melonds/WatermelonDSFileProvider.kt       | 10 +++
+ .../melonds/impl/FileSystemRomsRepository.kt  |  6 +-
+ .../me/magnum/melonds/impl/RomIconProvider.kt |  3 +-
+ .../impl/camera/StaticImageDSiCameraSource.kt |  5 +-
+ .../impl/emulator/AndroidEmulatorManager.kt   |  3 +-
+ .../BaseRomFileProcessorFactory.kt            |  3 +-
+ .../magnum/melonds/nebulos/NebulosBridge.kt   | 75 +++++++++++++++++
+ .../melonds/nebulos/NebulosScreenLayout.kt    |  4 +
+ .../melonds/nebulos/NebulosScreenLayouts.kt   | 83 +++++++++++++++++++
+ .../java/me/magnum/melonds/nebulos/RomUris.kt | 20 +++++
+ .../rom/EmulatorLaunchValidatorDelegate.kt    | 28 +++++++
+ .../melonds/ui/emulator/EmulatorActivity.kt   | 78 ++++++++++++++++-
+ .../melonds/ui/emulator/EmulatorViewModel.kt  |  9 +-
+ .../melonds/ui/emulator/RuntimeLayoutView.kt  |  6 ++
+ 16 files changed, 373 insertions(+), 17 deletions(-)
+ create mode 100644 app/src/main/java/me/magnum/melonds/WatermelonDSFileProvider.kt
+ create mode 100644 app/src/main/java/me/magnum/melonds/nebulos/NebulosBridge.kt
+ create mode 100644 app/src/main/java/me/magnum/melonds/nebulos/NebulosScreenLayout.kt
+ create mode 100644 app/src/main/java/me/magnum/melonds/nebulos/NebulosScreenLayouts.kt
+ create mode 100644 app/src/main/java/me/magnum/melonds/nebulos/RomUris.kt
+
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index cde0fd5c..ca91fcd4 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -153,8 +153,8 @@
+             android:exported="true" />
+ 
+         <provider
+-            android:name="androidx.core.content.FileProvider"
+-            android:authorities="${applicationId}.fileprovider"
++            android:name="me.magnum.melonds.WatermelonDSFileProvider"
++            android:authorities="me.magnum.melondualds.fileprovider"
+             android:exported="false"
+             android:grantUriPermissions="true">
+             <meta-data
+diff --git a/app/src/main/java/me/magnum/melonds/MelonDSApplication.kt b/app/src/main/java/me/magnum/melonds/MelonDSApplication.kt
+index e0b87357..6810bec0 100644
+--- a/app/src/main/java/me/magnum/melonds/MelonDSApplication.kt
++++ b/app/src/main/java/me/magnum/melonds/MelonDSApplication.kt
+@@ -12,7 +12,10 @@ import androidx.core.app.NotificationCompat
+ import androidx.core.app.NotificationManagerCompat
+ import androidx.hilt.work.HiltWorkerFactory
+ import androidx.work.Configuration
+-import dagger.hilt.android.HiltAndroidApp
++import dagger.hilt.EntryPoint
++import dagger.hilt.InstallIn
++import dagger.hilt.android.EntryPointAccessors
++import dagger.hilt.components.SingletonComponent
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.DelicateCoroutinesApi
+ import kotlinx.coroutines.GlobalScope
+@@ -29,11 +32,57 @@ import java.io.File
+ import me.magnum.melonds.migrations.Migrator
+ import javax.inject.Inject
+ 
+-@HiltAndroidApp
++/**
++ * Nebulos: this class is NOT a Hilt root any more (RECONSTRUCTED: the original change was lost, the old build's class extends
++ * [Application] directly). Nebulos' own `@HiltAndroidApp` Application (extending NebulosHiltApplication) owns the Hilt
++ * component; in the `:melonds` process it calls [loadNativeLib] and [initializeForEmbedding] instead of [onCreate] below.
++ */
+ class MelonDSApplication : Application(), Configuration.Provider {
+     companion object {
+         const val NOTIFICATION_CHANNEL_ID_BACKGROUND_TASKS = "channel_cheat_importing"
+         private const val NOTIFICATION_ID_HARDCORE_OFFLINE_LOSS = 2002
++
++        /** Hilt bindings the embedded engine needs from the host Application's component. */
++        @EntryPoint
++        @InstallIn(SingletonComponent::class)
++        interface EmbeddingEntryPoint {
++            fun settingsRepository(): SettingsRepository
++            fun migrator(): Migrator
++            fun uriHandler(): UriHandler
++            fun settingsBackupManager(): SettingsBackupManager
++            fun appLogFileRecorder(): AppLogFileRecorder
++        }
++
++        /** Loads libmelonDS-android-frontend.so (call from the host Application's attachBaseContext). */
++        @JvmStatic
++        fun loadNativeLib() = NativeCoreLoader.load()
++
++        /**
++         * What [onCreate] does for the stock app, for a host Application that owns the Hilt component (Nebulos, `:melonds`
++         * process only): librashader cache dir, notification channel, migrations, settings mirror, log recorder and the native interface.
++         */
++        @JvmStatic
++        fun initializeForEmbedding(hostApplication: Application) {
++            val entry = EntryPointAccessors.fromApplication(hostApplication, EmbeddingEntryPoint::class.java)
++            val settingsRepository = entry.settingsRepository()
++            runCatching {
++                Os.setenv("HOME", hostApplication.filesDir.absolutePath, false)
++                Os.setenv("XDG_CACHE_HOME", File(hostApplication.filesDir, "cache").absolutePath, false)
++            }.onFailure {
++                Log.w("MelonDSApplication", "Could not point librashader at a cache directory", it)
++            }
++            val defaultChannel = NotificationChannelCompat.Builder(NOTIFICATION_CHANNEL_ID_BACKGROUND_TASKS, NotificationManagerCompat.IMPORTANCE_LOW)
++                .setName(hostApplication.getString(R.string.notification_channel_background_tasks))
++                .build()
++            NotificationManagerCompat.from(hostApplication).createNotificationChannel(defaultChannel)
++            entry.migrator().performMigrations()
++            entry.settingsBackupManager().initializeMirror()
++            entry.appLogFileRecorder().start()
++            MelonDSAndroidInterface.setup(
++                UriFileHandler(hostApplication, entry.uriHandler()),
++                settingsRepository.getVulkanDriverConfiguration(hostApplication.applicationInfo.nativeLibraryDir),
++            )
++        }
+     }
+ 
+     @Inject lateinit var workerFactory: HiltWorkerFactory
+diff --git a/app/src/main/java/me/magnum/melonds/WatermelonDSFileProvider.kt b/app/src/main/java/me/magnum/melonds/WatermelonDSFileProvider.kt
+new file mode 100644
+index 00000000..611f0009
+--- /dev/null
++++ b/app/src/main/java/me/magnum/melonds/WatermelonDSFileProvider.kt
+@@ -0,0 +1,10 @@
++package me.magnum.melonds
++
++import androidx.core.content.FileProvider
++
++/**
++ * Nebulos (RECONSTRUCTED): own FileProvider subclass so the host app can re-declare the provider (with its own, package-prefixed
++ * authority) via `tools:replace="android:authorities"` without colliding with the standalone WatermelonDS app's
++ * `androidx.core.content.FileProvider` entry (the two apps could otherwise not be installed side by side).
++ */
++class WatermelonDSFileProvider : FileProvider()
+diff --git a/app/src/main/java/me/magnum/melonds/impl/FileSystemRomsRepository.kt b/app/src/main/java/me/magnum/melonds/impl/FileSystemRomsRepository.kt
+index cf7606b5..5d1264d0 100644
+--- a/app/src/main/java/me/magnum/melonds/impl/FileSystemRomsRepository.kt
++++ b/app/src/main/java/me/magnum/melonds/impl/FileSystemRomsRepository.kt
+@@ -49,6 +49,8 @@ import java.util.Date
+ import java.util.concurrent.atomic.AtomicBoolean
+ import kotlin.time.Duration
+ import kotlin.time.Duration.Companion.milliseconds
++import me.magnum.melonds.nebulos.NebulosBridge
++import me.magnum.melonds.nebulos.romDocumentFor
+ 
+ class FileSystemRomsRepository(
+         private val context: Context,
+@@ -188,7 +190,7 @@ class FileSystemRomsRepository(
+         allRoms.find { rom -> rom.uri == uri }?.let { return refreshRomConfigFromOptions(it) }
+ 
+         // Pre-filter by filename for performance
+-        val incomingFileName = DocumentFile.fromSingleUri(context, uri)?.name
++        val incomingFileName = romDocumentFor(context, uri)?.name
+         val candidateRoms = if (incomingFileName != null) {
+             allRoms.filter { it.fileName == incomingFileName }
+         } else {
+@@ -535,7 +537,7 @@ class FileSystemRomsRepository(
+         }
+ 
+         mainHandler.post {
+-            Toast.makeText(context, R.string.rom_options_read_error, Toast.LENGTH_SHORT).show()
++            NebulosBridge.notice(context.getString(R.string.rom_options_read_error))
+         }
+     }
+ 
+diff --git a/app/src/main/java/me/magnum/melonds/impl/RomIconProvider.kt b/app/src/main/java/me/magnum/melonds/impl/RomIconProvider.kt
+index 87265e15..f14d0e47 100644
+--- a/app/src/main/java/me/magnum/melonds/impl/RomIconProvider.kt
++++ b/app/src/main/java/me/magnum/melonds/impl/RomIconProvider.kt
+@@ -14,6 +14,7 @@ import java.nio.ByteBuffer
+ import java.util.*
+ import java.util.concurrent.locks.ReentrantLock
+ import kotlin.concurrent.withLock
++import me.magnum.melonds.nebulos.romDocumentFor
+ 
+ /**
+  * Provider for ROM icons that supports caching. Both memory and disk caches are supported. If upon
+@@ -82,7 +83,7 @@ class RomIconProvider(private val context: Context, private val romFileProcessor
+             }
+         }
+ 
+-        val romDocument = DocumentFile.fromSingleUri(context, rom.uri) ?: return null
++        val romDocument = romDocumentFor(context, rom.uri) ?: return null
+         val romProcessor = romFileProcessorFactory.getFileRomProcessorForDocument(romDocument) ?: return null
+         val bitmap = romProcessor.getRomIcon(rom)
+         if (bitmap != null && iconCacheDir != null) {
+diff --git a/app/src/main/java/me/magnum/melonds/impl/camera/StaticImageDSiCameraSource.kt b/app/src/main/java/me/magnum/melonds/impl/camera/StaticImageDSiCameraSource.kt
+index 2152024a..33a01cbd 100644
+--- a/app/src/main/java/me/magnum/melonds/impl/camera/StaticImageDSiCameraSource.kt
++++ b/app/src/main/java/me/magnum/melonds/impl/camera/StaticImageDSiCameraSource.kt
+@@ -21,6 +21,7 @@ import me.magnum.melonds.common.camera.CameraType
+ import me.magnum.melonds.common.camera.DSiCameraSource
+ import me.magnum.melonds.domain.repositories.SettingsRepository
+ import me.magnum.melonds.impl.image.BitmapLoader
++import me.magnum.melonds.nebulos.NebulosBridge
+ 
+ class StaticImageDSiCameraSource(
+     private val context: Context,
+@@ -40,13 +41,13 @@ class StaticImageDSiCameraSource(
+             settingsRepository.observeDSiCameraStaticImage().collectLatest {
+                 if (it == null) {
+                     withContext(Dispatchers.Main) {
+-                        Toast.makeText(context, R.string.no_image_selected, Toast.LENGTH_SHORT).show()
++                        NebulosBridge.notice(context.getString(R.string.no_image_selected))
+                     }
+                 } else {
+                     val bitmap = bitmapLoader.loadAsBitmap(it)
+                     if (bitmap == null) {
+                         withContext(Dispatchers.Main) {
+-                            Toast.makeText(context, R.string.failed_to_load_image, Toast.LENGTH_SHORT).show()
++                            NebulosBridge.notice(context.getString(R.string.failed_to_load_image))
+                         }
+                     } else {
+                         loadBitmapIntoBuffer(bitmap)
+diff --git a/app/src/main/java/me/magnum/melonds/impl/emulator/AndroidEmulatorManager.kt b/app/src/main/java/me/magnum/melonds/impl/emulator/AndroidEmulatorManager.kt
+index 6f18d355..3542d383 100644
+--- a/app/src/main/java/me/magnum/melonds/impl/emulator/AndroidEmulatorManager.kt
++++ b/app/src/main/java/me/magnum/melonds/impl/emulator/AndroidEmulatorManager.kt
+@@ -46,6 +46,7 @@ import me.magnum.melonds.ui.emulator.rewind.model.RewindSaveState
+ import me.magnum.melonds.ui.emulator.rewind.model.RewindWindow
+ import java.io.File
+ import java.nio.ByteBuffer
++import me.magnum.melonds.nebulos.romDocumentFor
+ 
+ class AndroidEmulatorManager(
+     private val context: Context,
+@@ -301,7 +302,7 @@ class AndroidEmulatorManager(
+                     return@withContext loadInstalledDsiWareShortcut(rom, cheats)
+                 }
+ 
+-                val fileRomDocument = DocumentFile.fromSingleUri(context, rom.uri) ?: return@withContext RomLaunchResult.LaunchFailedRomNotFound
++                val fileRomDocument = romDocumentFor(context, rom.uri) ?: return@withContext RomLaunchResult.LaunchFailedRomNotFound
+                 val fileRomProcessor = romFileProcessorFactory.getFileRomProcessorForDocument(fileRomDocument)
+                 val romUri = fileRomProcessor?.getRealRomUri(rom) ?: return@withContext RomLaunchResult.LaunchFailedRomNotSupported
+                 val sram = try {
+diff --git a/app/src/main/java/me/magnum/melonds/impl/romprocessors/BaseRomFileProcessorFactory.kt b/app/src/main/java/me/magnum/melonds/impl/romprocessors/BaseRomFileProcessorFactory.kt
+index ee1638f4..6955484d 100644
+--- a/app/src/main/java/me/magnum/melonds/impl/romprocessors/BaseRomFileProcessorFactory.kt
++++ b/app/src/main/java/me/magnum/melonds/impl/romprocessors/BaseRomFileProcessorFactory.kt
+@@ -5,6 +5,7 @@ import android.net.Uri
+ import androidx.documentfile.provider.DocumentFile
+ import me.magnum.melonds.common.romprocessors.RomFileProcessor
+ import me.magnum.melonds.common.romprocessors.RomFileProcessorFactory
++import me.magnum.melonds.nebulos.romDocumentFor
+ 
+ abstract class BaseRomFileProcessorFactory(private val context: Context) : RomFileProcessorFactory {
+     /**
+@@ -29,7 +30,7 @@ abstract class BaseRomFileProcessorFactory(private val context: Context) : RomFi
+     }
+ 
+     override fun getFileRomProcessorForDocument(romUri: Uri): RomFileProcessor? {
+-        val romDocument = DocumentFile.fromSingleUri(context, romUri) ?: return null
++        val romDocument = romDocumentFor(context, romUri) ?: return null
+         return getFileRomProcessorForDocument(romDocument)
+     }
+ }
+\ No newline at end of file
+diff --git a/app/src/main/java/me/magnum/melonds/nebulos/NebulosBridge.kt b/app/src/main/java/me/magnum/melonds/nebulos/NebulosBridge.kt
+new file mode 100644
+index 00000000..e6ed8f71
+--- /dev/null
++++ b/app/src/main/java/me/magnum/melonds/nebulos/NebulosBridge.kt
+@@ -0,0 +1,75 @@
++package me.magnum.melonds.nebulos
++
++import android.util.Log
++import android.view.KeyEvent
++import android.view.MotionEvent
++import kotlinx.coroutines.flow.MutableStateFlow
++
++/**
++ * Nebulos seam (RECONSTRUCTED from the decompiled Release 15 build; the original source was lost).
++ *
++ * WatermelonDS runs embedded in Nebulos' `:melonds` process. Nebulos owns all UI (menu, toasts, dialogs, loading
++ * overlay, input routing); this object forwards the engine's UI events to the registered [Host]. Calls made before
++ * a host is registered are queued and replayed in order when [host] is set.
++ */
++object NebulosBridge {
++    /** Intent extra (Boolean) set by Nebulos on the EmulatorActivity intent: the Activity is running inside Nebulos. */
++    const val EXTRA_NEBULOS = "nebulos"
++
++    interface Host {
++        /** Key event from the game Activity; true = consumed (Nebulos' InputRouter handles it). */
++        fun onKey(event: KeyEvent): Boolean
++        fun onMotion(event: MotionEvent): Boolean
++        fun onMenuRequested()
++        fun notice(text: String, durationMs: Long) {}
++        fun error(title: String, message: String, fatal: Boolean) {}
++        fun ready() {}
++        /** [fraction] is NaN when indeterminate. */
++        fun loading(fraction: Float, text: String?) {}
++    }
++
++    /** Which screen arrangement Nebulos wants (see [NebulosScreenLayouts]); published by the Nebulos core session. */
++    val screenLayout = MutableStateFlow(NebulosScreenLayout(NebulosScreenLayouts.Mode.NEBULOS, false))
++
++    private val pending = ArrayList<(Host) -> Unit>()
++
++    @Volatile
++    var host: Host? = null
++        set(value) {
++            field = value
++            if (value != null) {
++                val queued = synchronized(pending) { ArrayList(pending).also { pending.clear() } }
++                queued.forEach { it(value) }
++            }
++        }
++
++    /** True while the running EmulatorActivity was started by Nebulos (set in EmulatorActivity.onCreate). */
++    @JvmStatic
++    @Volatile
++    var active: Boolean = false
++
++    private fun withHost(log: String, call: (Host) -> Unit) {
++        val h = host
++        if (h != null) {
++            call(h)
++            return
++        }
++        Log.i("Nebulos", "queued (no host yet): $log")
++        synchronized(pending) { pending.add(call) }
++    }
++
++    @JvmStatic
++    fun ready() = withHost("ready") { it.ready() }
++
++    @JvmStatic
++    fun loading(fraction: Float, text: String?) = withHost("loading $text") { it.loading(fraction, text) }
++
++    /** [long] = show for 5 s instead of 2.5 s (the long duration is a reconstruction guess). */
++    @JvmStatic
++    @JvmOverloads
++    fun notice(text: String, long: Boolean = false) = withHost("notice $text") { it.notice(text, if (long) 5000L else 2500L) }
++
++    @JvmStatic
++    @JvmOverloads
++    fun error(title: String, message: String, fatal: Boolean = true) = withHost("error $title: $message") { it.error(title, message, fatal) }
++}
+diff --git a/app/src/main/java/me/magnum/melonds/nebulos/NebulosScreenLayout.kt b/app/src/main/java/me/magnum/melonds/nebulos/NebulosScreenLayout.kt
+new file mode 100644
+index 00000000..527b7e52
+--- /dev/null
++++ b/app/src/main/java/me/magnum/melonds/nebulos/NebulosScreenLayout.kt
+@@ -0,0 +1,4 @@
++package me.magnum.melonds.nebulos
++
++/** Screen arrangement chosen in Nebulos (reconstructed). [bottomFocus] = the bottom screen is the big/only one. */
++data class NebulosScreenLayout(val mode: NebulosScreenLayouts.Mode, val bottomFocus: Boolean)
+diff --git a/app/src/main/java/me/magnum/melonds/nebulos/NebulosScreenLayouts.kt b/app/src/main/java/me/magnum/melonds/nebulos/NebulosScreenLayouts.kt
+new file mode 100644
+index 00000000..5265b728
+--- /dev/null
++++ b/app/src/main/java/me/magnum/melonds/nebulos/NebulosScreenLayouts.kt
+@@ -0,0 +1,83 @@
++package me.magnum.melonds.nebulos
++
++import me.magnum.melonds.domain.model.Rect
++import me.magnum.melonds.domain.model.consoleAspectRatio
++import me.magnum.melonds.domain.model.layout.LayoutComponent
++import me.magnum.melonds.domain.model.layout.PositionedLayoutComponent
++import me.magnum.melonds.domain.model.layout.UILayout
++import me.magnum.melonds.domain.model.layout.UILayoutVariant
++import kotlin.math.min
++
++/**
++ * Screen arrangements Nebulos offers (RECONSTRUCTED from the decompiled build; behaviour matches it):
++ *  - NEBULOS: one screen fills the display (integer scale when it fits), the other one at 1x in the top-right corner (picture-in-picture)
++ *  - SINGLE: one screen only
++ *  - STACKED: big screen on top, the other one below
++ * [NebulosScreenLayout.bottomFocus] swaps which screen is the main one.
++ */
++object NebulosScreenLayouts {
++    enum class Mode { NEBULOS, SINGLE, STACKED }
++
++    const val PIP_GAP = 16
++
++    fun apply(layout: UILayout, variant: UILayoutVariant, choice: NebulosScreenLayout): UILayout {
++        val insets = variant.uiInsets
++        val left = insets.left
++        val top = insets.top
++        val x = variant.uiSize.x - insets.left - insets.right
++        val y = variant.uiSize.y - insets.top - insets.bottom
++        val primary = if (choice.bottomFocus) LayoutComponent.BOTTOM_SCREEN else LayoutComponent.TOP_SCREEN
++        val other = if (choice.bottomFocus) LayoutComponent.TOP_SCREEN else LayoutComponent.BOTTOM_SCREEN
++
++        val components = when (choice.mode) {
++            Mode.NEBULOS -> {
++                val scale = min(x / 256, y / 192)
++                val fit = if (scale >= 1) Rect((x - scale * 256) / 2, (y - scale * 192) / 2, scale * 256, scale * 192) else fit(x, y)
++                val gap = if (scale >= 1) PIP_GAP else 0
++                val pipW = if (scale < 1) fit.width / 4 else 256
++                val pipH = if (scale < 1) fit.height / 4 else 192
++                listOf(
++                    PositionedLayoutComponent(Rect(fit.x + left, fit.y + top, fit.width, fit.height), primary),
++                    PositionedLayoutComponent(Rect(left + x - pipW - gap, top + gap, pipW, pipH), other, onTop = true),
++                )
++            }
++            Mode.SINGLE -> {
++                val scale = min(x / 256, y / 192)
++                val fit = if (scale >= 1) Rect((x - scale * 256) / 2, (y - scale * 192) / 2, scale * 256, scale * 192) else fit(x, y)
++                listOf(PositionedLayoutComponent(Rect(fit.x + left, fit.y + top, fit.width, fit.height), primary))
++            }
++            Mode.STACKED -> {
++                val scale = min(x / 256, (y - 192) / 192)
++                if (scale < 1) {
++                    val topH = y * 2 / 3
++                    val topW = (consoleAspectRatio * topH).toInt()
++                    val bottomH = y - topH
++                    val bottomW = (consoleAspectRatio * bottomH).toInt()
++                    listOf(
++                        PositionedLayoutComponent(Rect((x - topW) / 2 + left, top, topW, topH), primary),
++                        PositionedLayoutComponent(Rect((x - bottomW) / 2 + left, top + topH, bottomW, bottomH), other),
++                    )
++                } else {
++                    val w = scale * 256
++                    val h = scale * 192
++                    listOf(
++                        PositionedLayoutComponent(Rect((x - w) / 2 + left, top, w, h), primary),
++                        PositionedLayoutComponent(Rect((x - 256) / 2 + left, top + h, 256, 192), other),
++                    )
++                }
++            }
++        }
++        return layout.copy(mainScreenLayout = layout.mainScreenLayout.copy(components = components))
++    }
++
++    /** Largest console-aspect rectangle that fits [w] x [h], centered. */
++    internal fun fit(w: Int, h: Int): Rect {
++        return if (w.toFloat() / h > consoleAspectRatio) {
++            val fitted = (consoleAspectRatio * h).toInt()
++            Rect((w - fitted) / 2, 0, fitted, h)
++        } else {
++            val fitted = (w / consoleAspectRatio).toInt()
++            Rect(0, (h - fitted) / 2, w, fitted)
++        }
++    }
++}
+diff --git a/app/src/main/java/me/magnum/melonds/nebulos/RomUris.kt b/app/src/main/java/me/magnum/melonds/nebulos/RomUris.kt
+new file mode 100644
+index 00000000..63ac124e
+--- /dev/null
++++ b/app/src/main/java/me/magnum/melonds/nebulos/RomUris.kt
+@@ -0,0 +1,20 @@
++package me.magnum.melonds.nebulos
++
++import android.content.Context
++import android.net.Uri
++import androidx.documentfile.provider.DocumentFile
++import java.io.File
++
++/** Directory counterpart of [romDocumentFor]: `file:` tree URIs (e.g. BIOS dirs written by Nebulos) are plain directories. */
++fun treeDocumentFor(context: Context, uri: Uri): DocumentFile? {
++    if (uri.scheme != "file") return DocumentFile.fromTreeUri(context, uri)
++    val path = uri.path ?: return null
++    return DocumentFile.fromFile(File(path))
++}
++
++/** Nebulos hands the engine plain `file:` URIs (no SAF grants): DocumentFile.fromTreeUri/fromSingleUri cannot read those. (Reconstructed.) */
++fun romDocumentFor(context: Context, uri: Uri): DocumentFile? {
++    if (uri.scheme != "file") return DocumentFile.fromSingleUri(context, uri)
++    val path = uri.path ?: return null
++    return DocumentFile.fromFile(File(path))
++}
+diff --git a/app/src/main/java/me/magnum/melonds/ui/common/rom/EmulatorLaunchValidatorDelegate.kt b/app/src/main/java/me/magnum/melonds/ui/common/rom/EmulatorLaunchValidatorDelegate.kt
+index 2d1a4041..c3e1b41b 100644
+--- a/app/src/main/java/me/magnum/melonds/ui/common/rom/EmulatorLaunchValidatorDelegate.kt
++++ b/app/src/main/java/me/magnum/melonds/ui/common/rom/EmulatorLaunchValidatorDelegate.kt
+@@ -16,6 +16,7 @@ import me.magnum.melonds.domain.model.VideoRenderer
+ import me.magnum.melonds.domain.model.emulator.validation.FirmwareLaunchPreconditionCheckResult
+ import me.magnum.melonds.domain.model.emulator.validation.RomLaunchPreconditionCheckResult
+ import me.magnum.melonds.domain.model.rom.Rom
++import me.magnum.melonds.nebulos.NebulosBridge
+ import me.magnum.melonds.ui.common.rom.model.LaunchValidationResult
+ import me.magnum.melonds.ui.dsiwaremanager.DSiWareManagerActivity
+ import me.magnum.melonds.ui.settings.SettingsActivity
+@@ -83,6 +84,10 @@ class EmulatorLaunchValidatorDelegate(
+     }
+ 
+     private fun showIncorrectConfigurationDirectoryDialogForFirmware(configurationDirResult: ConfigurationDirResult) {
++        if (NebulosBridge.active) {
++            NebulosBridge.error(context.getString(R.string.firmware_launch_failed), context.getString(R.string.firmware_launch_bad_setup), false)
++            return
++        }
+         AlertDialog.Builder(context)
+             .setTitle(R.string.firmware_launch_failed)
+             .setMessage(R.string.firmware_launch_bad_setup)
+@@ -101,6 +106,10 @@ class EmulatorLaunchValidatorDelegate(
+     }
+ 
+     private fun showIncorrectConfigurationDirectoryDialogForRom(configurationDirResult: ConfigurationDirResult) {
++        if (NebulosBridge.active) {
++            NebulosBridge.error(context.getString(R.string.rom_launch_failed), context.getString(R.string.rom_launch_custom_bios_firmware_bad_setup), false)
++            return
++        }
+         AlertDialog.Builder(context)
+             .setTitle(R.string.rom_launch_failed)
+             .setMessage(R.string.rom_launch_custom_bios_firmware_bad_setup)
+@@ -122,6 +131,11 @@ class EmulatorLaunchValidatorDelegate(
+             RomLaunchPreconditionCheckResult.DSiWareTitleValidationFailed.Reason.TitleNotInstalled -> context.getString(R.string.failed_launch_dsiware_title_not_installed)
+         }
+ 
++        if (NebulosBridge.active) {
++            NebulosBridge.error(context.getString(R.string.failed_launch_dsiware_title), message, false)
++            return
++        }
++
+         AlertDialog.Builder(context)
+             .setTitle(R.string.failed_launch_dsiware_title)
+             .setMessage(message)
+@@ -137,6 +151,10 @@ class EmulatorLaunchValidatorDelegate(
+     }
+ 
+     private fun showInvalidDirectoryAccessDialog() {
++        if (NebulosBridge.active) {
++            NebulosBridge.error(context.getString(R.string.error_invalid_directory), context.getString(R.string.error_invalid_directory_description), false)
++            return
++        }
+         AlertDialog.Builder(context)
+             .setTitle(R.string.error_invalid_directory)
+             .setMessage(R.string.error_invalid_directory_description)
+@@ -153,6 +171,11 @@ class EmulatorLaunchValidatorDelegate(
+             VideoRenderer.COMPUTE -> "Compute"
+         }
+ 
++        if (NebulosBridge.active) {
++            NebulosBridge.error(context.getString(R.string.renderer_unsupported_title), context.getString(R.string.renderer_unsupported_message, rendererLabel), false)
++            return
++        }
++
+         AlertDialog.Builder(context)
+             .setTitle(R.string.renderer_unsupported_title)
+             .setMessage(context.getString(R.string.renderer_unsupported_message, rendererLabel))
+@@ -173,6 +196,11 @@ class EmulatorLaunchValidatorDelegate(
+             VideoRenderer.COMPUTE -> "Compute"
+         }
+ 
++        if (NebulosBridge.active) {
++            NebulosBridge.error(context.getString(R.string.renderer_init_failed_title), context.getString(R.string.renderer_init_failed_message, rendererLabel), false)
++            return
++        }
++
+         AlertDialog.Builder(context)
+             .setTitle(R.string.renderer_init_failed_title)
+             .setMessage(context.getString(R.string.renderer_init_failed_message, rendererLabel))
+diff --git a/app/src/main/java/me/magnum/melonds/ui/emulator/EmulatorActivity.kt b/app/src/main/java/me/magnum/melonds/ui/emulator/EmulatorActivity.kt
+index 8f96ec33..37cfcacd 100644
+--- a/app/src/main/java/me/magnum/melonds/ui/emulator/EmulatorActivity.kt
++++ b/app/src/main/java/me/magnum/melonds/ui/emulator/EmulatorActivity.kt
+@@ -101,6 +101,7 @@ import me.magnum.melonds.impl.emulator.debug.RendererDebugBridge
+ import me.magnum.melonds.impl.layout.DeviceLayoutDisplayMapper
+ import me.magnum.melonds.impl.layout.SecondaryDisplaySelector
+ import me.magnum.melonds.impl.system.AppForegroundStateObserver
++import me.magnum.melonds.nebulos.NebulosBridge
+ import me.magnum.melonds.parcelables.RomInfoParcelable
+ import me.magnum.melonds.parcelables.RomParcelable
+ import me.magnum.melonds.ui.cheats.CheatsActivity
+@@ -231,6 +232,23 @@ class EmulatorActivity : AppCompatActivity() {
+     private var presentation: ExternalPresentation? = null
+ 
+     private lateinit var handler: Handler
++
++    /** Nebulos: this Activity was started by Nebulos (intent extra), which draws all UI itself. See [NebulosBridge]. */
++    private val nebulosMode: Boolean by lazy(LazyThreadSafetyMode.NONE) { intent.getBooleanExtra(NebulosBridge.EXTRA_NEBULOS, false) }
++
++    /** Nebulos "Close Game": finish this Activity without going through the pause menu. */
++    fun nebulosClose() {
++        runOnUiThread { closeEmulatorActivity() }
++    }
++
++    /** Toasts go to Nebulos' shared overlay when embedded. */
++    private fun showToast(message: CharSequence, duration: Int) {
++        if (nebulosMode) {
++            NebulosBridge.notice(message.toString(), duration == Toast.LENGTH_LONG)
++        } else {
++            Toast.makeText(this, message, duration).show()
++        }
++    }
+     private val displayListener = object : DisplayManager.DisplayListener {
+ 
+         override fun onDisplayAdded(displayId: Int) {
+@@ -506,12 +524,20 @@ class EmulatorActivity : AppCompatActivity() {
+ 
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
++        NebulosBridge.active = nebulosMode
++        if (nebulosMode) showBootAnimation.value = false
+         handler = Handler(mainLooper)
+         externalDisplayMode = settingsRepository.getExternalDisplayMode()
+         lifecycleOwnerProvider.setCurrentLifecycleOwner(this)
+         binding = ActivityEmulatorBinding.inflate(layoutInflater)
+         supportRequestWindowFeature(Window.FEATURE_NO_TITLE)
+         setContentView(binding.root)
++        if (nebulosMode) {
++            // Nebulos draws the FPS counter, loading text and progress itself
++            listOf(binding.textFps, binding.textRenderedIr, binding.textLoading, binding.progressLoading, binding.textLoadingDetail).forEach { view ->
++                (view.parent as? ViewGroup)?.removeView(view)
++            }
++        }
+         setupFullscreen()
+         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
+             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.displayCutout())
+@@ -592,7 +618,7 @@ class EmulatorActivity : AppCompatActivity() {
+         updateOrientation(resources.configuration)
+         disableScreenTimeOut()
+ 
+-        binding.layoutAchievement.setContent {
++        binding.layoutAchievement.takeIf { !nebulosMode }?.setContent {
+             MelonTheme {
+                 val achievementsViewModel = viewModels<EmulatorRetroAchievementsViewModel>().value
+ 
+@@ -1017,13 +1043,15 @@ class EmulatorActivity : AppCompatActivity() {
+                         }
+                     }
+ 
+-                    Toast.makeText(this@EmulatorActivity, message, duration).show()
++                    showToast(message, duration)
+                 }
+             }
+         }
+         lifecycleScope.launch {
+             lifecycle.repeatOnLifecycle(Lifecycle.State.CREATED) {
+                 viewModel.uiEvent.collectLatest {
++                    // Nebulos owns the pause menu / sub-screens; only an explicit close is honoured
++                    if (nebulosMode && it != EmulatorUiEvent.CloseEmulator) return@collectLatest
+                     when (it) {
+                         EmulatorUiEvent.CloseEmulator -> {
+                             closeEmulatorActivity()
+@@ -1105,7 +1133,7 @@ class EmulatorActivity : AppCompatActivity() {
+         }
+         lifecycleScope.launch {
+             lifecycle.repeatOnLifecycle(Lifecycle.State.CREATED) {
+-                viewModel.pendingRaModalState.collectLatest(::renderRaPendingModalState)
++                viewModel.pendingRaModalState.collectLatest { if (!nebulosMode) renderRaPendingModalState(it) }
+             }
+         }
+         lifecycleScope.launch {
+@@ -1162,6 +1190,7 @@ class EmulatorActivity : AppCompatActivity() {
+                                 bootRomTitle.value = running.rom.config.customName ?: running.rom.name
+                             }
+                             bootRomReady.value = true
++                            if (nebulosMode) NebulosBridge.ready()
+                             presentation?.setInfoOverlayContent(null)
+                             setupSustainedPerformanceMode()
+                             setupFpsCounter()
+@@ -1257,6 +1286,17 @@ class EmulatorActivity : AppCompatActivity() {
+     }
+ 
+     private fun renderLoadingState(progress: VulkanCompileProgress?, raLoadStage: RetroAchievementsLoadStage? = null) {
++        if (nebulosMode) {
++            val fraction = if (progress == null || progress.total <= 0) Float.NaN else progress.current.toFloat() / progress.total
++            val text = if (raLoadStage == RetroAchievementsLoadStage.FETCHING_LATEST_DATA) {
++                getString(R.string.info_refreshing_retroachievements_title)
++            } else if (progress == null || progress.total <= 0) {
++                null
++            } else {
++                getVulkanCompileStageLabel(progress.stageId)
++            }
++            NebulosBridge.loading(fraction, text)
++        }
+         if (raLoadStage == RetroAchievementsLoadStage.FETCHING_LATEST_DATA) {
+             binding.textLoading.setText(R.string.info_refreshing_retroachievements_title)
+             binding.progressLoading.isVisible = true
+@@ -1609,7 +1649,7 @@ class EmulatorActivity : AppCompatActivity() {
+ 
+         val launchArgs = LaunchArgs.fromIntent(intent)
+         // Invalid arguments. Ignore completely
+-        if (launchArgs == null)
++        if (launchArgs == null || nebulosMode)
+             return
+ 
+         lifecycleScope.launch {
+@@ -1976,6 +2016,12 @@ class EmulatorActivity : AppCompatActivity() {
+     }
+ 
+     private fun showHeavyShaderCompileDialog(request: EmulatorViewModel.HeavyShaderCompileRequest) {
++        if (nebulosMode) {
++            // no dialog inside Nebulos: always continue with the full compile
++            request.response.complete(true)
++            NebulosBridge.loading(Float.NaN, "Compiling shaders")
++            return
++        }
+         val duration = formatShaderCompileDuration(request.estimatedMillis)
+         val message = getString(
+             if (request.isMeasured) R.string.shader_heavy_compile_measured else R.string.shader_heavy_compile_estimated,
+@@ -2026,6 +2072,7 @@ class EmulatorActivity : AppCompatActivity() {
+         val atlasWidth = DS_SCREEN_WIDTH * scale
+         val atlasHeight = DS_FRAME_ATLAS_HEIGHT * scale
+ 
++        if (nebulosMode) NebulosBridge.loading(Float.NaN, getString(R.string.info_vulkan_compiling_stage_retroarch))
+         binding.textLoading.setText(R.string.info_retroarch_compiling_title)
+         binding.progressLoading.isVisible = true
+         binding.progressLoading.isIndeterminate = true
+@@ -2234,6 +2281,11 @@ class EmulatorActivity : AppCompatActivity() {
+     }
+ 
+     private fun handleBackPressed() {
++        if (nebulosMode) {
++            // Back opens the shared Nebulos menu (never the stock pause menu)
++            NebulosBridge.host?.onMenuRequested()
++            return
++        }
+         if (isRewindWindowOpen()) {
+             closeRewindWindow()
+         } else {
+@@ -3799,6 +3851,9 @@ class EmulatorActivity : AppCompatActivity() {
+     }
+ 
+     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
++        if (nebulosMode) {
++            return if (NebulosBridge.host?.onKey(event) == true) true else super.dispatchKeyEvent(event)
++        }
+         if (!activeOverlays.hasActiveOverlays() && nativeInputListener.onKeyEvent(event))
+             return true
+ 
+@@ -3835,6 +3890,9 @@ class EmulatorActivity : AppCompatActivity() {
+     }
+ 
+     override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
++        if (nebulosMode) {
++            return if (NebulosBridge.host?.onMotion(event) == true) true else super.dispatchGenericMotionEvent(event)
++        }
+         if (activeOverlays.hasActiveOverlays()) {
+             if (hasComposeOverlayOpen() && event.action == MotionEvent.ACTION_MOVE) {
+                 val hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X)
+@@ -3913,6 +3971,10 @@ class EmulatorActivity : AppCompatActivity() {
+     }
+ 
+     private fun showRomLoadErrorDialog(reason: String?) {
++        if (nebulosMode) {
++            NebulosBridge.error(getString(R.string.error_load_rom), reason ?: getString(R.string.error_load_rom_message), false)
++            return
++        }
+         activeOverlays.addActiveOverlay(EmulatorOverlay.ROM_LOAD_ERROR_DIALOG)
+         AlertDialog.Builder(this)
+             .setCancelable(false)
+@@ -3926,6 +3988,10 @@ class EmulatorActivity : AppCompatActivity() {
+     }
+ 
+     private fun showRomNotFoundDialog(romPath: String) {
++        if (nebulosMode) {
++            NebulosBridge.error(getString(R.string.error_rom_not_found), getString(R.string.error_rom_not_found_info, romPath), false)
++            return
++        }
+         activeOverlays.addActiveOverlay(EmulatorOverlay.ROM_NOT_FOUND_DIALOG)
+         AlertDialog.Builder(this)
+             .setTitle(R.string.error_rom_not_found)
+@@ -3940,6 +4006,10 @@ class EmulatorActivity : AppCompatActivity() {
+     }
+ 
+     private fun showFirmwareLoadErrorDialog(error: EmulatorState.FirmwareLoadError) {
++        if (nebulosMode) {
++            NebulosBridge.error(getString(R.string.error_load_firmware), resources.getString(R.string.error_load_firmware_message, error.reason.toString()), false)
++            return
++        }
+         activeOverlays.addActiveOverlay(EmulatorOverlay.FIRMWARE_LOAD_ERROR_DIALOG)
+         AlertDialog.Builder(this)
+             .setCancelable(false)
+diff --git a/app/src/main/java/me/magnum/melonds/ui/emulator/EmulatorViewModel.kt b/app/src/main/java/me/magnum/melonds/ui/emulator/EmulatorViewModel.kt
+index 63fa3583..fe94dbb6 100644
+--- a/app/src/main/java/me/magnum/melonds/ui/emulator/EmulatorViewModel.kt
++++ b/app/src/main/java/me/magnum/melonds/ui/emulator/EmulatorViewModel.kt
+@@ -1,5 +1,7 @@
+ package me.magnum.melonds.ui.emulator
+ 
++import me.magnum.melonds.nebulos.NebulosBridge
++import me.magnum.melonds.nebulos.NebulosScreenLayouts
+ import android.content.Context
+ import android.content.pm.ApplicationInfo
+ import android.net.Uri
+@@ -2504,7 +2506,7 @@ class EmulatorViewModel @Inject constructor(
+                 )
+             }
+ 
+-            combine(layoutConfiguration, dualScreenPresetConfiguration) { config, dualScreenConfig ->
++            combine(layoutConfiguration, dualScreenPresetConfiguration, NebulosBridge.screenLayout) { config, dualScreenConfig, nebulosLayout ->
+                 val currentLayoutConfiguration = config.layoutConfiguration
+                 val currentLayoutVariant = config.layoutVariant
+                 val currentVariant = currentLayoutVariant?.first
+@@ -2518,7 +2520,10 @@ class EmulatorViewModel @Inject constructor(
+                         config.inputOpacity
+                     }
+ 
+-                    val adjustedLayout = applyDualScreenPresetLayoutOverrides(currentLayout, currentVariant, dualScreenConfig)
++                    var adjustedLayout = applyDualScreenPresetLayoutOverrides(currentLayout, currentVariant, dualScreenConfig)
++                    if (NebulosBridge.active) {
++                        adjustedLayout = NebulosScreenLayouts.apply(adjustedLayout, currentVariant, nebulosLayout)
++                    }
+                     RuntimeInputLayoutConfiguration(
+                         softInputBehaviour = config.softInputBehaviour,
+                         softInputOpacity = opacity,
+diff --git a/app/src/main/java/me/magnum/melonds/ui/emulator/RuntimeLayoutView.kt b/app/src/main/java/me/magnum/melonds/ui/emulator/RuntimeLayoutView.kt
+index b209b0b0..35447bec 100644
+--- a/app/src/main/java/me/magnum/melonds/ui/emulator/RuntimeLayoutView.kt
++++ b/app/src/main/java/me/magnum/melonds/ui/emulator/RuntimeLayoutView.kt
+@@ -1,5 +1,6 @@
+ package me.magnum.melonds.ui.emulator
+ 
++import me.magnum.melonds.nebulos.NebulosBridge
+ import android.content.Context
+ import android.util.AttributeSet
+ import androidx.core.view.isGone
+@@ -166,6 +167,11 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
+             SoftInputBehaviour.ALWAYS_INVISIBLE -> LayoutComponent.entries.toList()
+         }
+ 
++        // Nebulos supplies its own input overlay (none): never show the soft controls
++        if (NebulosBridge.active) {
++            hiddenComponents = LayoutComponent.entries.toList()
++        }
++
+         if (!isSoftInputVisible) {
+             // Hide everything except the soft input toggle button if it was not already hidden by the soft input behaviour logic
+             hiddenComponents = if (hiddenComponents.contains(LayoutComponent.BUTTON_TOGGLE_SOFT_INPUT)) {

@@ -1,0 +1,1430 @@
+From 3e84ff14b56c8bb4fd43f91cf5e6a5fd0cfad9ee Mon Sep 17 00:00:00 2001
+From: ry <noreply@local>
+Date: Sun, 8 Nov 2026 21:47:35 -0600
+Subject: [PATCH 1/2] Nebulos embedding (RECONSTRUCTED 2026-11-08 after loss of
+ the original fork)
+
+Base: upstream azahar-emu/azahar 6b4e7f2e6 (tag 2127.0-rc2 + 0). The original base commit and
+patches were lost; everything below is re-created from the decompiled Nebulos Release 15 APK
+(Java side) and from the exports/strings of its libcitra-android.so (native side). Anything not
+marked "RECONSTRUCTED" is upstream.
+
+Build:
+- :app is an Android library (AGP 9.2.1, Kotlin 2.4.0 via buildscript classpath, safeargs 2.9.6),
+  arm64-v8a only, no applicationId/signing/ktlint/validation-layer download.
+  BuildConfig.VERSION_NAME defined by hand (libraries have none).
+- res/drawable/scrollbar_thumb.xml: remove stray duplicated xml declaration (AGP 9 aapt parse fails).
+
+Java/Kotlin (RECONSTRUCTED hooks):
+- utils/NebulosBridge, utils/NebulosToast: notice/error/ready/progress/loadingText seam (same
+  shape as the Eden port); fatal parking.
+- CitraApplication.initializeForEmbedding(Application) + host context.
+- NativeLibrary: onCoreError/displayAlertMsg routed to NebulosBridge (no dialogs); new externals
+  setSaveDirectories, setFourThreeFill, setFramePatch, isEmulationFinished.
+- EmulationFragment: shader progress/loading text/ready -> NebulosBridge; toasts -> NebulosToast.
+  EmulationActivity/SoftwareKeyboard/TurboHelper/NetPlayManager/GamepadEventHandler: no dialogs/toasts.
+- file:// user directory support (PermissionsHandler.hasWriteAccess/userRootDocument, SettingsFile,
+  GpuDriverHelper, FileUtil.createFile/createDir).
+- IntSetting.int / BooleanSetting.boolean / SettingsFile.saveFile compat shims over CitraSettings
+  (the host was written against the older enum-field settings API).
+- InputOverlay.NEBULOS_NO_OVERLAY marker.
+
+Native (RECONSTRUCTED, guessed from symbols/log strings of the old library):
+- FileUtil::SetSaveDirectoryOverrides + JNI setSaveDirectories (portable sdmc/nand/states; Android
+  paths are "!"-prefixed absolute paths).
+- JNI isEmulationFinished (set after System::Shutdown), setFramePatch (per-slice guest memory patch
+  enforcement, verification of original words, once-words on turn-off).
+- JNI setFourThreeFill: flag only. NOT RECOVERED: the renderer-side 4:3 fill (vertex-shader hud_adj)
+  and the draw blending ("interp") half of the 60 fps patch, plus the svcprof debug profiler.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ src/android/app/build.gradle.kts              | 179 ++----------------
+ .../org/citra/citra_emu/CitraApplication.kt   | 112 ++++++-----
+ .../java/org/citra/citra_emu/NativeLibrary.kt |  60 +++---
+ .../citra_emu/activities/EmulationActivity.kt |  24 +--
+ .../citra_emu/applets/SoftwareKeyboard.kt     |   7 +-
+ .../features/input/GamepadEventHandler.kt     |   2 +-
+ .../features/settings/model/BooleanSetting.kt |   5 +
+ .../features/settings/model/IntSetting.kt     |   5 +
+ .../settings/model/NebulosSettings.kt         |  40 ++++
+ .../features/settings/utils/SettingsFile.kt   |  16 +-
+ .../citra_emu/fragments/EmulationFragment.kt  |  13 +-
+ .../citra/citra_emu/overlay/InputOverlay.kt   |   3 +
+ .../org/citra/citra_emu/utils/FileUtil.kt     |   4 +-
+ .../citra/citra_emu/utils/GpuDriverHelper.kt  |   2 +-
+ .../citra/citra_emu/utils/NebulosBridge.kt    |  56 ++++++
+ .../org/citra/citra_emu/utils/NebulosToast.kt |  27 +++
+ .../citra/citra_emu/utils/NetPlayManager.kt   |   2 +-
+ .../citra_emu/utils/PermissionsHandler.kt     |  17 ++
+ .../org/citra/citra_emu/utils/TurboHelper.kt  |   2 +-
+ src/android/app/src/main/jni/native.cpp       | 169 ++++++++++++++++-
+ .../src/main/res/drawable/scrollbar_thumb.xml |   2 +-
+ src/android/build.gradle.kts                  |  12 +-
+ src/android/gradle.properties                 |   4 +-
+ src/common/file_util.cpp                      |  40 ++++
+ src/common/file_util.h                        |   5 +
+ 25 files changed, 511 insertions(+), 297 deletions(-)
+ create mode 100644 src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/NebulosSettings.kt
+ create mode 100644 src/android/app/src/main/java/org/citra/citra_emu/utils/NebulosBridge.kt
+ create mode 100644 src/android/app/src/main/java/org/citra/citra_emu/utils/NebulosToast.kt
+
+diff --git a/src/android/app/build.gradle.kts b/src/android/app/build.gradle.kts
+index 1687de044..c45282557 100644
+--- a/src/android/app/build.gradle.kts
++++ b/src/android/app/build.gradle.kts
+@@ -2,33 +2,26 @@
+ // Licensed under GPLv2 or any later version
+ // Refer to the misc/licenses/gplv2.txt file included.
+ 
+-import android.databinding.tool.ext.capitalizeUS
+-import de.undercouch.gradle.tasks.download.Download
++// NEBULOS (reconstructed): Nebulos embeds Azahar, so :app is an Android *library* (the Nebulos app is the application).
++// Removed vs upstream: application plugin/applicationId/signing/relWithDebInfo build types, ktlint, the Vulkan validation layer
++// download (Nebulos strips it), applicationVariants bundle-copy tasks. arm64-v8a only.
+ 
+ plugins {
+-    id("com.android.application")
+-    id("org.jetbrains.kotlin.android")
+-    id("de.undercouch.download") version "5.5.0"
+-    id("kotlin-parcelize")
+-    kotlin("plugin.serialization") version "2.0.20"
++    id("com.android.library")
++    id("org.jetbrains.kotlin.plugin.parcelize")
++    kotlin("plugin.serialization") version "2.4.0"
+     id("androidx.navigation.safeargs.kotlin")
+-    id("org.jlleitschuh.gradle.ktlint")
+ }
+ 
+ /**
+  * Use the number of seconds/10 since Jan 1 2016 as the versionCode.
+- * This lets us upload a new build at most every 10 seconds for the
+- * next 680 years.
+  */
+-val autoVersion = (((System.currentTimeMillis() / 1000) - 1451606400) / 10).toInt()
+-val abiFilter = listOf("arm64-v8a", "x86_64")
+-
+-val downloadedJniLibsPath = "${layout.buildDirectory.get().asFile.path}/downloadedJniLibs"
++val abiFilter = listOf("arm64-v8a")
+ 
+ android {
+     namespace = "org.citra.citra_emu"
+ 
+-    compileSdkVersion = "android-35"
++    compileSdkVersion = "android-36"
+     ndkVersion = "27.3.13750724"
+ 
+     compileOptions {
+@@ -36,14 +29,6 @@ android {
+         targetCompatibility = JavaVersion.VERSION_17
+     }
+ 
+-    kotlinOptions {
+-        jvmTarget = "17"
+-    }
+-
+-    androidResources {
+-        generateLocaleConfig = true
+-    }
+-
+     packaging {
+         // This is necessary for libadrenotools custom driver loading
+         jniLibs.useLegacyPackaging = true
+@@ -52,6 +37,7 @@ android {
+     buildFeatures {
+         viewBinding = true
+         buildConfig = true
++        resValues = true
+     }
+ 
+     lint {
+@@ -61,13 +47,7 @@ android {
+     }
+ 
+     defaultConfig {
+-        // The application ID refers to Lime3DS to allow for
+-        // the Play Store listing, which was originally set up for Lime3DS, to still be used.
+-        applicationId = "org.azahar_emu.azahar"
+         minSdk = 29
+-        targetSdk = 37
+-        versionCode = autoVersion
+-        versionName = getGitVersion()
+ 
+         ndk {
+             //noinspection ChromeOsAbiSupport
+@@ -91,96 +71,18 @@ android {
+         // ^ Has no suffix, unlike VERSION_NAME
+         buildConfigField("String", "GIT_HASH", "\"${getGitHash()}\"")
+         buildConfigField("String", "BRANCH", "\"${getBranch()}\"")
+-    }
+-
+-    val keystoreFile = System.getenv("ANDROID_KEYSTORE_FILE")
+-    if (keystoreFile != null) {
+-        signingConfigs {
+-            create("release") {
+-                storeFile = file(keystoreFile)
+-                storePassword = System.getenv("ANDROID_KEYSTORE_PASS")
+-                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+-                keyPassword = System.getenv("ANDROID_KEYSTORE_PASS")
+-            }
+-        }
+-    }
+-
+-    // Define build types, which are orthogonal to product flavors.
+-    buildTypes {
+-        // Signed by release key, allowing for upload to Play Store.
+-        release {
+-            signingConfig = if (keystoreFile != null) {
+-                signingConfigs.getByName("release")
+-            } else {
+-                signingConfigs.getByName("debug")
+-            }
+-            isMinifyEnabled = true
+-            isShrinkResources = true
+-            proguardFiles(
+-                getDefaultProguardFile("proguard-android.txt"),
+-                "proguard-rules.pro"
+-            )
+-        }
+-
+-        // builds a release build that doesn't need signing
+-        // Attaches 'debug' suffix to version and package name, allowing installation alongside the release build.
+-        register("relWithDebInfo") {
+-            initWith(getByName("release"))
+-            applicationIdSuffix = ".debug"
+-            versionNameSuffix = "-debug"
+-            signingConfig = signingConfigs.getByName("debug")
+-            isShrinkResources = true
+-            // TODO: ^- Does this actually do anything when isDebuggable is enabled? -OS
+-            isDebuggable = true
+-            isJniDebuggable = true
+-            proguardFiles(
+-                getDefaultProguardFile("proguard-android.txt"),
+-                "proguard-rules.pro"
+-            )
+-            isDefault = true
+-        }
+-
+-        // Same as above, but with isDebuggable disabled.
+-        // Primarily exists to allow development on hardened_malloc systems (e.g. GrapheneOS)
+-        // without constantly tripping over years-old and seemingly harmless memory bugs.
+-        // We should fix those bugs eventually, but for now this exists as a workaround to
+-        // allow other work to be done on these devices.
+-        register("relWithDebInfoLite") {
+-            initWith(getByName("relWithDebInfo"))
+-            signingConfig = signingConfigs.getByName("debug")
+-            isDebuggable = false
+-            installation {
+-                enableBaselineProfile = false // Disabled by default when isDebuggable is true
+-            }
+-            lint {
+-                checkReleaseBuilds = false // Ditto
+-                // ^- The name of this property is misleading, this doesn't actually disable linting for the `release` build.
+-            }
+-        }
+-
+-        // Signed by debug key disallowing distribution on Play Store.
+-        // Attaches 'debug' suffix to version and package name, allowing installation alongside the release build.
+-        debug {
+-            // TODO If this is ever modified, change application_id in debug/strings.xml
+-            applicationIdSuffix = ".debug"
+-            versionNameSuffix = "-debug"
+-            isDebuggable = true
+-            isJniDebuggable = true
+-        }
++        // NEBULOS: libraries have no versionName; upstream code reads BuildConfig.VERSION_NAME
++        buildConfigField("String", "VERSION_NAME", "\"${getGitVersion()}\"")
+     }
+ 
+     flavorDimensions.add("version")
+ 
+     productFlavors {
+         register("vanilla") {
+-            isDefault = true
+             dimension = "version"
+-            versionNameSuffix = "-vanilla"
+         }
+         register("googlePlay") {
+             dimension = "version"
+-            versionNameSuffix = "-googleplay"
+-            applicationId = "io.github.lime3ds.android"
+         }
+     }
+ 
+@@ -190,13 +92,6 @@ android {
+             path = file("../../../CMakeLists.txt")
+         }
+     }
+-
+-    sourceSets {
+-        named("main") {
+-            // Set up path for downloaded native libraries
+-            jniLibs.srcDir(downloadedJniLibsPath)
+-        }
+-    }
+ }
+ 
+ dependencies {
+@@ -218,36 +113,7 @@ dependencies {
+     implementation("io.coil-kt:coil:2.7.0")
+     implementation("org.ini4j:ini4j:0.5.4")
+     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.2")
+-}
+-
+-// Download Vulkan Validation Layers from the KhronosGroup GitHub.
+-val downloadVulkanValidationLayers = tasks.register<Download>("downloadVulkanValidationLayers") {
+-    src(
+-        "https://github.com/KhronosGroup/Vulkan-ValidationLayers/releases/download/vulkan-sdk-1.4.313.0/android-binaries-1.4.313.0.zip"
+-    )
+-    dest(file("${layout.buildDirectory.get().asFile.path}/tmp/Vulkan-ValidationLayers.zip"))
+-    onlyIfModified(true)
+-}
+-
+-// Extract Vulkan Validation Layers into the downloaded native libraries directory.
+-val unzipVulkanValidationLayers = tasks.register<Copy>("unzipVulkanValidationLayers") {
+-    dependsOn(downloadVulkanValidationLayers)
+-    from(zipTree(downloadVulkanValidationLayers.get().dest)) {
+-        // Exclude the top level directory in the zip as it violates the expected jniLibs directory structure.
+-        eachFile {
+-            relativePath = RelativePath(true, *relativePath.segments.drop(1).toTypedArray())
+-        }
+-        includeEmptyDirs = false
+-    }
+-    into(downloadedJniLibsPath)
+-}
+-
+-tasks.named("preBuild") {
+-    dependsOn(unzipVulkanValidationLayers)
+-}
+-
+-ktlint {
+-    version = "1.8.0"
++    implementation("org.jetbrains.kotlin:kotlin-parcelize-runtime:2.4.0") // AGP 9: the parcelize plugin no longer adds its runtime
+ }
+ 
+ fun getGitVersion(): String {
+@@ -300,24 +166,3 @@ fun runGitCommand(command: ProcessBuilder): String? {
+         return null
+     }
+ }
+-
+-android.applicationVariants.configureEach {
+-    val variant = this
+-    val capitalizedName = variant.name.capitalizeUS()
+-
+-    val copyTask = tasks.register("copyBundle$capitalizedName") {
+-        doLast {
+-            project.copy {
+-                from(variant.outputs.first().outputFile.parentFile)
+-                include("*.apk")
+-                into(layout.buildDirectory.dir("bundle"))
+-            }
+-            project.copy {
+-                from(layout.buildDirectory.dir("outputs/bundle/${variant.name}"))
+-                include("*.aab")
+-                into(layout.buildDirectory.dir("bundle"))
+-            }
+-        }
+-    }
+-    tasks.named("bundle$capitalizedName").configure { finalizedBy(copyTask) }
+-}
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/CitraApplication.kt b/src/android/app/src/main/java/org/citra/citra_emu/CitraApplication.kt
+index d5e42e594..627f77537 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/CitraApplication.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/CitraApplication.kt
+@@ -18,66 +18,74 @@ import org.citra.citra_emu.utils.MemoryUtil
+ import org.citra.citra_emu.utils.PermissionsHandler
+ 
+ class CitraApplication : Application() {
+-    private fun createNotificationChannel() {
+-        with(getSystemService(NotificationManager::class.java)) {
+-            // General notification
+-            val name: CharSequence = getString(R.string.app_notification_channel_name)
+-            val description = getString(R.string.app_notification_channel_description)
+-            val generalChannel = NotificationChannel(
+-                getString(R.string.app_notification_channel_id),
+-                name,
+-                NotificationManager.IMPORTANCE_LOW
+-            )
+-            generalChannel.description = description
+-            generalChannel.setSound(null, null)
+-            generalChannel.vibrationPattern = null
+-            createNotificationChannel(generalChannel)
+-
+-            // CIA Install notifications
+-            val ciaChannel = NotificationChannel(
+-                getString(R.string.cia_install_notification_channel_id),
+-                getString(R.string.cia_install_notification_channel_name),
+-                NotificationManager.IMPORTANCE_DEFAULT
+-            )
+-            ciaChannel.description =
+-                getString(R.string.cia_install_notification_channel_description)
+-            ciaChannel.setSound(null, null)
+-            ciaChannel.vibrationPattern = null
+-            createNotificationChannel(ciaChannel)
+-        }
+-    }
+-
+     override fun onCreate() {
+         super.onCreate()
+-        application = this
+-        documentsTree = DocumentsTree()
+-        if (PermissionsHandler.hasWriteAccess(applicationContext)) {
+-            DirectoryInitialization.start()
+-        }
+-
+-        NativeLibrary.logDeviceInfo()
+-        logDeviceInfo()
+-        createNotificationChannel()
+-        NativeLibrary.playTimeManagerInit()
+-    }
+-
+-    fun logDeviceInfo() {
+-        Log.info("Device Manufacturer - ${Build.MANUFACTURER}")
+-        Log.info("Device Model - ${Build.MODEL}")
+-        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R) {
+-            Log.info("SoC Manufacturer - ${Build.SOC_MANUFACTURER}")
+-            Log.info("SoC Model - ${Build.SOC_MODEL}")
+-        }
+-        Log.info("Total System Memory - ${MemoryUtil.getDeviceRAM()}")
+-        Log.info("OpenGL ES Renderer - ${GraphicsUtil.openGLRendererString}")
++        initializeForEmbedding(this)
+     }
+ 
+     companion object {
+-        private var application: CitraApplication? = null
++        // NEBULOS: the stock Application.onCreate work lives in initializeForEmbedding() so a host app (Nebulos) that has its own
++        // Application class can run it too. The context is whatever Application was handed in, not necessarily a CitraApplication.
++        private var hostContext: Context? = null
+ 
+-        val appContext: Context get() = application!!.applicationContext
++        val appContext: Context
++            get() = hostContext ?: error("CitraApplication not initialized")
+ 
+         @SuppressLint("StaticFieldLeak")
+         lateinit var documentsTree: DocumentsTree
++
++        @JvmStatic
++        fun initializeForEmbedding(hostApplication: Application) {
++            hostContext = hostApplication.applicationContext
++            documentsTree = DocumentsTree()
++            if (PermissionsHandler.hasWriteAccess(hostApplication.applicationContext)) {
++                DirectoryInitialization.start()
++            }
++
++            NativeLibrary.logDeviceInfo()
++            logDeviceInfo()
++            createNotificationChannel(hostApplication)
++            NativeLibrary.playTimeManagerInit()
++        }
++
++        private fun createNotificationChannel(context: Context) {
++            with(context.getSystemService(NotificationManager::class.java)) {
++                // General notification
++                val name: CharSequence = context.getString(R.string.app_notification_channel_name)
++                val description = context.getString(R.string.app_notification_channel_description)
++                val generalChannel = NotificationChannel(
++                    context.getString(R.string.app_notification_channel_id),
++                    name,
++                    NotificationManager.IMPORTANCE_LOW
++                )
++                generalChannel.description = description
++                generalChannel.setSound(null, null)
++                generalChannel.vibrationPattern = null
++                createNotificationChannel(generalChannel)
++
++                // CIA Install notifications
++                val ciaChannel = NotificationChannel(
++                    context.getString(R.string.cia_install_notification_channel_id),
++                    context.getString(R.string.cia_install_notification_channel_name),
++                    NotificationManager.IMPORTANCE_DEFAULT
++                )
++                ciaChannel.description =
++                    context.getString(R.string.cia_install_notification_channel_description)
++                ciaChannel.setSound(null, null)
++                ciaChannel.vibrationPattern = null
++                createNotificationChannel(ciaChannel)
++            }
++        }
++
++        private fun logDeviceInfo() {
++            Log.info("Device Manufacturer - ${Build.MANUFACTURER}")
++            Log.info("Device Model - ${Build.MODEL}")
++            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R) {
++                Log.info("SoC Manufacturer - ${Build.SOC_MANUFACTURER}")
++                Log.info("SoC Model - ${Build.SOC_MODEL}")
++            }
++            Log.info("Total System Memory - ${MemoryUtil.getDeviceRAM()}")
++            Log.info("OpenGL ES Renderer - ${GraphicsUtil.openGLRendererString}")
++        }
+     }
+ }
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/NativeLibrary.kt b/src/android/app/src/main/java/org/citra/citra_emu/NativeLibrary.kt
+index c511ee574..2f4797c4c 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/NativeLibrary.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/NativeLibrary.kt
+@@ -35,6 +35,7 @@ import org.citra.citra_emu.utils.BuildUtil
+ import org.citra.citra_emu.utils.FileUtil
+ import org.citra.citra_emu.utils.GraphicsUtil
+ import org.citra.citra_emu.utils.Log
++import org.citra.citra_emu.utils.NebulosBridge
+ import org.citra.citra_emu.utils.NetPlayManager
+ import org.citra.citra_emu.utils.RemovableStorageHelper
+ import org.citra.citra_emu.viewmodel.CompressProgressDialogViewModel
+@@ -246,6 +247,22 @@ object NativeLibrary {
+ 
+     external fun setTemporaryFrameLimit(speed: Double)
+ 
++    // ---- NEBULOS native hooks (reconstructed; see jni/native.cpp) ----
++    /** Portable save data: sdmc / nand / states live in these real folders instead of under the user directory. Call before init. */
++    external fun setSaveDirectories(sdmc: String, nand: String, states: String)
++
++    /** True while the top screen should be drawn as a native 4:3 picture ("4:3 Fill" layout). */
++    external fun setFourThreeFill(on: Boolean)
++
++    /**
++     * Per-frame guest-memory patch set (the "60 FPS" patch). [on] / [off] are (address, word) pairs, [once] pairs are written a single
++     * time when turning on/off; [flagAddr] is a mailbox word the patch code reads. Pass (0, null, null, null, false) to clear.
++     */
++    external fun setFramePatch(flagAddr: Int, on: IntArray?, off: IntArray?, once: IntArray?, enable: Boolean)
++
++    /** True once the emulation thread has finished System::Shutdown (save files closed and flushed). */
++    external fun isEmulationFinished(): Boolean
++
+     external fun disableTemporaryFrameLimit()
+ 
+     external fun playTimeManagerInit()
+@@ -354,17 +371,10 @@ object NativeLibrary {
+             }
+         }
+ 
+-        // Show the AlertDialog on the main thread.
+-        emulationActivity.runOnUiThread(Runnable { onCoreErrorImpl(title, message, canContinue) })
+-
+-        // Wait for the lock to notify that it is complete.
+-        synchronized(coreErrorAlertLock) {
+-            try {
+-                coreErrorAlertLock.wait()
+-            } catch (ignored: Exception) {
+-            }
+-        }
+-        return coreErrorAlertResult
++        // NEBULOS: no dialog. The Nebulos shell shows the error panel; a fatal error parks the emulation thread until the process ends.
++        NebulosBridge.error(title, Html.fromHtml(message, 0).toString().trim(), !canContinue)
++        if (!canContinue) NebulosBridge.parkAfterFatal()
++        return canContinue
+     }
+ 
+     @Keep
+@@ -378,29 +388,13 @@ object NativeLibrary {
+     @JvmStatic
+     fun displayAlertMsg(title: String, message: String, yesNo: Boolean): Boolean {
+         Log.error("[NativeLibrary] Alert: $message")
+-        val emulationActivity = sEmulationActivity.get()
+-        var result = false
+-        if (emulationActivity == null) {
+-            Log.warning("[NativeLibrary] EmulationActivity is null, can't do panic alert.")
+-        } else {
+-            // Show the AlertDialog on the main thread.
+-            emulationActivity.runOnUiThread {
+-                AlertMessageDialogFragment.newInstance(title, message, yesNo).showNow(
+-                    emulationActivity.supportFragmentManager,
+-                    AlertMessageDialogFragment.TAG
+-                )
+-            }
+-
+-            // Wait for the lock to notify that it is complete.
+-            synchronized(alertLock) {
+-                try {
+-                    alertLock.wait()
+-                } catch (_: Exception) {
+-                }
+-            }
+-            if (yesNo) result = alertResult
++        // NEBULOS: no dialog. Plain alerts become a notice; yes/no questions are auto-answered "no".
++        if (!yesNo) {
++            NebulosBridge.notice(message)
++            return false
+         }
+-        return result
++        Log.warning("[Nebulos] yes/no alert auto-answered no: $title / $message")
++        return false
+     }
+ 
+     class AlertMessageDialogFragment : DialogFragment() {
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/activities/EmulationActivity.kt b/src/android/app/src/main/java/org/citra/citra_emu/activities/EmulationActivity.kt
+index 329491a8f..3ba96c931 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/activities/EmulationActivity.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/activities/EmulationActivity.kt
+@@ -17,7 +17,6 @@ import android.view.KeyEvent
+ import android.view.MotionEvent
+ import android.view.Window
+ import android.view.WindowManager
+-import android.widget.Toast
+ import androidx.activity.result.contract.ActivityResultContracts
+ import androidx.activity.viewModels
+ import androidx.appcompat.app.AppCompatActivity
+@@ -56,6 +55,7 @@ import org.citra.citra_emu.utils.EmulationMenuSettings
+ import org.citra.citra_emu.utils.FileBrowserHelper
+ import org.citra.citra_emu.utils.GameHelper
+ import org.citra.citra_emu.utils.Log
++import org.citra.citra_emu.utils.NebulosBridge
+ import org.citra.citra_emu.utils.NetPlayManager
+ import org.citra.citra_emu.utils.PermissionsHandler
+ import org.citra.citra_emu.utils.RefreshRateUtil
+@@ -348,10 +348,7 @@ class EmulationActivity : AppCompatActivity() {
+                 if (grantResults[0] != PackageManager.PERMISSION_GRANTED &&
+                     shouldShowRequestPermissionRationale(permission.CAMERA)
+                 ) {
+-                    MessageDialogFragment.newInstance(
+-                        R.string.camera,
+-                        R.string.camera_permission_needed
+-                    ).show(supportFragmentManager, MessageDialogFragment.TAG)
++                    NebulosBridge.notice(getString(R.string.camera_permission_needed)) // NEBULOS: no dialog
+                 }
+                 NativeLibrary.cameraPermissionResult(
+                     grantResults[0] == PackageManager.PERMISSION_GRANTED
+@@ -362,10 +359,7 @@ class EmulationActivity : AppCompatActivity() {
+                 if (grantResults[0] != PackageManager.PERMISSION_GRANTED &&
+                     shouldShowRequestPermissionRationale(permission.RECORD_AUDIO)
+                 ) {
+-                    MessageDialogFragment.newInstance(
+-                        R.string.microphone,
+-                        R.string.microphone_permission_needed
+-                    ).show(supportFragmentManager, MessageDialogFragment.TAG)
++                    NebulosBridge.notice(getString(R.string.microphone_permission_needed)) // NEBULOS: no dialog
+                 }
+                 NativeLibrary.micPermissionResult(
+                     grantResults[0] == PackageManager.PERMISSION_GRANTED
+@@ -383,11 +377,8 @@ class EmulationActivity : AppCompatActivity() {
+             isRotationBlocked = false
+             applyOrientationSettings()
+         }
+-        Toast.makeText(
+-            applicationContext,
+-            getString(R.string.emulation_menu_help),
+-            Toast.LENGTH_LONG
+-        ).show()
++        // NEBULOS: no "open the menu" help toast; Nebulos has its own menu.
++        Log.info("[Nebulos] emulation started")
+     }
+ 
+     fun displayMultiplayerDialog() {
+@@ -467,10 +458,7 @@ class EmulationActivity : AppCompatActivity() {
+         val success = NativeLibrary.loadAmiibo(selectedFile)
+         if (!success) {
+             Log.error("[EmulationActivity] Failed to load Amiibo file: $selectedFile")
+-            MessageDialogFragment.newInstance(
+-                R.string.amiibo_load_error,
+-                R.string.amiibo_load_error_message
+-            ).show(supportFragmentManager, MessageDialogFragment.TAG)
++            NebulosBridge.notice(getString(R.string.amiibo_load_error_message)) // NEBULOS: no dialog
+         }
+     }
+ 
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/applets/SoftwareKeyboard.kt b/src/android/app/src/main/java/org/citra/citra_emu/applets/SoftwareKeyboard.kt
+index 8c6e3f64a..69b29ef93 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/applets/SoftwareKeyboard.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/applets/SoftwareKeyboard.kt
+@@ -12,7 +12,7 @@ import org.citra.citra_emu.CitraApplication.Companion.appContext
+ import org.citra.citra_emu.NativeLibrary
+ import org.citra.citra_emu.R
+ import org.citra.citra_emu.fragments.KeyboardDialogFragment
+-import org.citra.citra_emu.fragments.MessageDialogFragment
++import org.citra.citra_emu.utils.NebulosBridge
+ import org.citra.citra_emu.utils.Log
+ 
+ @Keep
+@@ -47,10 +47,7 @@ object SoftwareKeyboard {
+             else -> emulationActivity.getString(R.string.invalid_input)
+         }
+ 
+-        MessageDialogFragment.newInstance(R.string.software_keyboard, message).show(
+-            NativeLibrary.sEmulationActivity.get()!!.supportFragmentManager,
+-            MessageDialogFragment.TAG
+-        )
++        NebulosBridge.notice(message) // NEBULOS: no dialog
+     }
+ 
+     @JvmStatic
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/features/input/GamepadEventHandler.kt b/src/android/app/src/main/java/org/citra/citra_emu/features/input/GamepadEventHandler.kt
+index e3cc0ecc8..4895c0790 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/features/input/GamepadEventHandler.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/features/input/GamepadEventHandler.kt
+@@ -7,7 +7,7 @@ package org.citra.citra_emu.features.input
+ import android.content.Context
+ import android.view.KeyEvent
+ import android.view.MotionEvent
+-import android.widget.Toast
++import org.citra.citra_emu.utils.NebulosToast as Toast
+ import kotlin.math.abs
+ import org.citra.citra_emu.NativeLibrary
+ import org.citra.citra_emu.R
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/BooleanSetting.kt b/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/BooleanSetting.kt
+index a7a8cbaae..e6a631917 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/BooleanSetting.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/BooleanSetting.kt
+@@ -153,6 +153,11 @@ enum class BooleanSetting(
+     ),
+     CHECK_FOR_UPDATES(SettingKeys.check_for_update_on_start(), CitraSettings.SECTION_MISC, true);
+ 
++    /** NEBULOS compat: the current value in the active settings (see [NebulosSettings]). */
++    var boolean: Boolean
++        get() = NebulosSettings.get(this)
++        set(value) = NebulosSettings.set(this, value)
++
+     override fun valueFromString(string: String): Boolean? = when (string.trim().lowercase()) {
+         "1", "true" -> true
+         "0", "false" -> false
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/IntSetting.kt b/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/IntSetting.kt
+index 6c4fbde2a..7c4f9ad7a 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/IntSetting.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/IntSetting.kt
+@@ -96,6 +96,11 @@ enum class IntSetting(
+     ASPECT_RATIO(SettingKeys.aspect_ratio(), CitraSettings.SECTION_LAYOUT, 0),
+     UPDATE_CHECK_CHANNEL(SettingKeys.update_check_channel(), CitraSettings.SECTION_MISC, 0);
+ 
++    /** NEBULOS compat: the current value in the active settings (see [NebulosSettings]). */
++    var int: Int
++        get() = NebulosSettings.get(this)
++        set(value) = NebulosSettings.set(this, value)
++
+     override fun valueFromString(string: String): Int? {
+         var value = string.toIntOrNull()
+         if (value == null) {
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/NebulosSettings.kt b/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/NebulosSettings.kt
+new file mode 100644
+index 000000000..07016ad44
+--- /dev/null
++++ b/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/NebulosSettings.kt
+@@ -0,0 +1,40 @@
++// NEBULOS (reconstructed 2026-11-08; original source lost)
++// Licensed under GPLv3 or any later version
++// Refer to the LICENSE.txt file included.
++
++package org.citra.citra_emu.features.settings.model
++
++import org.citra.citra_emu.features.settings.utils.SettingsFile
++
++/**
++ * Compatibility layer for the Nebulos host (core-azahar), which was written against an older Azahar whose settings were enum fields
++ * (`IntSetting.GRAPHICS_API.int = 2`, `SettingsFile.saveFile("config", setting)`). Upstream now keeps values in [CitraSettings.activeSettings]
++ * (global values + per-game overrides), so these helpers read and write there.
++ */
++internal object NebulosSettings {
++    /**
++     * The host writes settings before the stock EmulationActivity has loaded config.ini. Load it first, otherwise a lone host-written value
++     * would make activeSettings look "already loaded" and the rest of the user's config.ini would be skipped.
++     */
++    private fun ensureLoaded() {
++        val s = CitraSettings.activeSettings
++        if (s.getAllGlobal().isEmpty()) {
++            runCatching { SettingsFile.loadGlobalSettings(s) }
++        }
++    }
++
++    fun <T> get(setting: AbstractSetting<T>): T {
++        ensureLoaded()
++        return CitraSettings.activeSettings.get(setting)
++    }
++
++    fun <T> set(setting: AbstractSetting<T>, value: T) {
++        ensureLoaded()
++        CitraSettings.activeSettings.setByCurrentState(setting, value)
++    }
++
++    fun <T> save(setting: AbstractSetting<T>) {
++        ensureLoaded()
++        SettingsFile.saveSetting(setting, CitraSettings.activeSettings)
++    }
++}
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/features/settings/utils/SettingsFile.kt b/src/android/app/src/main/java/org/citra/citra_emu/features/settings/utils/SettingsFile.kt
+index 7a43cabfe..cd5b43448 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/features/settings/utils/SettingsFile.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/features/settings/utils/SettingsFile.kt
+@@ -17,12 +17,14 @@ import org.citra.citra_emu.R
+ import org.citra.citra_emu.features.settings.model.AbstractSetting
+ import org.citra.citra_emu.features.settings.model.BooleanSetting
+ import org.citra.citra_emu.features.settings.model.CitraSettings
++import org.citra.citra_emu.features.settings.model.NebulosSettings
+ import org.citra.citra_emu.features.settings.model.FloatSetting
+ import org.citra.citra_emu.features.settings.model.InputMappingSetting
+ import org.citra.citra_emu.features.settings.model.IntListSetting
+ import org.citra.citra_emu.features.settings.model.IntSetting
+ import org.citra.citra_emu.features.settings.model.StringSetting
+ import org.citra.citra_emu.features.settings.ui.SettingsActivityView
++import org.citra.citra_emu.utils.PermissionsHandler
+ import org.citra.citra_emu.utils.DirectoryInitialization
+ import org.citra.citra_emu.utils.DirectoryInitialization.userDirectory
+ import org.citra.citra_emu.utils.Log
+@@ -220,6 +222,12 @@ object SettingsFile {
+         }
+     }
+ 
++    /** NEBULOS compat: persist one setting's current value (older API: `saveFile(FILE_NAME_CONFIG, setting)`). */
++    fun saveFile(fileName: String, setting: AbstractSetting<*>) {
++        @Suppress("UNCHECKED_CAST")
++        NebulosSettings.save(setting as AbstractSetting<Any>)
++    }
++
+     fun <T> saveSetting(setting: AbstractSetting<T>, settings: CitraSettings) {
+         if (settings.hasOverride(setting)) {
+             // Currently a per-game setting, keep it that way
+@@ -268,7 +276,7 @@ object SettingsFile {
+     }
+ 
+     fun getSettingsFile(fileName: String): DocumentFile {
+-        val root = DocumentFile.fromTreeUri(CitraApplication.appContext, Uri.parse(userDirectory))
++        val root = PermissionsHandler.userRootDocument(CitraApplication.appContext, Uri.parse(userDirectory))
+         val configDirectory = root!!.findFile(FILE_NAME_CONFIG)
+         return configDirectory!!.findFile("$fileName.ini")!!
+     }
+@@ -276,14 +284,14 @@ object SettingsFile {
+     fun perAppFileExists(gameId: String): Boolean = findPerAppSettingsFile(gameId) != null
+ 
+     private fun findPerAppSettingsFile(gameId: String): DocumentFile? {
+-        val root = DocumentFile.fromTreeUri(CitraApplication.appContext, Uri.parse(userDirectory))
++        val root = PermissionsHandler.userRootDocument(CitraApplication.appContext, Uri.parse(userDirectory))
+         val configDir = root?.findFile(FILE_NAME_CONFIG) ?: return null
+         val customDir = configDir.findFile(CUSTOM_DIR_NAME_CONFIG) ?: return null
+         return customDir.findFile("$gameId.ini")
+     }
+ 
+     private fun getOrCreatePerAppSettingsFile(gameId: String): DocumentFile {
+-        val root = DocumentFile.fromTreeUri(CitraApplication.appContext, Uri.parse(userDirectory))!!
++        val root = PermissionsHandler.userRootDocument(CitraApplication.appContext, Uri.parse(userDirectory))!!
+         val configDir = root.findFile(FILE_NAME_CONFIG) ?: root.createDirectory(FILE_NAME_CONFIG)!!
+         val customDir =
+             configDir.findFile(CUSTOM_DIR_NAME_CONFIG)
+@@ -298,7 +306,7 @@ object SettingsFile {
+ 
+     fun deletePerAppSettingsDirectory() {
+         val root =
+-            DocumentFile.fromTreeUri(CitraApplication.appContext, Uri.parse(userDirectory))
++            PermissionsHandler.userRootDocument(CitraApplication.appContext, Uri.parse(userDirectory))
+         val configDir = root?.findFile(FILE_NAME_CONFIG)
+         val customDir = configDir?.findFile(CUSTOM_DIR_NAME_CONFIG)
+         customDir ?: return
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/fragments/EmulationFragment.kt b/src/android/app/src/main/java/org/citra/citra_emu/fragments/EmulationFragment.kt
+index c04e44f0c..bfeca0fa5 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/fragments/EmulationFragment.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/fragments/EmulationFragment.kt
+@@ -31,7 +31,8 @@ import android.view.ViewGroup
+ import android.widget.ImageView
+ import android.widget.PopupMenu
+ import android.widget.TextView
+-import android.widget.Toast
++import org.citra.citra_emu.utils.NebulosBridge
++import org.citra.citra_emu.utils.NebulosToast as Toast
+ import androidx.activity.OnBackPressedCallback
+ import androidx.coordinatorlayout.widget.CoordinatorLayout
+ import androidx.core.content.res.ResourcesCompat
+@@ -445,6 +446,14 @@ class EmulationFragment :
+             launch {
+                 repeatOnLifecycle(Lifecycle.State.CREATED) {
+                     emulationViewModel.shaderProgress.collectLatest {
++                        // NEBULOS: mirror the shader-cache progress onto the Nebulos loading screen.
++                        val totalShaders = emulationViewModel.totalShaders.value
++                        if (it > 0 && totalShaders > 0 && it != totalShaders) {
++                            NebulosBridge.progress?.invoke(
++                                it.toFloat() / totalShaders,
++                                emulationViewModel.shaderMessage.value.ifEmpty { null }
++                            )
++                        }
+                         if (it > 0 && it != emulationViewModel.totalShaders.value) {
+                             binding.loadingProgressIndicator.isIndeterminate = false
+                             binding.loadingProgressText.visibility = View.VISIBLE
+@@ -478,6 +487,7 @@ class EmulationFragment :
+                 repeatOnLifecycle(Lifecycle.State.CREATED) {
+                     emulationViewModel.shaderMessage.collectLatest {
+                         if (it != "") {
++                            NebulosBridge.loadingText?.invoke(it.replace("%s", "shaders")) // NEBULOS
+                             binding.loadingText.text = it
+                         }
+                     }
+@@ -487,6 +497,7 @@ class EmulationFragment :
+                 repeatOnLifecycle(Lifecycle.State.CREATED) {
+                     emulationViewModel.emulationStarted.collectLatest { started ->
+                         if (started) {
++                            NebulosBridge.fireReady() // NEBULOS: the game is running
+                             ViewUtils.hideView(binding.loadingIndicator)
+                             ViewUtils.showView(binding.surfaceInputOverlay)
+                             binding.inGameMenu.menu.findItem(R.id.menu_emulation_savestates)
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/overlay/InputOverlay.kt b/src/android/app/src/main/java/org/citra/citra_emu/overlay/InputOverlay.kt
+index 6869b16c9..206ee51a7 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/overlay/InputOverlay.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/overlay/InputOverlay.kt
+@@ -1063,6 +1063,9 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
+     override fun isInEditMode(): Boolean = isInEditMode
+ 
+     companion object {
++        /** NEBULOS marker: the host forces EmulationMenuSettings.showOverlay = false (Nebulos draws no touch overlay). */
++        const val NEBULOS_NO_OVERLAY = true
++
+         private val preferences
+             get() = PreferenceManager.getDefaultSharedPreferences(CitraApplication.appContext)
+ 
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/utils/FileUtil.kt b/src/android/app/src/main/java/org/citra/citra_emu/utils/FileUtil.kt
+index 598f6efc0..f3b60be82 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/utils/FileUtil.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/utils/FileUtil.kt
+@@ -45,7 +45,7 @@ object FileUtil {
+     fun createFile(directory: String, filename: String): DocumentFile? {
+         try {
+             val directoryUri = Uri.parse(directory)
+-            val parent = DocumentFile.fromTreeUri(context, directoryUri)
++            val parent = PermissionsHandler.userRootDocument(context, directoryUri)
+                 ?: return null
+             val decodedFilename = URLDecoder.decode(filename, DECODE_METHOD)
+             val extensionPosition = decodedFilename.lastIndexOf('.')
+@@ -80,7 +80,7 @@ object FileUtil {
+         try {
+             val directoryUri = Uri.parse(directory)
+             val parent: DocumentFile =
+-                DocumentFile.fromTreeUri(context, directoryUri)
++                PermissionsHandler.userRootDocument(context, directoryUri)
+                     ?: return null
+             val decodedDirectoryName = URLDecoder.decode(directoryName, DECODE_METHOD)
+             val exists = parent.findFile(decodedDirectoryName)
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/utils/GpuDriverHelper.kt b/src/android/app/src/main/java/org/citra/citra_emu/utils/GpuDriverHelper.kt
+index b4fbc22fc..5ce6a58b2 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/utils/GpuDriverHelper.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/utils/GpuDriverHelper.kt
+@@ -29,7 +29,7 @@ object GpuDriverHelper {
+     val driverStoragePath: DocumentFile
+         get() {
+             // Bypass directory initialization checks
+-            val root = DocumentFile.fromTreeUri(
++            val root = PermissionsHandler.userRootDocument(
+                 CitraApplication.appContext,
+                 Uri.parse(DirectoryInitialization.userPath)
+             )!!
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/utils/NebulosBridge.kt b/src/android/app/src/main/java/org/citra/citra_emu/utils/NebulosBridge.kt
+new file mode 100644
+index 000000000..a7d630a02
+--- /dev/null
++++ b/src/android/app/src/main/java/org/citra/citra_emu/utils/NebulosBridge.kt
+@@ -0,0 +1,56 @@
++// NEBULOS (reconstructed 2026-11-08 from decompiled Nebulos Release 15; original source lost)
++// Licensed under GPLv2 or any later version
++// Refer to the misc/licenses/gplv2.txt file included.
++
++package org.citra.citra_emu.utils
++
++import android.util.Log
++
++/**
++ * The seam between Azahar and the Nebulos shell. Azahar never shows its own toasts, loading overlay text or error dialogs when embedded:
++ * they are routed here, and the Nebulos core (core-azahar, AzaharHost) installs the callbacks while a game Activity is up. A ready
++ * signal that arrives before the callbacks exist is held ([fireReady] keeps a pending flag, [flushPending] replays it).
++ */
++object NebulosBridge {
++    @Volatile var notice: ((String) -> Unit)? = null
++    @Volatile var error: ((String, String, Boolean) -> Unit)? = null
++    @Volatile var ready: (() -> Unit)? = null
++    @Volatile var progress: ((Float, String?) -> Unit)? = null
++    @Volatile var loadingText: ((String) -> Unit)? = null
++
++    @Volatile private var pendingReady = false
++    @Volatile var fatalShown = false
++    private val errorLock = Object()
++
++    fun notice(msg: CharSequence) {
++        Log.i("Nebulos", " notice: $msg")
++        notice?.invoke(msg.toString())
++    }
++
++    fun error(title: String, message: String, fatal: Boolean) {
++        Log.e("Nebulos", " error: $title - $message")
++        if (fatal) fatalShown = true
++        error?.invoke(title, message, fatal)
++    }
++
++    /** The game drew its first frame. */
++    fun fireReady() {
++        val r = ready
++        if (r == null) pendingReady = true else r()
++    }
++
++    fun flushPending() {
++        if (pendingReady) {
++            pendingReady = false
++            ready?.invoke()
++        }
++    }
++
++    /** After a fatal error the emulation thread must not carry on: park it until the process ends. */
++    fun parkAfterFatal() {
++        fatalShown = true
++        synchronized(errorLock) {
++            while (true) errorLock.wait()
++        }
++    }
++}
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/utils/NebulosToast.kt b/src/android/app/src/main/java/org/citra/citra_emu/utils/NebulosToast.kt
+new file mode 100644
+index 000000000..f12ac7529
+--- /dev/null
++++ b/src/android/app/src/main/java/org/citra/citra_emu/utils/NebulosToast.kt
+@@ -0,0 +1,27 @@
++// NEBULOS (reconstructed 2026-11-08 from decompiled Nebulos Release 15; original source lost)
++// Licensed under GPLv2 or any later version
++// Refer to the misc/licenses/gplv2.txt file included.
++
++package org.citra.citra_emu.utils
++
++import android.content.Context
++
++/**
++ * Drop-in for android.widget.Toast (imported `as Toast` where Azahar used Toast during emulation): the text goes to the Nebulos
++ * banner via [NebulosBridge] instead of an Android toast.
++ */
++class NebulosToast private constructor(private var text: CharSequence) {
++    fun show() = NebulosBridge.notice(text)
++    fun cancel() {}
++    fun setText(t: CharSequence) { text = t }
++    fun setDuration(d: Int) {}
++    fun setGravity(gravity: Int, x: Int, y: Int) {}
++
++    companion object {
++        const val LENGTH_SHORT = 0
++        const val LENGTH_LONG = 1
++
++        @JvmStatic fun makeText(ctx: Context?, resId: Int, duration: Int) = NebulosToast(ctx?.getText(resId) ?: "")
++        @JvmStatic fun makeText(ctx: Context?, text: CharSequence, duration: Int) = NebulosToast(text)
++    }
++}
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/utils/NetPlayManager.kt b/src/android/app/src/main/java/org/citra/citra_emu/utils/NetPlayManager.kt
+index 7033f169a..4cfa262d1 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/utils/NetPlayManager.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/utils/NetPlayManager.kt
+@@ -15,7 +15,7 @@ import android.net.NetworkCapabilities
+ import android.os.Build
+ import android.os.Handler
+ import android.os.Looper
+-import android.widget.Toast
++import org.citra.citra_emu.utils.NebulosToast as Toast
+ import androidx.preference.PreferenceManager
+ import java.net.Inet4Address
+ import org.citra.citra_emu.CitraApplication
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/utils/PermissionsHandler.kt b/src/android/app/src/main/java/org/citra/citra_emu/utils/PermissionsHandler.kt
+index f983c8ac6..8c8d37820 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/utils/PermissionsHandler.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/utils/PermissionsHandler.kt
+@@ -13,6 +13,7 @@ import android.provider.DocumentsContract
+ import androidx.activity.result.ActivityResultLauncher
+ import androidx.documentfile.provider.DocumentFile
+ import androidx.preference.PreferenceManager
++import java.io.File
+ import org.citra.citra_emu.CitraApplication
+ 
+ object PermissionsHandler {
+@@ -27,6 +28,11 @@ object PermissionsHandler {
+             }
+ 
+             val uri = citraDirectory
++            // NEBULOS: the user directory may be a plain real folder (file:// URI) owned by the host app; no SAF grant needed.
++            if (uri.scheme == "file") {
++                val dir = File(uri.path!!)
++                return (dir.isDirectory || dir.mkdirs()) && dir.canWrite()
++            }
+             val takeFlags =
+                 Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+             context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+@@ -46,6 +52,17 @@ object PermissionsHandler {
+         return false
+     }
+ 
++    /**
++     * NEBULOS: the DocumentFile for a user-directory (or sub-directory) URI. A file:// URI (host-owned real folder) is wrapped
++     * with DocumentFile.fromFile; anything else is a SAF tree URI.
++     */
++    fun userRootDocument(context: Context, uri: Uri): DocumentFile? =
++        if (uri.scheme == "file") {
++            DocumentFile.fromFile(File(uri.path!!))
++        } else {
++            DocumentFile.fromTreeUri(context, uri)
++        }
++
+     val citraDirectory: Uri
+         get() {
+             val directoryString = preferences.getString(CITRA_DIRECTORY, "")
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/utils/TurboHelper.kt b/src/android/app/src/main/java/org/citra/citra_emu/utils/TurboHelper.kt
+index 4f779b8e9..704dc85d6 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/utils/TurboHelper.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/utils/TurboHelper.kt
+@@ -4,7 +4,7 @@
+ 
+ package org.citra.citra_emu.utils
+ 
+-import android.widget.Toast
++import org.citra.citra_emu.utils.NebulosToast as Toast
+ import org.citra.citra_emu.CitraApplication
+ import org.citra.citra_emu.NativeLibrary
+ import org.citra.citra_emu.R
+diff --git a/src/android/app/src/main/jni/native.cpp b/src/android/app/src/main/jni/native.cpp
+index 27733a01b..e2087906e 100644
+--- a/src/android/app/src/main/jni/native.cpp
++++ b/src/android/app/src/main/jni/native.cpp
+@@ -37,14 +37,18 @@
+ #include "common/settings.h"
+ #include "common/string_util.h"
+ #include "common/thread.h"
++#include "core/cheats/cheats.h"
+ #include "core/core.h"
+ #include "core/frontend/applets/default_applets.h"
+ #include "core/frontend/camera/factory.h"
++#include "core/hle/kernel/kernel.h"
++#include "core/hle/kernel/process.h"
+ #include "core/hle/service/am/am.h"
+ #include "core/hle/service/fs/archive.h"
+ #include "core/hle/service/nfc/nfc.h"
+ #include "core/hw/unique_data.h"
+ #include "core/loader/loader.h"
++#include "core/memory.h"
+ #include "core/savestate.h"
+ #include "core/system_titles.h"
+ #include "jni/android_common/android_common.h"
+@@ -101,6 +105,29 @@ jlong ptm_current_title_id = std::numeric_limits<jlong>::max(); // Arbitrary def
+ std::atomic<bool> stop_run{true};
+ std::atomic<bool> pause_emulation{false};
+ 
++// NEBULOS (reconstructed): true until a game is running, and again once System::Shutdown has finished (save files closed/flushed).
++std::atomic<bool> emulation_finished{true};
++
++// NEBULOS (reconstructed): "60 FPS" guest-memory patch set. Pairs of (address, word); an address with bit 31 set is a 16-bit write
++// to (address & 0x7FFFFFFF). Written by the emulation thread after each run-loop slice (see ApplyFramePatch).
++struct FramePatch {
++    u32 flag_addr = 0;
++    std::vector<u32> on;
++    std::vector<u32> off;
++    std::vector<u32> once; // written a single time when the patch is turned off
++    bool enable = false;
++    bool dirty = false;      // set by the JNI call, consumed by the emulation thread
++    bool verified = false;   // the words to be patched were checked against their original values
++    bool refused = false;    // verification failed: stay off
++    bool once_pending = false;
++};
++std::mutex frame_patch_mutex;
++FramePatch frame_patch;
++std::atomic<bool> frame_patch_active{false}; // fast check for the emulation loop
++
++// NEBULOS (reconstructed): "4:3 Fill" requested by the host. NOT RECOVERED: the renderer does not act on it yet.
++std::atomic<bool> four_three_fill{false};
++
+ std::mutex paused_mutex;
+ std::mutex running_mutex;
+ std::condition_variable running_cv;
+@@ -192,6 +219,86 @@ static void PresentLoop(std::stop_token stop_token) {
+     }
+ }
+ 
++// NEBULOS (reconstructed): enforce the frame patch on the running application's memory. Emulation thread only.
++static void ApplyFramePatch(Core::System& system) {
++    if (!frame_patch_active.load(std::memory_order_relaxed)) {
++        return;
++    }
++    std::scoped_lock lock{frame_patch_mutex};
++    auto process = system.Kernel().GetProcessById(system.CheatEngine().GetConnectedPID());
++    if (!process) {
++        return;
++    }
++    Memory::MemorySystem& memory = system.Memory();
++
++    const auto read = [&](u32 addr) -> u32 {
++        return (addr & 0x80000000u) ? memory.Read16(*process, addr & 0x7FFFFFFFu)
++                                    : memory.Read32(*process, addr);
++    };
++    // Writes only when different (so self-modifying-code caches are invalidated only when something changed).
++    const auto write_pairs = [&](const std::vector<u32>& pairs) {
++        for (std::size_t i = 0; i + 1 < pairs.size(); i += 2) {
++            const u32 addr = pairs[i];
++            const u32 value = pairs[i + 1];
++            const u32 real = addr & 0x7FFFFFFFu;
++            if (addr & 0x80000000u) {
++                if (memory.Read16(*process, real) != static_cast<u16>(value)) {
++                    memory.Write16(*process, real, static_cast<u16>(value));
++                    system.InvalidateCacheRange(real, 2);
++                }
++            } else if (memory.Read32(*process, real) != value) {
++                memory.Write32(*process, real, value);
++                system.InvalidateCacheRange(real, 4);
++            }
++        }
++    };
++
++    if (frame_patch.dirty) {
++        frame_patch.dirty = false;
++        frame_patch.verified = false;
++        frame_patch.refused = false;
++        if (!frame_patch.enable) {
++            frame_patch.once_pending = true;
++        }
++    }
++
++    if (frame_patch.enable) {
++        if (!frame_patch.verified) {
++            // Only switch on if the words about to be patched still hold the original values of the build the patch was made for.
++            for (std::size_t i = 0; i + 1 < frame_patch.off.size(); i += 2) {
++                const u32 addr = frame_patch.off[i];
++                const u32 expected = frame_patch.off[i + 1];
++                const u32 actual = read(addr);
++                const u32 mask = (addr & 0x80000000u) ? 0xFFFFu : 0xFFFFFFFFu;
++                if ((actual & mask) != (expected & mask)) {
++                    LOG_ERROR(Frontend,
++                              "Nebulos 60 fps patch: {:#x} holds {:#x}, not the expected {:#x}: "
++                              "patch disabled",
++                              addr & 0x7FFFFFFFu, actual, expected);
++                    frame_patch.refused = true;
++                    break;
++                }
++            }
++            frame_patch.verified = true;
++            if (!frame_patch.refused) {
++                LOG_INFO(Frontend, "Nebulos 60 fps patch: on ({} on words, {} off words)",
++                         frame_patch.on.size() / 2, frame_patch.off.size() / 2);
++            }
++        }
++        if (!frame_patch.refused) {
++            write_pairs(frame_patch.on);
++        }
++    } else {
++        write_pairs(frame_patch.off);
++        if (frame_patch.once_pending) {
++            frame_patch.once_pending = false;
++            write_pairs(frame_patch.once);
++            LOG_INFO(Frontend, "Nebulos 60 fps patch: off ({} on words, {} off words)",
++                     frame_patch.on.size() / 2, frame_patch.off.size() / 2);
++        }
++    }
++}
++
+ static void TryShutdown() {
+     if (present_thread.joinable()) {
+         present_thread.request_stop();
+@@ -379,6 +486,7 @@ static Core::System::ResultStatus RunCitra(const std::string& filepath) {
+ 
+     stop_run = false;
+     pause_emulation = false;
++    emulation_finished = false;
+ 
+     LoadDiskCacheProgress(VideoCore::LoadCallbackStage::Prepare, 0, 0, "");
+ 
+@@ -390,7 +498,10 @@ static Core::System::ResultStatus RunCitra(const std::string& filepath) {
+ 
+     LoadDiskCacheProgress(VideoCore::LoadCallbackStage::Complete, 0, 0, "");
+ 
+-    SCOPE_EXIT({ TryShutdown(); });
++    SCOPE_EXIT({
++        TryShutdown();
++        emulation_finished = true; // NEBULOS: save files are closed and flushed from here on
++    });
+ 
+     if (opengl_windows) {
+         present_thread = std::jthread(PresentLoop);
+@@ -403,6 +514,7 @@ static Core::System::ResultStatus RunCitra(const std::string& filepath) {
+         if (!pause_emulation) {
+             const auto result = system.RunLoop();
+             if (result == Core::System::ResultStatus::Success) {
++                ApplyFramePatch(system); // NEBULOS
+                 continue;
+             }
+             if (result == Core::System::ResultStatus::ShutdownRequested) {
+@@ -1253,6 +1365,61 @@ void Java_org_citra_citra_1emu_NativeLibrary_unlinkConsole(JNIEnv* env, jobject
+     HW::UniqueData::UnlinkConsole();
+ }
+ 
++// NEBULOS (reconstructed) JNI entry points ------------------------------------------------------------------------------
++
++void Java_org_citra_citra_1emu_NativeLibrary_setSaveDirectories(JNIEnv* env,
++                                                                [[maybe_unused]] jobject obj,
++                                                                jstring j_sdmc, jstring j_nand,
++                                                                jstring j_states) {
++    const std::string sdmc = GetJString(env, j_sdmc);
++    const std::string nand = GetJString(env, j_nand);
++    const std::string states = GetJString(env, j_states);
++    LOG_INFO(Frontend, "Nebulos save dirs: sdmc={} nand={} states={}", sdmc, nand, states);
++    FileUtil::SetSaveDirectoryOverrides(sdmc, nand, states);
++}
++
++jboolean Java_org_citra_citra_1emu_NativeLibrary_isEmulationFinished([[maybe_unused]] JNIEnv* env,
++                                                                     [[maybe_unused]] jobject obj) {
++    return static_cast<jboolean>(emulation_finished.load());
++}
++
++void Java_org_citra_citra_1emu_NativeLibrary_setFourThreeFill([[maybe_unused]] JNIEnv* env,
++                                                              [[maybe_unused]] jobject obj,
++                                                              jboolean on) {
++    // NOT RECOVERED: the original drew the top screen as a native 4:3 picture in the renderer. Only the flag is kept here.
++    four_three_fill = (on != JNI_FALSE);
++    LOG_INFO(Frontend, "Nebulos 4:3 fill: {}", on != JNI_FALSE);
++}
++
++void Java_org_citra_citra_1emu_NativeLibrary_setFramePatch(JNIEnv* env,
++                                                           [[maybe_unused]] jobject obj,
++                                                           jint flag_addr, jintArray j_on,
++                                                           jintArray j_off, jintArray j_once,
++                                                           jboolean enable) {
++    const auto to_vec = [env](jintArray arr) {
++        std::vector<u32> out;
++        if (arr == nullptr) {
++            return out;
++        }
++        const jsize n = env->GetArrayLength(arr);
++        out.resize(static_cast<std::size_t>(n));
++        if (n > 0) {
++            env->GetIntArrayRegion(arr, 0, n, reinterpret_cast<jint*>(out.data()));
++        }
++        return out;
++    };
++    std::scoped_lock lock{frame_patch_mutex};
++    frame_patch.flag_addr = static_cast<u32>(flag_addr);
++    frame_patch.on = to_vec(j_on);
++    frame_patch.off = to_vec(j_off);
++    frame_patch.once = to_vec(j_once);
++    frame_patch.enable = enable != JNI_FALSE;
++    frame_patch.dirty = true;
++    // Active whenever a patch set exists: when off, the original words are enforced again (a save state made with it on must not
++    // leave it half on).
++    frame_patch_active = !frame_patch.on.empty() || !frame_patch.off.empty();
++}
++
+ void Java_org_citra_citra_1emu_NativeLibrary_setTemporaryFrameLimit(JNIEnv* env, jobject obj,
+                                                                     jdouble speed) {
+     Settings::temporary_frame_limit = speed;
+diff --git a/src/android/app/src/main/res/drawable/scrollbar_thumb.xml b/src/android/app/src/main/res/drawable/scrollbar_thumb.xml
+index ac2d71df4..79c5d74b6 100644
+--- a/src/android/app/src/main/res/drawable/scrollbar_thumb.xml
++++ b/src/android/app/src/main/res/drawable/scrollbar_thumb.xml
+@@ -2,4 +2,4 @@
+ <shape xmlns:android="http://schemas.android.com/apk/res/android">
+     <solid android:color="?attr/colorOnSurfaceVariant" />
+     <corners android:radius="2dp" />
+-</shape><?xml version="1.0" encoding="utf-8"?>
+\ No newline at end of file
++</shape>
+diff --git a/src/android/build.gradle.kts b/src/android/build.gradle.kts
+index f5ab4ee86..3eadcc720 100644
+--- a/src/android/build.gradle.kts
++++ b/src/android/build.gradle.kts
+@@ -4,11 +4,9 @@
+ 
+ // Top-level build file where you can add configuration options common to all sub-projects/modules.
+ plugins {
+-    id("com.android.application") version "8.13.2" apply false
+-    id("com.android.library") version "8.13.2" apply false
+-    id("org.jetbrains.kotlin.android") version "2.0.20" apply false
+-    id("org.jetbrains.kotlin.plugin.serialization") version "2.0.20"
+-    id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
++    // NEBULOS (reconstructed): Nebulos includes this build next to its own app, so the Android Gradle plugin must be the same
++    // version as Nebulos's (9.2.1, Kotlin built in => no kotlin-android plugin). ktlint is dropped (breaks on newer Gradle).
++    id("com.android.library") version "9.2.1" apply false
+ }
+ 
+ tasks.register("clean").configure {
+@@ -21,6 +19,8 @@ buildscript {
+         mavenCentral()
+     }
+     dependencies {
+-        classpath("androidx.navigation:navigation-safe-args-gradle-plugin:2.8.0")
++        classpath("androidx.navigation:navigation-safe-args-gradle-plugin:2.9.6")
++        // NEBULOS: AGP 9 compiles with the Kotlin Gradle plugin found on this classpath; Nebulos is on Kotlin 2.4.0.
++        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.0")
+     }
+ }
+diff --git a/src/android/gradle.properties b/src/android/gradle.properties
+index 1d09488d6..12db9989f 100644
+--- a/src/android/gradle.properties
++++ b/src/android/gradle.properties
+@@ -6,13 +6,11 @@
+ # http://www.gradle.org/docs/current/userguide/build_environment.html
+ # Specifies the JVM arguments used for the daemon process.
+ # The setting is particularly useful for tweaking memory settings.
+-android.enableJetifier=true
+ android.useAndroidX=true
+-org.gradle.jvmargs=-Xmx1536m
++org.gradle.jvmargs=-Xmx4g
+ # When configured, Gradle will run in incubating parallel mode.
+ # This option should only be used with decoupled projects. More details, visit
+ # http://www.gradle.org/docs/current/userguide/multi_project_builds.html#sec:decoupled_projects
+ # org.gradle.parallel=true
+ android.native.buildOutput=verbose
+ android.nonTransitiveRClass=false
+-android.nonFinalResIds=false
+diff --git a/src/common/file_util.cpp b/src/common/file_util.cpp
+index 652631d11..cd7f02398 100644
+--- a/src/common/file_util.cpp
++++ b/src/common/file_util.cpp
+@@ -932,6 +932,36 @@ std::unordered_map<UserPath, std::string> g_paths;
+ std::unordered_map<UserPath, std::string> g_default_paths;
+ } // namespace
+ 
++// NEBULOS (reconstructed): optional real-folder overrides for the SDMC / NAND / states directories.
++struct SaveOverrides {
++    std::string sdmc;
++    std::string nand;
++    std::string states;
++};
++static SaveOverrides g_save_overrides;
++
++static void ApplySaveDirectoryOverrides() {
++    const auto apply = [](UserPath which, const std::string& dir) {
++        if (dir.empty()) {
++            return;
++        }
++        std::string path = dir;
++        while (path.size() > 1 && (path.back() == '/' || path.back() == '\\')) {
++            path.pop_back();
++        }
++#if defined(ANDROID) && !defined(HAVE_LIBRETRO_VFS)
++        // "!" at the front of a path marks it as an already-native (absolute) path: not relative to the user directory.
++        if (path.front() != '!') {
++            path.insert(path.begin(), '!');
++        }
++#endif
++        g_paths[which] = path + DIR_SEP;
++    };
++    apply(UserPath::SDMCDir, g_save_overrides.sdmc);
++    apply(UserPath::NANDDir, g_save_overrides.nand);
++    apply(UserPath::StatesDir, g_save_overrides.states);
++}
++
+ void SetUserPath(const std::string& path) {
+     std::string& user_path = g_paths[UserPath::UserDir];
+ 
+@@ -1032,9 +1062,19 @@ void SetUserPath(const std::string& path) {
+     g_paths.emplace(UserPath::LoadDir, user_path + LOAD_DIR DIR_SEP);
+     g_paths.emplace(UserPath::StatesDir, user_path + STATES_DIR DIR_SEP);
+     g_paths.emplace(UserPath::IconsDir, user_path + ICONS_DIR DIR_SEP);
++    ApplySaveDirectoryOverrides();
+     g_default_paths = g_paths;
+ }
+ 
++void SetSaveDirectoryOverrides(const std::string& sdmc, const std::string& nand,
++                               const std::string& states) {
++    g_save_overrides = {sdmc, nand, states};
++    if (!g_paths.empty()) {
++        ApplySaveDirectoryOverrides();
++        g_default_paths = g_paths;
++    }
++}
++
+ std::string g_currentRomPath{};
+ 
+ void SetCurrentRomPath(const std::string& path) {
+diff --git a/src/common/file_util.h b/src/common/file_util.h
+index 400a2e6a3..f30a8403a 100644
+--- a/src/common/file_util.h
++++ b/src/common/file_util.h
+@@ -214,6 +214,11 @@ bool SetCurrentDir(const std::string& directory);
+ 
+ void SetUserPath(const std::string& path = "");
+ 
++/// NEBULOS (reconstructed): put the 3DS SD card, NAND and save-state folders in plain real folders (portable save data).
++/// Takes effect immediately if the user paths already exist, otherwise when they are first built. Android only.
++void SetSaveDirectoryOverrides(const std::string& sdmc, const std::string& nand,
++                               const std::string& states);
++
+ void SetCurrentRomPath(const std::string& path);
+ [[nodiscard]] std::string GetCurrentRomPath();
+ 

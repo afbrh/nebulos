@@ -34,6 +34,20 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Nebulos">
 
+        <!-- Eden and ARMSX2 (and others) each declare an androidx FileProvider with their own authority and paths: the app declares the one
+             it keeps (Eden's) and overrides the others' attributes, so the merged manifest has exactly one. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true"
+            tools:replace="android:authorities,android:exported,android:grantUriPermissions">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"
+                tools:replace="android:resource" />
+        </provider>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

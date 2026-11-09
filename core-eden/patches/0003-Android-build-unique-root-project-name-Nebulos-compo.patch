@@ -1,0 +1,21 @@
+From 0950294731ee4fe7377966c4d3c5b7b616f2f393 Mon Sep 17 00:00:00 2001
+From: ry <noreply@local>
+Date: Sun, 8 Nov 2026 22:05:46 -0600
+Subject: [PATCH 3/4] Android build: unique root project name (Nebulos
+ composite build rejects duplicate default names)
+
+---
+ src/android/settings.gradle.kts | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/android/settings.gradle.kts b/src/android/settings.gradle.kts
+index 2520d6459..95e1419b7 100644
+--- a/src/android/settings.gradle.kts
++++ b/src/android/settings.gradle.kts
+@@ -25,3 +25,6 @@ include(":app")
+ 
+ include("Eden")
+ project(":Eden").projectDir = file("../..")
++
++// Unique root name: Nebulos composes several Android builds and Gradle (idea plugin) rejects duplicate default names.
++rootProject.name = "eden-android"

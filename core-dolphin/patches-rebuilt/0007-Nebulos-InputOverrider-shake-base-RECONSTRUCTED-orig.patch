@@ -1,0 +1,133 @@
+From f46dda57aca30ea0bf46f7c43cd4808eaa458bb1 Mon Sep 17 00:00:00 2001
+From: Nebulos <n@x>
+Date: Sun, 8 Nov 2026 21:15:18 -0600
+Subject: [PATCH 7/8] Nebulos: InputOverrider shake base (RECONSTRUCTED;
+ original patch lost)
+
+---
+ Source/Core/Core/HW/WiimoteEmu/Dynamics.cpp           | 11 +++++++++--
+ Source/Core/Core/HW/WiimoteEmu/Dynamics.h             |  3 ++-
+ Source/Core/Core/HW/WiimoteEmu/Extension/Nunchuk.cpp  |  2 +-
+ Source/Core/Core/HW/WiimoteEmu/WiimoteEmu.cpp         |  2 +-
+ .../DolphinQt/Config/Mapping/MappingIndicator.cpp     |  2 +-
+ .../ControllerInterface/Touch/InputOverrider.cpp      |  2 ++
+ .../ControllerInterface/Touch/InputOverrider.h        |  4 +++-
+ 7 files changed, 19 insertions(+), 7 deletions(-)
+
+diff --git a/Source/Core/Core/HW/WiimoteEmu/Dynamics.cpp b/Source/Core/Core/HW/WiimoteEmu/Dynamics.cpp
+index ebf24f735c..ff7b97924b 100644
+--- a/Source/Core/Core/HW/WiimoteEmu/Dynamics.cpp
++++ b/Source/Core/Core/HW/WiimoteEmu/Dynamics.cpp
+@@ -80,9 +80,16 @@ Common::Quaternion ComplementaryFilter(const Common::Quaternion& gyroscope,
+ }
+ 
+ void EmulateShake(PositionalState* state, ControllerEmu::Shake* const shake_group,
+-                  float time_elapsed)
++                  const ControllerEmu::InputOverrideFunction& override_func, float time_elapsed)
+ {
+-  auto target_position = shake_group->GetState() * float(shake_group->GetIntensity() / 2);
++  auto shake_state = shake_group->GetState();
++  // Nebulos: touch/gamepad InputOverrider can hold the shake gesture on; the Shake group's own
++  // shake emulation (its own intensity and frequency).
++  if (override_func)
++    if (const auto o = override_func("NebulosShake", "On", 0.0))
++      if (*o > 0.5)
++        shake_state = Common::Vec3(1.f, 0.f, 0.f);
++  auto target_position = shake_state * float(shake_group->GetIntensity() / 2);
+   for (std::size_t i = 0; i != target_position.data.size(); ++i)
+   {
+     if (state->velocity.data[i] * std::copysign(1.f, target_position.data[i]) < 0 ||
+diff --git a/Source/Core/Core/HW/WiimoteEmu/Dynamics.h b/Source/Core/Core/HW/WiimoteEmu/Dynamics.h
+index 8f35c306da..86ef952c70 100644
+--- a/Source/Core/Core/HW/WiimoteEmu/Dynamics.h
++++ b/Source/Core/Core/HW/WiimoteEmu/Dynamics.h
+@@ -75,7 +75,8 @@ void ApproachPositionWithJerk(PositionalState* state, const Common::Vec3& target
+ void ApproachAngleWithAccel(RotationalState* state, const Common::Vec3& target, float max_accel,
+                             float time_elapsed);
+ 
+-void EmulateShake(PositionalState* state, ControllerEmu::Shake* shake_group, float time_elapsed);
++void EmulateShake(PositionalState* state, ControllerEmu::Shake* shake_group,
++                  const ControllerEmu::InputOverrideFunction& override_func, float time_elapsed);
+ void EmulateTilt(RotationalState* state, ControllerEmu::Tilt* tilt_group, float time_elapsed);
+ void EmulateSwing(MotionState* state, ControllerEmu::Force* swing_group, float time_elapsed);
+ void EmulatePoint(MotionState* state, ControllerEmu::Cursor* ir_group,
+diff --git a/Source/Core/Core/HW/WiimoteEmu/Extension/Nunchuk.cpp b/Source/Core/Core/HW/WiimoteEmu/Extension/Nunchuk.cpp
+index 67456021af..b365d0af0c 100644
+--- a/Source/Core/Core/HW/WiimoteEmu/Extension/Nunchuk.cpp
++++ b/Source/Core/Core/HW/WiimoteEmu/Extension/Nunchuk.cpp
+@@ -77,7 +77,7 @@ void Nunchuk::BuildDesiredExtensionState(DesiredExtensionState* target_state)
+   // Acceleration data:
+   EmulateSwing(&m_swing_state, m_swing, 1.f / ::Wiimote::UPDATE_FREQ);
+   EmulateTilt(&m_tilt_state, m_tilt, 1.f / ::Wiimote::UPDATE_FREQ);
+-  EmulateShake(&m_shake_state, m_shake, 1.f / ::Wiimote::UPDATE_FREQ);
++  EmulateShake(&m_shake_state, m_shake, m_input_override_function, 1.f / ::Wiimote::UPDATE_FREQ);
+ 
+   const auto transformation =
+       GetRotationalMatrix(-m_tilt_state.angle) * GetRotationalMatrix(-m_swing_state.angle);
+diff --git a/Source/Core/Core/HW/WiimoteEmu/WiimoteEmu.cpp b/Source/Core/Core/HW/WiimoteEmu/WiimoteEmu.cpp
+index a0d80f8e6e..18a5b55174 100644
+--- a/Source/Core/Core/HW/WiimoteEmu/WiimoteEmu.cpp
++++ b/Source/Core/Core/HW/WiimoteEmu/WiimoteEmu.cpp
+@@ -848,7 +848,7 @@ void Wiimote::StepDynamics()
+   EmulateSwing(&m_swing_state, m_swing, 1.f / ::Wiimote::UPDATE_FREQ);
+   EmulateTilt(&m_tilt_state, m_tilt, 1.f / ::Wiimote::UPDATE_FREQ);
+   EmulatePoint(&m_point_state, m_ir, m_input_override_function, 1.f / ::Wiimote::UPDATE_FREQ);
+-  EmulateShake(&m_shake_state, m_shake, 1.f / ::Wiimote::UPDATE_FREQ);
++  EmulateShake(&m_shake_state, m_shake, m_input_override_function, 1.f / ::Wiimote::UPDATE_FREQ);
+   EmulateIMUCursor(&m_imu_cursor_state, m_imu_ir, m_imu_accelerometer, m_imu_gyroscope,
+                    1.f / ::Wiimote::UPDATE_FREQ);
+ }
+diff --git a/Source/Core/DolphinQt/Config/Mapping/MappingIndicator.cpp b/Source/Core/DolphinQt/Config/Mapping/MappingIndicator.cpp
+index b0ebaacca1..a091c69dd8 100644
+--- a/Source/Core/DolphinQt/Config/Mapping/MappingIndicator.cpp
++++ b/Source/Core/DolphinQt/Config/Mapping/MappingIndicator.cpp
+@@ -628,7 +628,7 @@ void SwingIndicator::Draw()
+ 
+ void ShakeMappingIndicator::Update(float elapsed_seconds)
+ {
+-  WiimoteEmu::EmulateShake(&m_motion_state, &m_shake_group, elapsed_seconds);
++  WiimoteEmu::EmulateShake(&m_motion_state, &m_shake_group, {}, elapsed_seconds);
+ 
+   for (auto& sample : m_position_samples)
+     sample.age += elapsed_seconds;
+diff --git a/Source/Core/InputCommon/ControllerInterface/Touch/InputOverrider.cpp b/Source/Core/InputCommon/ControllerInterface/Touch/InputOverrider.cpp
+index 3b2224b633..b6e904df06 100644
+--- a/Source/Core/InputCommon/ControllerInterface/Touch/InputOverrider.cpp
++++ b/Source/Core/InputCommon/ControllerInterface/Touch/InputOverrider.cpp
+@@ -96,6 +96,7 @@ const ControlsMap s_wiimote_controls_map = {{
+      ControlID::WIIMOTE_IR_HIDE},
+     {{"NebulosOrient", "Sideways"}, ControlID::WIIMOTE_FORCE_SIDEWAYS},
+     {{"NebulosOrient", "Upright"}, ControlID::WIIMOTE_FORCE_UPRIGHT},
++    {{"NebulosShake", "On"}, ControlID::WIIMOTE_SHAKE},
+ }};
+ 
+ const ControlsMap s_nunchuk_controls_map = {{
+@@ -107,6 +108,7 @@ const ControlsMap s_nunchuk_controls_map = {{
+      ControlID::NUNCHUK_STICK_X},
+     {{WiimoteEmu::Nunchuk::STICK_GROUP, ControllerEmu::ReshapableInput::Y_INPUT_OVERRIDE},
+      ControlID::NUNCHUK_STICK_Y},
++    {{"NebulosShake", "On"}, ControlID::NUNCHUK_SHAKE},
+ }};
+ 
+ const ControlsMap s_classic_controls_map = {{
+diff --git a/Source/Core/InputCommon/ControllerInterface/Touch/InputOverrider.h b/Source/Core/InputCommon/ControllerInterface/Touch/InputOverrider.h
+index a7f025fc82..37235f3193 100644
+--- a/Source/Core/InputCommon/ControllerInterface/Touch/InputOverrider.h
++++ b/Source/Core/InputCommon/ControllerInterface/Touch/InputOverrider.h
+@@ -72,13 +72,15 @@ enum ControlID
+   WIIMOTE_IR_HIDE = 56,        // >0.5: pointer hidden (game sees no IR dots)
+   WIIMOTE_FORCE_SIDEWAYS = 57, // overrides "Sideways Wiimote": 0 = flat/pointing grip, 1 = NES grip
+   WIIMOTE_FORCE_UPRIGHT = 58,  // overrides "Upright Wiimote": 1 = remote pointing at the ceiling
++  WIIMOTE_SHAKE = 59,          // >0.5: Wii Remote shake gesture held on
++  NUNCHUK_SHAKE = 60,          // >0.5: Nunchuk shake gesture held on
+ 
+   NUMBER_OF_CONTROLS,
+ 
+   FIRST_GC_CONTROL = GCPAD_A_BUTTON,
+   LAST_GC_CONTROL = GCPAD_C_STICK_Y,
+   FIRST_WII_CONTROL = WIIMOTE_A_BUTTON,
+-  LAST_WII_CONTROL = WIIMOTE_FORCE_UPRIGHT,
++  LAST_WII_CONTROL = NUNCHUK_SHAKE,
+ 
+ };
+ void RegisterGameCubeInputOverrider(int controller_index);

@@ -23,7 +23,7 @@ android {
         versionCode = 17
         versionName = "15"
         ndk { abiFilters += "arm64-v8a" }
-        missingDimensionStrategy("version", "legacy")
+        missingDimensionStrategy("edenVersion", "legacy")
     }
     // Release signing: key + passwords live outside the repo (~/.nebulos-signing.properties, falling back to the legacy ~/.romcore-signing.properties); without it the release build is unsigned.
     val signingProps = Properties()

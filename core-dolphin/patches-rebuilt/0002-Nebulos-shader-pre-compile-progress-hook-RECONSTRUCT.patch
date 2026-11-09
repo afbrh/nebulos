@@ -1,0 +1,73 @@
+From 9ffbe73eb9758a51b90a37c132ff7aacc336d920 Mon Sep 17 00:00:00 2001
+From: Nebulos <n@x>
+Date: Sun, 8 Nov 2026 21:14:23 -0600
+Subject: [PATCH 2/8] Nebulos: shader pre-compile progress hook (RECONSTRUCTED;
+ original patch lost)
+
+---
+ Source/Android/jni/MainAndroid.cpp      | 11 +++++++++++
+ Source/Core/VideoCommon/ShaderCache.cpp | 15 +++++++++++++++
+ 2 files changed, 26 insertions(+)
+
+diff --git a/Source/Android/jni/MainAndroid.cpp b/Source/Android/jni/MainAndroid.cpp
+index ad1b5d21ec..ea832b6be1 100644
+--- a/Source/Android/jni/MainAndroid.cpp
++++ b/Source/Android/jni/MainAndroid.cpp
+@@ -197,6 +197,17 @@ void Host_TitleChanged()
+   env->CallStaticVoidMethod(IDCache::GetNativeLibraryClass(), IDCache::GetOnTitleChanged());
+ }
+ 
++// Nebulos: shader pre-compile progress -> NativeLibrary.onShaderCompileProgress (called from ShaderCache.cpp).
++extern "C" void Nebulos_ShaderCompileProgress(size_t completed, size_t total, bool finished)
++{
++  JNIEnv* env = IDCache::GetEnvForThread();
++  jclass cls = IDCache::GetNativeLibraryClass();
++  static jmethodID mid = env->GetStaticMethodID(cls, "onShaderCompileProgress", "(IIZ)V");
++  if (mid)
++    env->CallStaticVoidMethod(cls, mid, static_cast<jint>(completed), static_cast<jint>(total),
++                              static_cast<jboolean>(finished));
++}
++
+ std::unique_ptr<GBAHostInterface> Host_CreateGBAHost(std::weak_ptr<HW::GBA::Core> core)
+ {
+   return nullptr;
+diff --git a/Source/Core/VideoCommon/ShaderCache.cpp b/Source/Core/VideoCommon/ShaderCache.cpp
+index 2627656d0d..d00d5ce97e 100644
+--- a/Source/Core/VideoCommon/ShaderCache.cpp
++++ b/Source/Core/VideoCommon/ShaderCache.cpp
+@@ -3,6 +3,13 @@
+ 
+ #include "VideoCommon/ShaderCache.h"
+ 
++#ifdef ANDROID
++// Nebulos: strong definition lives in Android/jni/MainAndroid.cpp (weak so the unit-test binary still links);
++// the shared Nebulos loading screen shows the progress.
++extern "C" __attribute__((weak)) void Nebulos_ShaderCompileProgress(size_t completed, size_t total,
++                                                                     bool finished);
++#endif
++
+ #include <utility>
+ 
+ #include <fmt/format.h>
+@@ -171,6 +178,10 @@ void ShaderCache::WaitForAsyncCompiler()
+   bool running = true;
+ 
+   constexpr auto update_ui_progress = [](size_t completed, size_t total) {
++#ifdef ANDROID
++    if (Nebulos_ShaderCompileProgress)
++      Nebulos_ShaderCompileProgress(completed, total, false);
++#endif
+     const float center_x = ImGui::GetIO().DisplaySize.x * 0.5f;
+     const float center_y = ImGui::GetIO().DisplaySize.y * 0.5f;
+     const float scale = ImGui::GetIO().DisplayFramebufferScale.x;
+@@ -203,6 +214,10 @@ void ShaderCache::WaitForAsyncCompiler()
+ 
+   // An extra Present to clear the screen
+   g_presenter->Present();
++#ifdef ANDROID
++  if (Nebulos_ShaderCompileProgress)
++    Nebulos_ShaderCompileProgress(0, 0, true);
++#endif
+ }
+ 
+ template <typename SerializedUidType, typename UidType>

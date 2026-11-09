@@ -1,0 +1,480 @@
+From f8efced2cef40a7d5be2134d8e5ab9b26819f3bc Mon Sep 17 00:00:00 2001
+From: Ry <ry@local>
+Date: Sun, 8 Nov 2026 21:58:57 -0600
+Subject: [PATCH 2/5] nebulos bridge: RECONSTRUCTED ops 0-6 + JNI + frame hooks
+ (original source lost)
+
+RECONSTRUCTED from RaBridge.kt, the surviving op 7/8/9 patches and a disassembly of the
+previously built libretroarch-activity.so; not the original source.
+
+nebulos_bridge.c: RaBridge JNI (nativeButton/nativeAxis/nativeReleaseAll/nativeRequest), one-slot
+request mailbox served on the RetroArch thread, ops 1 save, 2 load, 3 pause, 4 resume, 5 quit,
+6 flush SRAM/RTC (unknown ops, e.g. the 99 liveness probe, are no-ops answering 0).
+Hooks: nebulos_bridge_poll (android_input_poll), run_begin/run_end (around retro_run in core_run),
+nebulos_bridge_overlay (input_driver_state_wrapper, port 0 pad + analog merge).
+Android.mk links nebulos_bridge.c into libretroarch-activity.so.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ input/drivers/android_input.c             |   4 +
+ input/input_driver.c                      |   6 +
+ nebulos_bridge.c                          | 327 ++++++++++++++++++++++
+ nebulos_bridge.h                          |  24 ++
+ pkg/android/phoenix-common/jni/Android.mk |   3 +
+ runloop.c                                 |  10 +
+ 6 files changed, 374 insertions(+)
+ create mode 100644 nebulos_bridge.c
+ create mode 100644 nebulos_bridge.h
+
+diff --git a/input/drivers/android_input.c b/input/drivers/android_input.c
+index c59fd23892..59d796edfe 100644
+--- a/input/drivers/android_input.c
++++ b/input/drivers/android_input.c
+@@ -51,6 +51,7 @@
+ #include "../../retroarch.h"
+ #include "../../runloop.h"
+ #include "../input_driver.h"
++#include "../../nebulos_bridge.h"
+ 
+ #ifdef HAVE_THREADS
+ #include "../../gfx/video_thread_wrapper.h"
+@@ -2621,6 +2622,9 @@ static void android_input_poll(void *data)
+    /* Apply any text staged by the native (IME) keyboard. */
+    android_keyboard_poll();
+ 
++   /* Nebulos: serve a pending RaBridge request (pause/resume/flush/quit/...) on this thread */
++   nebulos_bridge_poll();
++
+    /* Backgrounded (APP_CMD_PAUSE/STOP set RUNLOOP_FLAG_IDLE): there is
+     * nothing to do until the OS delivers the next command, and the
+     * looper will wake us for it. Block on it with -1 instead of the
+diff --git a/input/input_driver.c b/input/input_driver.c
+index 6d9d4891c3..6cb82af655 100644
+--- a/input/input_driver.c
++++ b/input/input_driver.c
+@@ -92,6 +92,7 @@
+ 
+ #ifdef ANDROID
+ #include "../frontend/drivers/platform_unix.h"
++#include "../nebulos_bridge.h"
+ #endif
+ 
+ #include "../ai/game_ai.h"
+@@ -8349,6 +8350,11 @@ int16_t input_driver_state_wrapper(unsigned port, unsigned device,
+    /* Read input state */
+    result = input_state_internal(input_st, settings, port, device, idx, id);
+ 
++#ifdef ANDROID
++   /* Nebulos: merge the pad/stick state injected through RaBridge for libretro port 0 */
++   result = nebulos_bridge_overlay(port, device, idx, id, result);
++#endif
++
+    /* Register any analog stick input requests for
+     * this 'virtual' (core) port */
+    if (     (device == RETRO_DEVICE_ANALOG)
+diff --git a/nebulos_bridge.c b/nebulos_bridge.c
+new file mode 100644
+index 0000000000..6b81fd15d0
+--- /dev/null
++++ b/nebulos_bridge.c
+@@ -0,0 +1,327 @@
++/* Nebulos bridge: JNI entry points + per-frame hooks, linked into libretroarch-activity.so.
++ * Java side: com.noryan.nebulos.core.retroarch.RaBridge (nebulos/core-retroarch).
++ *
++ * RECONSTRUCTED: the original file was lost; rebuilt from the Kotlin contract (RaBridge.kt), the surviving
++ * op 7/8/9 patches and a disassembly of the previously built libretroarch-activity.so. Ops 0-6 behave as the
++ * old binary did (see commit message for what was verified and what was inferred).
++ *
++ * Threading: Java threads post a single request (nativeRequest) and block; the RetroArch thread picks it up in
++ * rc_service(), once per input poll and once more right after every retro_run(). Save/load/shader/scale ops
++ * need a quiescent core and are only served outside retro_run(). */
++#include <stdatomic.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <errno.h>
++#include <pthread.h>
++#include <time.h>
++#include <jni.h>
++#include <android/log.h>
++
++#include <retro_miscellaneous.h>
++#include <file/file_path.h>
++#include <streams/file_stream.h>
++#include <features/features_cpu.h>
++
++#include "command.h"
++#include "configuration.h"
++#include "content.h"
++#include "runloop.h"
++#include "nebulos_bridge.h"
++
++#define NEB_TAG "NebulosN"
++#define NEB_LOG(...) __android_log_print(ANDROID_LOG_INFO, NEB_TAG, __VA_ARGS__)
++
++static atomic_uint  rc_buttons;               /* bit n = RETRO_DEVICE_ID_JOYPAD_* n held (port 0) */
++static atomic_int   rc_axes[2][2];            /* [stick L/R][x/y] in -0x7fff..0x7fff */
++
++static pthread_mutex_t rc_mutex = PTHREAD_MUTEX_INITIALIZER;
++static pthread_cond_t  rc_cond  = PTHREAD_COND_INITIALIZER;
++static int rc_op      = 0;   /* 0 none, 1 save, 2 load, 3 pause, 4 resume, 5 quit */
++static int rc_arg     = 0;
++static char rc_path[PATH_MAX_LENGTH];
++static int rc_pending = 0;
++static int rc_done    = 0;
++static int rc_res     = 0;
++static int rc_in_run  = 0;   /* set while retro_run() is on the stack */
++
++static int64_t rc_now_ms(void)
++{
++   return (int64_t)(cpu_features_get_time_usec() / 1000);
++}
++
++/* Runs on the RetroArch thread. */
++static void nebulos_exec(int op, int arg, const char *path, int *res)
++{
++   *res = 0;
++   NEB_LOG("[Nebulos] exec op=%d begin", op);
++   switch (op)
++   {
++      case 1: /* save state to path (written to path.tmp, then renamed) */
++      {
++         runloop_state_t *rl = runloop_state_get_ptr();
++         int64_t t0          = rc_now_ms();
++         size_t size;
++         void *buf;
++         char tmp[PATH_MAX_LENGTH];
++         FILE *f;
++         size_t wrote;
++
++         if (!path[0])
++            break;
++         size = rl->current_core.retro_serialize_size();
++         if (!size)
++         {
++            NEB_LOG("[Nebulos] ERR save: core reports serialize size 0");
++            break;
++         }
++         if (!(buf = malloc(size)))
++         {
++            NEB_LOG("[Nebulos] ERR save: out of memory (%u bytes)", (unsigned)size);
++            break;
++         }
++         if (!rl->current_core.retro_serialize(buf, size))
++         {
++            NEB_LOG("[Nebulos] ERR save: retro_serialize failed (%u bytes)", (unsigned)size);
++            free(buf);
++            break;
++         }
++         snprintf(tmp, sizeof(tmp), "%s.tmp", path);
++         if (!(f = fopen(tmp, "wb")))
++         {
++            NEB_LOG("[Nebulos] ERR save: cannot open %s (errno %d)", tmp, errno);
++            free(buf);
++            break;
++         }
++         wrote = fwrite(buf, 1, size, f);
++         if (wrote != size || fclose(f) != 0 || rename(tmp, path) != 0)
++         {
++            NEB_LOG("[Nebulos] ERR save: write/rename failed (errno %d)", errno);
++            remove(tmp);
++            free(buf);
++            break;
++         }
++         free(buf);
++         NEB_LOG("[Nebulos] saved %u bytes to %s in %d ms", (unsigned)size, path, (int)(rc_now_ms() - t0));
++         *res = 1;
++         break;
++      }
++      case 2: /* load state from path */
++      {
++         int64_t t0  = rc_now_ms();
++         void *buf   = NULL;
++         int64_t len = 0;
++         bool ok;
++
++         if (!path[0] || !path_is_valid(path))
++            break;
++         if (!filestream_read_file(path, &buf, &len) || !buf || len <= 0)
++         {
++            NEB_LOG("[Nebulos] ERR load: cannot read %s", path);
++            free(buf);
++            break;
++         }
++         ok = content_deserialize_state(buf, (size_t)len);
++         free(buf);
++         NEB_LOG("[Nebulos] load %s (%d bytes): %s in %d ms", path, (int)len, ok ? "ok" : "FAILED",
++               (int)(rc_now_ms() - t0));
++         *res = ok ? 1 : 0;
++         break;
++      }
++      case 3: /* pause the core (frames stop, input/menu keep polling) */
++         command_event(CMD_EVENT_PAUSE, NULL);
++         *res = 1;
++         break;
++      case 4: /* resume */
++         command_event(CMD_EVENT_UNPAUSE, NULL);
++         *res = 1;
++         break;
++      case 5: /* quit RetroArch */
++         command_event(CMD_EVENT_QUIT, NULL);
++         *res = 1;
++         break;
++      case 6: /* flush battery saves (SRAM/RTC) to disk now */
++         command_event(CMD_EVENT_SAVE_FILES, NULL);
++         *res = 1;
++         break;
++      default: /* unknown op (RaBridge.mainLoopAlive sends 99 as a liveness probe): a no-op that answers 0 */
++         break;
++   }
++}
++
++/* Serves the pending request, if any. allow_state_ops = false while a frame is running. */
++static void rc_service(int allow_state_ops)
++{
++   int op, arg, res = 0;
++   char path[PATH_MAX_LENGTH];
++
++   if (!rc_pending) /* cheap racy check; re-checked under lock */
++      return;
++   pthread_mutex_lock(&rc_mutex);
++   if (!rc_pending || (!allow_state_ops && (rc_op == 1 || rc_op == 2)))
++   {
++      pthread_mutex_unlock(&rc_mutex);
++      return;
++   }
++   op  = rc_op;
++   arg = rc_arg;
++   strlcpy(path, rc_path, sizeof(path));
++   pthread_mutex_unlock(&rc_mutex);
++
++   nebulos_exec(op, arg, path, &res);
++
++   pthread_mutex_lock(&rc_mutex);
++   rc_res     = res;
++   rc_done    = 1;
++   rc_pending = 0;
++   pthread_cond_broadcast(&rc_cond);
++   pthread_mutex_unlock(&rc_mutex);
++}
++
++/* ---- hooks called from RetroArch ------------------------------------------------------------------------------ */
++
++void nebulos_bridge_poll(void)
++{
++   rc_service(!rc_in_run);
++}
++
++void nebulos_bridge_run_begin(void)
++{
++   rc_in_run = 1;
++}
++
++void nebulos_bridge_run_end(void)
++{
++   rc_in_run = 0;
++   rc_service(1);
++}
++
++int16_t nebulos_bridge_overlay(unsigned port, unsigned device, unsigned idx, unsigned id, int16_t ret)
++{
++   if (port != 0)
++      return ret;
++   switch (device & RETRO_DEVICE_MASK)
++   {
++      case RETRO_DEVICE_JOYPAD:
++      {
++         unsigned held = atomic_load(&rc_buttons);
++         if (id == RETRO_DEVICE_ID_JOYPAD_MASK)
++            return (int16_t)(ret | held);
++         if (id <= 15 && ((held >> id) & 1))
++            return 1;
++         return ret;
++      }
++      case RETRO_DEVICE_ANALOG:
++      {
++         int v;
++         if (idx > 1 || id > 1)
++            return ret;
++         v = atomic_load(&rc_axes[idx][id]);
++         return v ? (int16_t)v : ret;
++      }
++      default:
++         return ret;
++   }
++}
++
++/* ---- JNI (com.noryan.nebulos.core.retroarch.RaBridge) ----------------------------------------------------------- */
++
++JNIEXPORT void JNICALL
++Java_com_noryan_nebulos_core_retroarch_RaBridge_nativeButton(JNIEnv *env, jclass cls, jint retro_id, jboolean pressed)
++{
++   (void)env; (void)cls;
++   if ((unsigned)retro_id > 15)
++      return;
++   if (pressed)
++      atomic_fetch_or(&rc_buttons, 1u << retro_id);
++   else
++      atomic_fetch_and(&rc_buttons, ~(1u << retro_id));
++}
++
++JNIEXPORT void JNICALL
++Java_com_noryan_nebulos_core_retroarch_RaBridge_nativeAxis(JNIEnv *env, jclass cls, jint stick, jint axis, jint value)
++{
++   (void)env; (void)cls;
++   if ((unsigned)stick > 1 || (unsigned)axis > 1)
++      return;
++   if (value > 0x7fff)  value = 0x7fff;
++   if (value < -0x7fff) value = -0x7fff;
++   atomic_store(&rc_axes[stick][axis], value);
++}
++
++JNIEXPORT void JNICALL
++Java_com_noryan_nebulos_core_retroarch_RaBridge_nativeReleaseAll(JNIEnv *env, jclass cls)
++{
++   (void)env; (void)cls;
++   atomic_store(&rc_buttons, 0);
++   atomic_store(&rc_axes[0][0], 0);
++   atomic_store(&rc_axes[0][1], 0);
++   atomic_store(&rc_axes[1][0], 0);
++   atomic_store(&rc_axes[1][1], 0);
++}
++
++static void rc_deadline(struct timespec *ts, int ms)
++{
++   clock_gettime(CLOCK_REALTIME, ts);
++   ts->tv_sec  += ms / 1000;
++   ts->tv_nsec += (long)(ms % 1000) * 1000000L;
++   if (ts->tv_nsec > 999999999L)
++   {
++      ts->tv_sec++;
++      ts->tv_nsec -= 1000000000L;
++   }
++}
++
++/* Posts [op] for the RetroArch thread and blocks until it ran or timeout_ms passed. 1 = success, 0 = failed/timed out. */
++JNIEXPORT jint JNICALL
++Java_com_noryan_nebulos_core_retroarch_RaBridge_nativeRequest(JNIEnv *env, jclass cls,
++      jint op, jint arg, jstring jpath, jint timeout_ms)
++{
++   const char *cpath = jpath ? (*env)->GetStringUTFChars(env, jpath, NULL) : NULL;
++   int res           = 0;
++   int timed_out     = 0;
++   struct timespec ts;
++
++   (void)cls;
++   pthread_mutex_lock(&rc_mutex);
++
++   /* One request in flight at a time: wait for the previous one to be served. */
++   rc_deadline(&ts, timeout_ms);
++   while (rc_pending && !timed_out)
++      if (pthread_cond_timedwait(&rc_cond, &rc_mutex, &ts) == ETIMEDOUT)
++         timed_out = 1;
++   if (rc_pending)
++      goto out; /* previous request is wedged: fail this one */
++
++   if (cpath)
++   {
++      strncpy(rc_path, cpath, sizeof(rc_path) - 1);
++      rc_path[sizeof(rc_path) - 1] = '\0';
++   }
++   else
++      rc_path[0] = '\0';
++   rc_op      = op;
++   rc_arg     = arg;
++   rc_done    = 0;
++   rc_pending = 1;
++
++   if (timed_out)
++   {
++      rc_pending = 0; /* no time left to wait for an answer */
++      goto out;
++   }
++   rc_deadline(&ts, timeout_ms);
++   while (!rc_done && !timed_out)
++      if (pthread_cond_timedwait(&rc_cond, &rc_mutex, &ts) == ETIMEDOUT)
++         timed_out = 1;
++   if (rc_done)
++      res = rc_res;
++   else
++      rc_pending = 0; /* abandon: the RetroArch thread never got to it */
++
++out:
++   pthread_mutex_unlock(&rc_mutex);
++   if (cpath)
++      (*env)->ReleaseStringUTFChars(env, jpath, cpath);
++   return res;
++}
+diff --git a/nebulos_bridge.h b/nebulos_bridge.h
+new file mode 100644
+index 0000000000..0bc435f65b
+--- /dev/null
++++ b/nebulos_bridge.h
+@@ -0,0 +1,24 @@
++/* Nebulos bridge hooks (RECONSTRUCTED, see nebulos_bridge.c).
++ * Called from RetroArch's own loops; all are no-ops until Nebulos drives them. */
++#ifndef NEBULOS_BRIDGE_H
++#define NEBULOS_BRIDGE_H
++
++#include <stdint.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/* android_input_poll(): once per input poll (before, and from inside, retro_run). */
++void nebulos_bridge_poll(void);
++/* core_run(): around retro_run(). State ops are deferred while a frame is running. */
++void nebulos_bridge_run_begin(void);
++void nebulos_bridge_run_end(void);
++/* input_driver_state_wrapper(): merges Nebulos' injected pad/stick state for libretro port 0 into the result. */
++int16_t nebulos_bridge_overlay(unsigned port, unsigned device, unsigned idx, unsigned id, int16_t ret);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
+diff --git a/pkg/android/phoenix-common/jni/Android.mk b/pkg/android/phoenix-common/jni/Android.mk
+index e082015231..5a547568f7 100644
+--- a/pkg/android/phoenix-common/jni/Android.mk
++++ b/pkg/android/phoenix-common/jni/Android.mk
+@@ -75,6 +75,9 @@ LOCAL_MODULE := retroarch-activity
+ LOCAL_SRC_FILES  +=	$(RARCH_DIR)/griffin/griffin.c \
+ 							$(RARCH_DIR)/griffin/griffin_cpp.cpp
+ 
++# Nebulos: JNI bridge (RaBridge) + per-frame hooks, see nebulos_bridge.c
++LOCAL_SRC_FILES  +=	$(RARCH_DIR)/nebulos_bridge.c
++
+ ifeq ($(HAVE_BUILTINSMBCLIENT),1)
+    DEFINES += -DHAVE_BUILTINSMBCLIENT
+    DEFINES += "-D_U_=__attribute__((unused))"
+diff --git a/runloop.c b/runloop.c
+index e3f227d312..c5cccb5f4d 100644
+--- a/runloop.c
++++ b/runloop.c
+@@ -300,6 +300,10 @@ static void exec_mem_ledger_free_all(void)
+ }
+ #endif
+ 
++#ifdef ANDROID
++#include "nebulos_bridge.h"
++#endif
++
+ #if HAVE_GAME_AI
+ #include "ai/game_ai.h"
+ 
+@@ -9550,7 +9554,13 @@ void core_run(void)
+       /* The flags this iteration's checks flipped, fast-forward above
+        * all, reach the frame's own audio rather than the next frame's. */
+       audio_driver_publish_runloop();
++#ifdef ANDROID
++      nebulos_bridge_run_begin();
++#endif
+       current_core->retro_run();
++#ifdef ANDROID
++      nebulos_bridge_run_end();
++#endif
+       audio_driver_frame_end();
+    }
+ 

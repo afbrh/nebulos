@@ -1,0 +1,165 @@
+From 26d86e675f1c978f727887ad5c96e09978041e38 Mon Sep 17 00:00:00 2001
+From: Ry <ry@Mac.eau.wi.charter.com>
+Date: Sun, 8 Nov 2026 22:07:36 -0600
+Subject: [PATCH 3/4] DSi/DSiWare for Nebulos: file: BIOS dirs, local TMD,
+ auto-import (RECONSTRUCTED)
+
+- SharedPreferencesSettingsRepository.getTreeDocument + FileSystemConfigurationDirectoryVerifier accept file: URIs
+  (nebulos/RomUris treeDocumentFor -> DocumentFile.fromFile) so bios_dir / dsi_bios_dir given as file URIs work
+- NusDSiWareMetadataRepository (downloaded the DSi TMD from Nintendo NUS; Nebulos has no network) removed;
+  LocalDSiWareMetadataRepository reads <externalFilesDir>/watermelonds/dsiware/tmd/<category8><title8>.tmd (520 bytes,
+  written by Nebulos DsiSupport.kt DsiWareCia.writeDsiTmd); MelonModule provides it
+- EmulatorLaunchPreconditionChecker: when NebulosBridge.active a DSiWare title missing from the DSi NAND is imported
+  automatically (log tag NebulosDsi) instead of failing with "title not installed"
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ .../java/me/magnum/melonds/di/MelonModule.kt  |  4 +-
+ .../EmulatorLaunchPreconditionChecker.kt      | 10 ++++-
+ ...ileSystemConfigurationDirectoryVerifier.kt |  3 +-
+ .../impl/LocalDSiWareMetadataRepository.kt    | 40 +++++++++++++++++++
+ .../SharedPreferencesSettingsRepository.kt    |  6 ++-
+ 5 files changed, 58 insertions(+), 5 deletions(-)
+ create mode 100644 app/src/main/java/me/magnum/melonds/impl/LocalDSiWareMetadataRepository.kt
+
+diff --git a/app/src/main/java/me/magnum/melonds/di/MelonModule.kt b/app/src/main/java/me/magnum/melonds/di/MelonModule.kt
+index 27bb5073..0c4a826c 100644
+--- a/app/src/main/java/me/magnum/melonds/di/MelonModule.kt
++++ b/app/src/main/java/me/magnum/melonds/di/MelonModule.kt
+@@ -112,8 +112,8 @@ object MelonModule {
+ 
+     @Provides
+     @Singleton
+-    fun provideDSiWareMetadataRepository(): DSiWareMetadataRepository {
+-        return NusDSiWareMetadataRepository()
++    fun provideDSiWareMetadataRepository(@ApplicationContext context: Context): DSiWareMetadataRepository {
++        return LocalDSiWareMetadataRepository(context)
+     }
+ 
+     @Provides
+diff --git a/app/src/main/java/me/magnum/melonds/domain/services/EmulatorLaunchPreconditionChecker.kt b/app/src/main/java/me/magnum/melonds/domain/services/EmulatorLaunchPreconditionChecker.kt
+index cf1191f9..e245836a 100644
+--- a/app/src/main/java/me/magnum/melonds/domain/services/EmulatorLaunchPreconditionChecker.kt
++++ b/app/src/main/java/me/magnum/melonds/domain/services/EmulatorLaunchPreconditionChecker.kt
+@@ -4,6 +4,8 @@ import android.content.Context
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.withContext
+ import me.magnum.melonds.MelonDSAndroidInterface
++import android.util.Log
++import me.magnum.melonds.nebulos.NebulosBridge
+ import me.magnum.melonds.common.romprocessors.RomFileProcessorFactory
+ import me.magnum.melonds.domain.model.ConfigurationDirResult
+ import me.magnum.melonds.domain.model.ConsoleType
+@@ -83,7 +85,13 @@ class EmulatorLaunchPreconditionChecker(
+         // The DSi title ID is equal to the game code, but parsed as a Long in big-endian
+         val dsiTitleIdByteData = romInfo.gameCode.encodeToByteArray()
+         val dsiTitleId = ByteBuffer.wrap(dsiTitleIdByteData).order(ByteOrder.BIG_ENDIAN).getInt().toLong()
+-        val isTitleInstalled = dsiNandManager.listTitles().any { it.titleId == dsiTitleId }
++        var isTitleInstalled = dsiNandManager.listTitles().any { it.titleId == dsiTitleId }
++        if (!isTitleInstalled && NebulosBridge.active) {
++            // Nebulos: the user just picked the DSiWare game from the library; install it into the DSi NAND instead of failing.
++            val importResult = dsiNandManager.importTitle(rom.uri)
++            Log.i("NebulosDsi", "DSiWare auto-import of ${romInfo.gameCode}: $importResult")
++            isTitleInstalled = dsiNandManager.listTitles().any { it.titleId == dsiTitleId }
++        }
+         dsiNandManager.closeNand()
+ 
+         if (!isTitleInstalled) {
+diff --git a/app/src/main/java/me/magnum/melonds/impl/FileSystemConfigurationDirectoryVerifier.kt b/app/src/main/java/me/magnum/melonds/impl/FileSystemConfigurationDirectoryVerifier.kt
+index cc525cbc..1c662328 100644
+--- a/app/src/main/java/me/magnum/melonds/impl/FileSystemConfigurationDirectoryVerifier.kt
++++ b/app/src/main/java/me/magnum/melonds/impl/FileSystemConfigurationDirectoryVerifier.kt
+@@ -8,6 +8,7 @@ import me.magnum.melonds.domain.model.ConfigurationDirResult
+ import me.magnum.melonds.domain.model.ConsoleType
+ import me.magnum.melonds.domain.repositories.SettingsRepository
+ import me.magnum.melonds.domain.services.ConfigurationDirectoryVerifier
++import me.magnum.melonds.nebulos.treeDocumentFor
+ 
+ class FileSystemConfigurationDirectoryVerifier(private val context: Context, settingsRepository: SettingsRepository) : ConfigurationDirectoryVerifier(settingsRepository) {
+     override fun checkDsConfigurationDirectory(directory: Uri?): ConfigurationDirResult {
+@@ -26,7 +27,7 @@ class FileSystemConfigurationDirectoryVerifier(private val context: Context, set
+         }
+ 
+         val dirDocument = runCatching {
+-            DocumentFile.fromTreeUri(context, directory)
++            treeDocumentFor(context, directory)
+         }.getOrNull()
+         val isDirectory = runCatching {
+             dirDocument?.isDirectory == true
+diff --git a/app/src/main/java/me/magnum/melonds/impl/LocalDSiWareMetadataRepository.kt b/app/src/main/java/me/magnum/melonds/impl/LocalDSiWareMetadataRepository.kt
+new file mode 100644
+index 00000000..8327fa29
+--- /dev/null
++++ b/app/src/main/java/me/magnum/melonds/impl/LocalDSiWareMetadataRepository.kt
+@@ -0,0 +1,40 @@
++package me.magnum.melonds.impl
++
++import android.content.Context
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.withContext
++import me.magnum.melonds.domain.repositories.DSiWareMetadataRepository
++import java.io.File
++import java.io.FileNotFoundException
++
++/**
++ * Nebulos replacement for NusDSiWareMetadataRepository (RECONSTRUCTED). The stock repository downloads the 520-byte DSi TMD
++ * from Nintendo's NUS over HTTP, but Nebulos has no network permission. Nebulos' DsiSupport.kt (`DsiWareCia.writeDsiTmd`)
++ * builds that TMD from the DSiWare .cia and writes it to
++ * `<externalFilesDir>/watermelonds/dsiware/tmd/<categoryHex8><titleHex8>.tmd`; this repository reads it back.
++ */
++class LocalDSiWareMetadataRepository(private val context: Context) : DSiWareMetadataRepository {
++
++    override suspend fun getDSiWareTitleMetadata(categoryId: UInt, titleId: UInt): ByteArray = withContext(Dispatchers.IO) {
++        val categoryIdHex = categoryId.toString(16).padStart(8, '0')
++        val titleIdHex = titleId.toString(16).padStart(8, '0')
++        val file = File(tmdDir(), "$categoryIdHex$titleIdHex.tmd")
++        if (!file.isFile) {
++            throw FileNotFoundException("No local DSi TMD for title $categoryIdHex$titleIdHex (${file.absolutePath})")
++        }
++        // Only 520 bytes are needed
++        val tmdMetadata = ByteArray(520)
++        file.inputStream().use { input ->
++            var offset = 0
++            while (offset < tmdMetadata.size) {
++                val read = input.read(tmdMetadata, offset, tmdMetadata.size - offset)
++                if (read <= 0) break
++                offset += read
++            }
++            if (offset < tmdMetadata.size) throw FileNotFoundException("DSi TMD ${file.name} is too short ($offset bytes)")
++        }
++        tmdMetadata
++    }
++
++    private fun tmdDir(): File = File(File(context.getExternalFilesDir(null) ?: context.filesDir, "watermelonds/dsiware"), "tmd")
++}
+diff --git a/app/src/main/java/me/magnum/melonds/impl/SharedPreferencesSettingsRepository.kt b/app/src/main/java/me/magnum/melonds/impl/SharedPreferencesSettingsRepository.kt
+index ce4337db..e2c9408d 100644
+--- a/app/src/main/java/me/magnum/melonds/impl/SharedPreferencesSettingsRepository.kt
++++ b/app/src/main/java/me/magnum/melonds/impl/SharedPreferencesSettingsRepository.kt
+@@ -79,6 +79,8 @@ import java.io.File
+ import java.util.UUID
+ import kotlin.math.pow
+ import kotlin.jvm.Volatile
++import me.magnum.melonds.nebulos.NebulosBridge
++import me.magnum.melonds.nebulos.treeDocumentFor
+ 
+ class SharedPreferencesSettingsRepository(
+     private val context: Context,
+@@ -131,7 +133,7 @@ class SharedPreferencesSettingsRepository(
+             return null
+         }
+ 
+-        return runCatching { DocumentFile.fromTreeUri(context, uri) }
++        return runCatching { treeDocumentFor(context, uri) }
+             .onFailure { Log.w(TAG, "Could not access restored tree preference $key=$uri", it) }
+             .getOrNull()
+     }
+@@ -1568,6 +1570,8 @@ class SharedPreferencesSettingsRepository(
+ 
+     override fun getSoftInputBehaviour(): Flow<SoftInputBehaviour> {
+         return getOrCreatePreferenceSharedFlow("soft_input_behaviour") {
++            // Nebulos: its controller handles input and draws no touch overlay
++            if (NebulosBridge.active) return@getOrCreatePreferenceSharedFlow SoftInputBehaviour.ALWAYS_INVISIBLE
+             val preference = preferences.getString("soft_input_behaviour", "hide_system_buttons_when_controller_connected")
+ 
+             when (preference) {

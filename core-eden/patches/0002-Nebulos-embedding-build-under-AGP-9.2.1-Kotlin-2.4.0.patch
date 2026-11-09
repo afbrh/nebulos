@@ -1,0 +1,218 @@
+From 25a7bbb7490b3a6770b3f1c5125edf75e4fba43d Mon Sep 17 00:00:00 2001
+From: ry <noreply@local>
+Date: Sun, 8 Nov 2026 21:00:49 -0600
+Subject: [PATCH 2/4] Nebulos embedding: build under AGP 9.2.1 + Kotlin 2.4.0
+ (library DSL, buildConfig/resValues, parcelize runtime, Kotlin plugin on
+ classpath), document-provider authority from the host package
+
+---
+ src/android/app/build.gradle.kts              | 59 ++++---------------
+ .../yuzu_emu/features/DocumentProvider.kt     |  5 +-
+ src/android/build.gradle.kts                  | 10 ++--
+ src/android/gradle.properties                 |  1 -
+ 4 files changed, 20 insertions(+), 55 deletions(-)
+
+diff --git a/src/android/app/build.gradle.kts b/src/android/app/build.gradle.kts
+index bf1a12c4a..4d438827f 100644
+--- a/src/android/app/build.gradle.kts
++++ b/src/android/app/build.gradle.kts
+@@ -6,16 +6,13 @@
+ 
+ // import android.annotation.SuppressLint
+ import kotlin.collections.setOf
+-import org.jlleitschuh.gradle.ktlint.reporter.ReporterType
+ import org.gradle.api.tasks.Copy
+ 
+ plugins {
+     id("com.android.library")   // Nebulos embeds Eden: :app is a library, the Nebulos app is the application
+-    id("org.jetbrains.kotlin.android")
+-    id("kotlin-parcelize")
+-    kotlin("plugin.serialization") version "1.9.20"
++    id("org.jetbrains.kotlin.plugin.parcelize")
++    kotlin("plugin.serialization") version "2.4.0"
+     id("androidx.navigation.safeargs.kotlin")
+-    id("org.jlleitschuh.gradle.ktlint") version "11.4.0"
+     id("idea")
+ }
+ 
+@@ -40,6 +37,8 @@ android {
+ 
+     buildFeatures {
+         viewBinding = true
++        buildConfig = true   // was android.defaults.buildfeatures.buildconfig in gradle.properties (removed in AGP 9)
++        resValues = true     // the flavors define app_name strings with resValue()
+     }
+ 
+     compileOptions {
+@@ -47,22 +46,14 @@ android {
+         targetCompatibility = JavaVersion.VERSION_17
+     }
+ 
+-    kotlinOptions {
+-        jvmTarget = "17"
+-    }
+-
+     packaging {
+         // This is necessary for libadrenotools custom driver loading
+         jniLibs.useLegacyPackaging = true
+     }
+ 
+-    androidResources {
+-        generateLocaleConfig = true
+-    }
+ 
+     defaultConfig {
+         minSdk = 24
+-        targetSdk = 36
+ 
+         externalNativeBuild {
+             cmake {
+@@ -111,7 +102,6 @@ android {
+             }
+ 
+             isMinifyEnabled = true
+-            isDebuggable = false
+             proguardFiles(
+                 getDefaultProguardFile("proguard-android-optimize.txt"),
+                 "proguard-rules.pro"
+@@ -123,13 +113,11 @@ android {
+         register("relWithDebInfo") {
+             manifestPlaceholders += mapOf("appNameSuffix" to " Debug Release")
+             isDefault = true
+-            isDebuggable = true
+             proguardFiles(
+                 getDefaultProguardFile("proguard-android-optimize.txt"),
+                 "proguard-rules.pro"
+             )
+ 
+-            versionNameSuffix = "-relWithDebInfo"
+             isJniDebuggable = true
+         }
+ 
+@@ -137,9 +125,7 @@ android {
+         // Attaches 'debug' suffix to version and package name, allowing installation alongside the release build.
+         debug {
+             manifestPlaceholders += mapOf("appNameSuffix" to " Debug")
+-            isDebuggable = true
+             isJniDebuggable = true
+-            versionNameSuffix = "-debug"
+         }
+     }
+ 
+@@ -251,36 +237,6 @@ idea {
+     }
+ }
+ 
+-tasks.register<Delete>("ktlintReset", fun Delete.() {
+-    delete(File(layout.buildDirectory.toString() + File.separator + "intermediates/ktLint"))
+-})
+-
+-val showFormatHelp = {
+-    logger.lifecycle(
+-        "If this check fails, please try running \"gradlew ktlintFormat\" for automatic " +
+-                "codestyle fixes"
+-    )
+-}
+-tasks.getByPath("ktlintKotlinScriptCheck").doFirst { showFormatHelp.invoke() }
+-tasks.getByPath("ktlintMainSourceSetCheck").doFirst { showFormatHelp.invoke() }
+-tasks.getByPath("loadKtlintReporters").dependsOn("ktlintReset")
+-
+-ktlint {
+-    version.set("0.47.1")
+-    android.set(true)
+-    ignoreFailures.set(false)
+-    disabledRules.set(
+-        setOf(
+-            "no-wildcard-imports",
+-            "package-name",
+-            "import-ordering"
+-        )
+-    )
+-    reporters {
+-        reporter(ReporterType.CHECKSTYLE)
+-    }
+-}
+-
+ dependencies {
+     implementation("androidx.core:core-ktx:1.15.0")
+     implementation("androidx.appcompat:appcompat:1.7.0")
+@@ -305,6 +261,7 @@ dependencies {
+     implementation("androidx.compose.ui:ui-graphics-android:1.7.8")
+     implementation("androidx.compose.ui:ui-text-android:1.7.8")
+     implementation("net.swiftzer.semver:semver:2.0.0")
++    implementation("org.jetbrains.kotlin:kotlin-parcelize-runtime:2.4.0")   // AGP 9 has Kotlin built in: the parcelize plugin no longer adds its runtime
+ }
+ 
+ fun runGitCommand(command: List<String>): String {
+@@ -339,3 +296,9 @@ fun getGitVersion(): String {
+     }
+     return versionName.ifEmpty { "0.0" }
+ }
++
++kotlin {
++    compilerOptions {
++        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
++    }
++}
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/DocumentProvider.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/DocumentProvider.kt
+index f3be156b5..f9dca31a2 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/DocumentProvider.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/features/DocumentProvider.kt
+@@ -21,7 +21,7 @@ import org.yuzu.yuzu_emu.getPublicFilesDir
+ 
+ class DocumentProvider : DocumentsProvider() {
+     private val baseDirectory: File
+-        get() = File(YuzuApplication.application.getPublicFilesDir().canonicalPath)
++        get() = File(YuzuApplication.appContext.getPublicFilesDir().canonicalPath)
+ 
+     companion object {
+         private val DEFAULT_ROOT_PROJECTION: Array<String> = arrayOf(
+@@ -44,7 +44,8 @@ class DocumentProvider : DocumentsProvider() {
+             DocumentsContract.Document.COLUMN_SIZE
+         )
+ 
+-        const val AUTHORITY: String = BuildConfig.APPLICATION_ID + ".user"
++        // A library has no BuildConfig.APPLICATION_ID: the authority follows whichever app embeds Eden (matches ${applicationId}.user in the manifest).
++        val AUTHORITY: String get() = YuzuApplication.appContext.packageName + ".user"
+         const val ROOT_ID: String = "root"
+     }
+ 
+diff --git a/src/android/build.gradle.kts b/src/android/build.gradle.kts
+index 23213eb59..c73a70ac3 100644
+--- a/src/android/build.gradle.kts
++++ b/src/android/build.gradle.kts
+@@ -6,9 +6,9 @@
+ 
+ // Top-level build file where you can add configuration options common to all sub-projects/modules.
+ plugins {
+-    id("com.android.application") version "8.13.2" apply false
+-    id("com.android.library") version "8.1.4" apply false
+-    id("org.jetbrains.kotlin.android") version "1.9.20" apply false
++    // Nebulos builds Eden as an included build next to its own app: the Android Gradle plugin must be the same version as Nebulos's
++    // (9.2.1, which has Kotlin built in, so there is no separate kotlin-android plugin here).
++    id("com.android.library") version "9.2.1" apply false
+ }
+ 
+ tasks.register("clean").configure {
+@@ -21,6 +21,8 @@ buildscript {
+         google()
+     }
+     dependencies {
+-        classpath("androidx.navigation:navigation-safe-args-gradle-plugin:2.8.9")
++        classpath("androidx.navigation:navigation-safe-args-gradle-plugin:2.9.6")
++        // AGP 9 compiles with the Kotlin Gradle plugin found on this classpath; Nebulos is on Kotlin 2.4.0 and its libraries need a matching compiler.
++        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.0")
+     }
+ }
+diff --git a/src/android/gradle.properties b/src/android/gradle.properties
+index 151f7378d..7636d706e 100644
+--- a/src/android/gradle.properties
++++ b/src/android/gradle.properties
+@@ -14,7 +14,6 @@ android.useAndroidX=true
+ # Kotlin code style for this project: "official" or "obsolete":
+ kotlin.code.style=official
+ kotlin.parallel.tasks.in.project=true
+-android.defaults.buildfeatures.buildconfig=true
+ 
+ # Android Gradle plugin 8.0.2
+ android.suppressUnsupportedCompileSdk=34
