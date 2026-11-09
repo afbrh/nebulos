@@ -42,6 +42,8 @@ interface CoreSession {
  * May be called from a worker thread; must be idempotent; must restore the normal speed exactly on `false`.
  */
 interface FastForwardSupport {
+    /** False when this game never fast-forwards (the host then treats it like a core without the feature). */
+    val fastForwardAvailable: Boolean get() = true
     fun setFastForward(on: Boolean): Boolean
     companion object { const val MAX_MULTIPLIER = 5 }
 }

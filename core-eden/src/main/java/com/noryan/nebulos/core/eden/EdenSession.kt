@@ -65,6 +65,9 @@ class EdenSession(private val context: android.content.Context) : CoreSession, S
         if (!menuOpen && NativeLibrary.isPaused()) NativeLibrary.unpauseEmulation()
     }
 
+    private val gameTitle = (context as? android.app.Activity)?.intent?.getStringExtra("nebulos.title").orEmpty()
+    override val fastForwardAvailable: Boolean = !EdenMods.noFastForward(gameTitle)
+
     // Saved normal-speed state, valid while fast forward is on.
     private var ffOn = false
     private var savedTurboLimit = 0
@@ -80,6 +83,7 @@ class EdenSession(private val context: android.content.Context) : CoreSession, S
     override fun setFastForward(on: Boolean): Boolean {
         return try {
             if (on) {
+                if (!fastForwardAvailable) return false
                 if (ffOn) return true
                 if (!NativeLibrary.isRunning()) return false
                 savedTurboLimit = NativeConfig.getUnsignedShort("turbo_speed_limit", false)

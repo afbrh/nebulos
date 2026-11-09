@@ -1,0 +1,92 @@
+From a234e8dd1b1c0ebcd1ce9ff1ea205b216caaa4ac Mon Sep 17 00:00:00 2001
+From: Ry <ry@Mac.eau.wi.charter.com>
+Date: Mon, 9 Nov 2026 12:05:33 -0600
+Subject: [PATCH] Nebulos: present Pokemon Brilliant Diamond at 60 FPS (its
+ swap interval of 2 is forced to 1 in the hardware composer)
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ src/core/hle/service/nvnflinger/hardware_composer.cpp | 4 ++++
+ src/core/hle/service/nvnflinger/hardware_composer.h   | 5 +++++
+ src/core/hle/service/vi/conductor.cpp                 | 7 +++++++
+ src/core/hle/service/vi/conductor.h                   | 1 +
+ 4 files changed, 17 insertions(+)
+
+diff --git a/src/core/hle/service/nvnflinger/hardware_composer.cpp b/src/core/hle/service/nvnflinger/hardware_composer.cpp
+index 9ac56e17b..564535f2e 100644
+--- a/src/core/hle/service/nvnflinger/hardware_composer.cpp
++++ b/src/core/hle/service/nvnflinger/hardware_composer.cpp
+@@ -20,6 +20,10 @@ namespace Service::Nvnflinger {
+ namespace {
+ 
+ s32 NormalizeSwapInterval(f32* out_speed_scale, s32 swap_interval) {
++    // NEBULOS: titles flagged by the conductor are shown every vsync (their own 2 = 30 FPS cap is ignored).
++    if (g_force_swap_interval_1.load(std::memory_order_relaxed) && swap_interval > 1 && swap_interval < 5) {
++        swap_interval = 1;
++    }
+     if (swap_interval <= 0) {
+         // As an extension, treat nonpositive swap interval as speed multiplier.
+         if (out_speed_scale) {
+diff --git a/src/core/hle/service/nvnflinger/hardware_composer.h b/src/core/hle/service/nvnflinger/hardware_composer.h
+index 9702e0584..9a16a276e 100644
+--- a/src/core/hle/service/nvnflinger/hardware_composer.h
++++ b/src/core/hle/service/nvnflinger/hardware_composer.h
+@@ -6,6 +6,8 @@
+ 
+ #pragma once
+ 
++#include <atomic>
++
+ #include <boost/container/flat_map.hpp>
+ 
+ #include "core/hle/service/nvnflinger/buffer_item.h"
+@@ -17,6 +19,9 @@ class nvdisp_disp0;
+ 
+ namespace Service::Nvnflinger {
+ 
++// NEBULOS: set by the VI conductor while a title that asks for a swap interval of 2 (30 FPS) should be presented every vsync (60 FPS) instead.
++inline std::atomic<bool> g_force_swap_interval_1{false};
++
+ using ConsumerId = s32;
+ 
+ class HardwareComposer {
+diff --git a/src/core/hle/service/vi/conductor.cpp b/src/core/hle/service/vi/conductor.cpp
+index fd7233cf9..e434d5a0a 100644
+--- a/src/core/hle/service/vi/conductor.cpp
++++ b/src/core/hle/service/vi/conductor.cpp
+@@ -11,6 +11,7 @@
+ #include "common/thread.h"
+ #include "core/core.h"
+ #include "core/core_timing.h"
++#include "core/hle/service/nvnflinger/hardware_composer.h"
+ #include "core/hle/service/vi/conductor.h"
+ #include "core/hle/service/vi/container.h"
+ #include "core/hle/service/vi/display_list.h"
+@@ -77,6 +78,12 @@ void Conductor::ProcessVsync() {
+     Common::PollThreadPolicies();
+     Common::ADPF::SetTargetWorkDuration(std::chrono::nanoseconds{this->GetFramePeriodNs()});
+ 
++    // NEBULOS: Pokemon Brilliant Diamond asks for a swap interval of 2 (30 FPS); present it at 60 FPS instead. Checked about once a second.
++    if ((m_nebulos_vsync_count++ & 63) == 0) {
++        constexpr u64 BRILLIANT_DIAMOND = 0x0100000011D90000ULL;
++        Nvnflinger::g_force_swap_interval_1 = m_system.GetApplicationProcessProgramID() == BRILLIANT_DIAMOND;
++    }
++
+     for (auto& [display_id, manager] : m_vsync_managers) {
+         m_container.ComposeOnDisplay(&m_swap_interval, &m_compose_speed_scale, display_id);
+         manager.SignalVsync(m_system.Kernel());
+diff --git a/src/core/hle/service/vi/conductor.h b/src/core/hle/service/vi/conductor.h
+index fdccd4867..ba7297d6a 100644
+--- a/src/core/hle/service/vi/conductor.h
++++ b/src/core/hle/service/vi/conductor.h
+@@ -56,6 +56,7 @@ private:
+ 
+ private:
+     s32 m_swap_interval = 1;
++    u32 m_nebulos_vsync_count = 0;
+     f32 m_compose_speed_scale = 1.0f;
+ };
+ 
+-- 
+2.54.0 (Apple Git-157)
+

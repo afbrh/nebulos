@@ -168,7 +168,7 @@ object NebulosCoreHost {
         /** Hold-to-run fast forward (always <= [FastForwardSupport.MAX_MULTIPLIER]x). No-op when already in that state. */
         private fun setFastForward(on: Boolean) {
             if (on == fastForwarding) return
-            val ff = session as? FastForwardSupport
+            val ff = (session as? FastForwardSupport)?.takeIf { it.fastForwardAvailable }
             if (ff == null) {
                 if (on && !ffNoticeShown) { ffNoticeShown = true; toast("Fast forward isn't available for this game") }
                 return
@@ -252,7 +252,7 @@ object NebulosCoreHost {
 
         private fun toggleFastForward() {
             setFastForward(!fastForwarding)
-            if ((session as? FastForwardSupport) != null) toast(if (fastForwarding) "Fast forward on" else "Fast forward off")
+            if ((session as? FastForwardSupport)?.fastForwardAvailable == true) toast(if (fastForwarding) "Fast forward on" else "Fast forward off")
         }
 
         /** Call first in Activity.dispatchGenericMotionEvent. */

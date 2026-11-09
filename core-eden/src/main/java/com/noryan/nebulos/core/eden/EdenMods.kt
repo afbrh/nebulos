@@ -43,6 +43,10 @@ object EdenMods {
      */
     internal fun matchTitle(raw: String): String = com.noryan.nebulos.api.TitleMatch.clean(raw)
 
+    /** Games that run at a fixed rate and never fast-forward: Pokemon Brilliant Diamond is presented at 60 FPS by the emulator itself (swap interval forced to 1). */
+    private val NO_FAST_FORWARD = Regex("pok.mon.*brilliant\\s*diamond", RegexOption.IGNORE_CASE)
+    fun noFastForward(gameTitle: String) = NO_FAST_FORWARD.containsMatchIn(matchTitle(gameTitle))
+
     private fun aspectGame(gameTitle: String) = matchTitle(gameTitle).let { t -> ASPECT_GAMES.firstOrNull { it.title.containsMatchIn(t) } }
     /** The 4:3 mod folder (under load/) a game title selects, or null. */
     internal fun aspectDirName(gameTitle: String): String? = aspectGame(gameTitle)?.dir

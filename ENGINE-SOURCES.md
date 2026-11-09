@@ -15,7 +15,7 @@ app/build.gradle.kts read the same property; `app/src/noWatermelon` supplies a s
 
 | Engine | Upstream and base | Patches | State |
 |---|---|---|---|
-| eden-src | Eden `master` ae60f8e7f (version string 4.1.0-dev) | `core-eden/patches` | Java-side hooks rebuilt from the Release 15 decompile, UDP-socket and NSO-bss fixes re-applied. Not recreated: vibration stubs, `InputOverlay` no-overlay flag, EmuReady launch paths. The flavor dimension is named `edenVersion` (WatermelonDS has its own `version` dimension). |
+| eden-src | Eden `master` ae60f8e7f (version string 4.1.0-dev) | `core-eden/patches` | Java-side hooks rebuilt from the Release 15 decompile, UDP-socket and NSO-bss fixes re-applied. Pokemon Brilliant Diamond (0100000011D90000) is presented at 60 FPS: the composer forces its swap interval of 2 to 1 (patch 0008), and Nebulos disables fast forward for it. Not recreated: vibration stubs, `InputOverlay` no-overlay flag, EmuReady launch paths. The flavor dimension is named `edenVersion` (WatermelonDS has its own `version` dimension). |
 | dolphin-src | dolphin-emu/dolphin d57e268691 (2026-10-10) | `core-dolphin/patches`, `patches-rebuilt` | Patches 0001-0006 applied; two earlier patches (shader compile progress hook, shake override) were never exported and are RECONSTRUCTED in `patches-rebuilt`. |
 | primehack-romcore-src | shiiion/dolphin, branch `nebulos` | `core-primehack/patches` | Survived intact (only file modes were flipped; `git config core.fileMode false`). |
 | dusklight-src | TwilitRealm/dusklight b245c6bef8, aurora 08122911e8, borealis 8a1c87eb89 | `core-dusklight/patches` | README recipe followed; dusklight 0003 skipped (already contained in 0002). |
