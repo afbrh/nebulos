@@ -8,8 +8,11 @@ plugins {
 }
 
 android {
+    // NebulosApp extends NebulosHiltApplication, which :core-watermelonds provides; a build without that core gets a plain stand-in.
+    if (rootProject.findProject(":core-watermelonds") == null) sourceSets.getByName("main").kotlin.directories.add("src/noWatermelon/java")
     namespace = "com.noryan.nebulos"
     compileSdk = 37
+    ndkVersion = "30.0.16248370"   // the NDK Eden is built with; AGP also needs one to find the strip tool for the native libraries
 
     defaultConfig {
         applicationId = "com.noryan.nebulos"
@@ -20,7 +23,7 @@ android {
         versionCode = 17
         versionName = "15"
         ndk { abiFilters += "arm64-v8a" }
-        missingDimensionStrategy("edenVersion", "legacy")
+        missingDimensionStrategy("version", "legacy")
     }
     // Release signing: key + passwords live outside the repo (~/.nebulos-signing.properties, falling back to the legacy ~/.romcore-signing.properties); without it the release build is unsigned.
     val signingProps = Properties()

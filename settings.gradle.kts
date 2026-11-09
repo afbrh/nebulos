@@ -2,54 +2,59 @@ pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal()
 dependencyResolutionManagement { repositories { google(); mavenCentral() } }
 rootProject.name = "Nebulos"
 include(":app", ":nebulos-api")
+
+// -Pnebulos.cores=eden (or dolphin,eden ...) includes only those cores; without it every core is included. Needed when only some of the
+// sibling *-src checkouts exist. app/build.gradle.kts reads the same property to link the matching modules.
+val wantedCores = providers.gradleProperty("nebulos.cores").orNull?.split(",")?.map { it.trim() }
+fun want(id: String) = wantedCores == null || id in wantedCores
 // Each core agent adds its own line here when its module first builds:
 // include(":core-retroarch", ":core-dolphin", ":core-primehack", ":core-cemu",
 //         ":core-eden", ":core-azahar", ":core-watermelonds", ":core-armsx2")
 
 // :core-eden (Switch). Eden's android project is consumed as a composite build (its :app was converted to a library).
-include(":core-eden")
-includeBuild("../eden-src/src/android") {
+if (want("eden")) include(":core-eden")
+if (want("eden")) includeBuild("../eden-src/src/android") {
     name = "eden"
     dependencySubstitution { substitute(module("dev.eden_emu:app")).using(project(":app")) }
 }
 
 // :core-cemu (Wii U). SSimco's Cemu android project (cemu-src, local library-converted build) as a composite build.
-include(":core-cemu")
-includeBuild("../cemu-src/src/android") {
+if (want("cemu")) include(":core-cemu")
+if (want("cemu")) includeBuild("../cemu-src/src/android") {
     name = "cemu"
     dependencySubstitution { substitute(module("info.cemu:app")).using(project(":app")) }
 }
 
 // :core-watermelonds (Nintendo DS/DSi). WatermelonDS (melonDS-android fork) consumed as a composite build; its :app is a library.
 // Local patches (NebulosBridge seam, JDK17/arm64-only) live in ../watermelonds-src (local commits, never pushed upstream).
-include(":core-watermelonds")
-includeBuild("../watermelonds-src") {
+if (want("watermelonds")) include(":core-watermelonds")
+if (want("watermelonds")) includeBuild("../watermelonds-src") {
     name = "watermelonds"
     dependencySubstitution { substitute(module("me.magnum:app")).using(project(":app")) }
 }
 
 // :core-armsx2 (PS2). ARMSX2 (PCSX2 ARM fork, GPLv3): its android project (../armsx2-src/platforms/android, :app converted to a
 // library) is consumed as a composite build. Explicit name: several included builds end in ".../android".
-include(":core-armsx2")
-includeBuild("../armsx2-src/platforms/android") {
+if (want("armsx2")) include(":core-armsx2")
+if (want("armsx2")) includeBuild("../armsx2-src/platforms/android") {
     name = "armsx2"
     dependencySubstitution { substitute(module("com.armsx2:app")).using(project(":app")) }
 }
 
 // :core-dolphin (GameCube/Wii). Mainline Dolphin: native code from ../dolphin-src (CMake, branch `nebulos`),
 // Java layer package-relocated into this module. See core-dolphin/README-dolphin.md.
-include(":core-dolphin")
+if (want("dolphin")) include(":core-dolphin")
 
 // :core-azahar (3DS). Azahar (Citra lineage, GPL-2.0-only): ../azahar-src/src/android (:app already a library) as a composite build.
-include(":core-azahar")
-includeBuild("../azahar-src/src/android") {
+if (want("azahar")) include(":core-azahar")
+if (want("azahar")) includeBuild("../azahar-src/src/android") {
     name = "azahar"
     dependencySubstitution { substitute(module("org.azahar_emu:app")).using(project(":app")) }
 }
 
 // :core-retroarch (libretro host). Local RetroArch build (retroarch-src, with the nebulos JNI bridge patch) as a composite build.
-include(":core-retroarch")
-includeBuild("../retroarch-src/pkg/android/phoenix") {
+if (want("retroarch")) include(":core-retroarch")
+if (want("retroarch")) includeBuild("../retroarch-src/pkg/android/phoenix") {
     name = "retroarch"
     dependencySubstitution { substitute(module("com.retroarch:phoenix")).using(project(":")) }
 }
@@ -57,8 +62,8 @@ includeBuild("../retroarch-src/pkg/android/phoenix") {
 // :core-primehack (GameCube/Wii, Metroid Prime trilogy). PrimeHack (shiiion/dolphin) via a local Nebulos-patched clone
 // (../primehack-romcore-src; made by core-primehack/tools/relocate_primehack.py + core-primehack/patches). Module coordinates
 // nebulos.primehack:app deliberately differ from org.dolphinemu:app so :core-dolphin can substitute its own.
-include(":core-primehack")
-includeBuild("../primehack-romcore-src/Source/Android") {
+if (want("primehack")) include(":core-primehack")
+if (want("primehack")) includeBuild("../primehack-romcore-src/Source/Android") {
     name = "primehack"
     dependencySubstitution { substitute(module("nebulos.primehack:app")).using(project(":app")) }
 }
@@ -67,8 +72,8 @@ includeBuild("../primehack-romcore-src/Source/Android") {
 // from ../dusklight-src (local branch `nebulos-local`, never pushed): its platforms/android module is a library
 // consumed as a composite build; native lib libdusklight_main.so, SDL3 Java package dev.twilitrealm.dusksdl.
 // Native build: see core-dusklight/README-dusklight.md (cmake --preset android-arm64 in ../dusklight-src, NDK 29).
-include(":core-dusklight")
-includeBuild("../dusklight-src/platforms/android") {
+if (want("dusklight")) include(":core-dusklight")
+if (want("dusklight")) includeBuild("../dusklight-src/platforms/android") {
     name = "dusklight"
     dependencySubstitution { substitute(module("dev.twilitrealm:app")).using(project(":app")) }
 }
@@ -77,8 +82,8 @@ includeBuild("../dusklight-src/platforms/android") {
 // Android fork please-be-nice/Shipwright-android, cloned to ../shipwright-src (local branch `nebulos-local`, never pushed): its Android
 // project is a library consumed as a composite build; native libs libsoh.so + libSDL2.so, SDL2 Java package org.libsdl.appsoh.
 // Build notes: core-shipwright/README-shipwright.md (soh.o2r must exist in shipwright-src/Android/app/src/main/assets).
-include(":core-shipwright")
-includeBuild("../shipwright-src/Android") {
+if (want("shipwright")) include(":core-shipwright")
+if (want("shipwright")) includeBuild("../shipwright-src/Android") {
     name = "shipwright"
     dependencySubstitution { substitute(module("com.dishii:app")).using(project(":app")) }
 }
@@ -89,12 +94,12 @@ includeBuild("../shipwright-src/Android") {
 // package org.libsdl.apptwoship (all distinct from :core-shipwright's, so both live in one APK).
 // Build notes: core-twoship/README-twoship.md (2ship.o2r must exist in twoship-src/Android/app/src/main/assets, vcpkg deps in
 // twoship-src/build/vcpkg).
-include(":core-twoship")
-includeBuild("../twoship-src/Android") {
+if (want("twoship")) include(":core-twoship")
+if (want("twoship")) includeBuild("../twoship-src/Android") {
     name = "twoship"
     dependencySubstitution { substitute(module("com.twoshipfork:app")).using(project(":app")) }
 }
 
 // :core-wwhd (Wii U: The Wind Waker HD only). Native runtime from ../wwhd-src (CMake, local branch `nebulos`), no game code in the library;
 // the game is translated on the device from the user's own .wua. See core-wwhd/README-wwhd.md.
-include(":core-wwhd")
+if (want("wwhd")) include(":core-wwhd")

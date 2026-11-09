@@ -7,10 +7,10 @@ android {
     compileSdk = 37
     defaultConfig {
         minSdk = 30
-        // Eden's library declares an "edenVersion" flavor dimension (mainline/genshinSpoof/legacy/chromeOS).
+        // Eden's library declares a "version" flavor dimension (mainline/genshinSpoof/legacy/chromeOS).
         // "legacy" is the arm64 build with the widest device support (what RomRunner shipped and the one with an
         // existing native build cache in eden-src).
-        missingDimensionStrategy("edenVersion", "legacy")
+        missingDimensionStrategy("version", "legacy")
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     packaging { jniLibs.useLegacyPackaging = true } // Eden needs extracted libs (libadrenotools driver loading)
