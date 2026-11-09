@@ -1,0 +1,156 @@
+From 507ed87fa3f7a8ba549cbb76aca93b4adb2702d7 Mon Sep 17 00:00:00 2001
+From: Ry <ry@Mac.eau.wi.charter.com>
+Date: Mon, 9 Nov 2026 07:51:03 -0600
+Subject: [PATCH] 4:3 Fill renderer half (rebuilt): top-screen draws get 25%
+ more vertical field of view in the vertex shader, 2D stays edge-anchored
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ src/android/app/src/main/jni/native.cpp       |  5 +++--
+ src/video_core/four_three.h                   | 11 ++++++++++
+ src/video_core/rasterizer_accelerated.cpp     | 10 +++++++++
+ .../shader/generator/glsl_shader_gen.cpp      | 22 +++++++++++++++++--
+ .../shader/generator/shader_uniforms.h        |  1 +
+ 5 files changed, 45 insertions(+), 4 deletions(-)
+ create mode 100644 src/video_core/four_three.h
+
+diff --git a/src/android/app/src/main/jni/native.cpp b/src/android/app/src/main/jni/native.cpp
+index e2087906e..567d7f27b 100644
+--- a/src/android/app/src/main/jni/native.cpp
++++ b/src/android/app/src/main/jni/native.cpp
+@@ -76,6 +76,7 @@
+ #include "jni/ndk_motion.h"
+ #include "multiplayer.h"
+ #include "video_core/debug_utils/debug_utils.h"
++#include "video_core/four_three.h"
+ #include "video_core/gpu.h"
+ #include "video_core/renderer_base.h"
+ 
+@@ -125,7 +126,7 @@ std::mutex frame_patch_mutex;
+ FramePatch frame_patch;
+ std::atomic<bool> frame_patch_active{false}; // fast check for the emulation loop
+ 
+-// NEBULOS (reconstructed): "4:3 Fill" requested by the host. NOT RECOVERED: the renderer does not act on it yet.
++// NEBULOS (reconstructed): "4:3 Fill" requested by the host (acted on by the vertex shader, see video_core/four_three.h).
+ std::atomic<bool> four_three_fill{false};
+ 
+ std::mutex paused_mutex;
+@@ -1386,8 +1387,8 @@ jboolean Java_org_citra_citra_1emu_NativeLibrary_isEmulationFinished([[maybe_unu
+ void Java_org_citra_citra_1emu_NativeLibrary_setFourThreeFill([[maybe_unused]] JNIEnv* env,
+                                                               [[maybe_unused]] jobject obj,
+                                                               jboolean on) {
+-    // NOT RECOVERED: the original drew the top screen as a native 4:3 picture in the renderer. Only the flag is kept here.
+     four_three_fill = (on != JNI_FALSE);
++    VideoCore::g_four_three_fill = (on != JNI_FALSE); // read by RasterizerAccelerated::SyncDrawUniforms
+     LOG_INFO(Frontend, "Nebulos 4:3 fill: {}", on != JNI_FALSE);
+ }
+ 
+diff --git a/src/video_core/four_three.h b/src/video_core/four_three.h
+new file mode 100644
+index 000000000..ae8a51721
+--- /dev/null
++++ b/src/video_core/four_three.h
+@@ -0,0 +1,11 @@
++// NEBULOS: host-requested "4:3 Fill" (see Java_org_citra_citra_1emu_NativeLibrary_setFourThreeFill).
++#pragma once
++
++#include <atomic>
++
++namespace VideoCore {
++
++/// True while the host shows the top screen as a 4:3 picture: top-screen draws then see 25% more vertical field of view.
++inline std::atomic<bool> g_four_three_fill{false};
++
++} // namespace VideoCore
+diff --git a/src/video_core/rasterizer_accelerated.cpp b/src/video_core/rasterizer_accelerated.cpp
+index 07513d839..b79a0c308 100644
+--- a/src/video_core/rasterizer_accelerated.cpp
++++ b/src/video_core/rasterizer_accelerated.cpp
+@@ -7,6 +7,7 @@
+ #include "common/math_util.h"
+ #include "core/memory.h"
+ #include "video_core/pica/pica_core.h"
++#include "video_core/four_three.h"
+ #include "video_core/rasterizer_accelerated.h"
+ 
+ namespace VideoCore {
+@@ -160,6 +161,15 @@ void RasterizerAccelerated::SyncDrawUniforms() {
+     const bool prev_flipped = std::exchange(vs_data.flip_viewport, is_flipped);
+     vs_data_dirty |= is_flipped != prev_flipped;
+ 
++    // NEBULOS 4:3 Fill: only draws into the top screen's framebuffer (240x400, stored rotated) are widened.
++    const auto& fb = regs.framebuffer.framebuffer;
++    const bool top_screen = fb.GetWidth() == 240 && fb.GetHeight() == 400;
++    const f32 four_three = (top_screen && VideoCore::g_four_three_fill.load(std::memory_order_relaxed)) ? 0.8f : 1.f;
++    if (vs_data.four_three_scale != four_three) {
++        vs_data.four_three_scale = four_three;
++        vs_data_dirty = true;
++    }
++
+     // Sync clip plane uniforms
+     if (dirty.CheckClipping()) {
+         const auto raw_clip_coef = regs.rasterizer.GetClipCoef();
+diff --git a/src/video_core/shader/generator/glsl_shader_gen.cpp b/src/video_core/shader/generator/glsl_shader_gen.cpp
+index 19c82bf8c..c0ceec80e 100644
+--- a/src/video_core/shader/generator/glsl_shader_gen.cpp
++++ b/src/video_core/shader/generator/glsl_shader_gen.cpp
+@@ -35,6 +35,7 @@ layout (binding = 1, std140) uniform vs_data {
+ #endif
+     bool enable_clip1;
+     bool flip_viewport;
++    float four_three_scale;
+     vec4 clip_coef;
+ )"
+ #ifdef ENABLE_FREECAM
+@@ -56,6 +57,23 @@ vec4 SanitizeVertex(vec4 vtx_pos) {
+     }
+     return vtx_pos;
+ }
++
++// NEBULOS "4:3 Fill": the top screen is rendered into a framebuffer rotated by 90 degrees, so the visible vertical axis is clip x.
++// Scaling it by four_three_scale (0.8) shows 25% more of the scene there; the picture is then presented stretched by 1.25, which
++// restores the proportions. 2D draws (w == 1: HUD, fades) keep their proportions the same way but stay anchored to the screen edges.
++vec4 ApplyFourThree(vec4 pos) {
++    float k = four_three_scale;
++    if (k < 1.0) {
++        if (abs(pos.w - 1.0) < 0.0001) {
++            float a = abs(pos.x);
++            float edge = sign(pos.x) * smoothstep(0.5, 0.7, a);
++            pos.x = k * pos.x + (1.0 - k) * edge;
++        } else {
++            pos.x *= k;
++        }
++    }
++    return pos;
++}
+ )"
+ #ifdef ENABLE_FREECAM
+ R"(
+@@ -72,10 +90,10 @@ vec4 ApplyFreeCam(vec4 clip_pos) {
+ 
+ #ifdef ENABLE_FREECAM
+ constexpr std::string_view PositionOutput =
+-    "    gl_Position = ApplyFreeCam(vec4(vtx_pos.x, vtx_pos.y, -vtx_pos.z, vtx_pos.w));\n";
++    "    gl_Position = ApplyFourThree(ApplyFreeCam(vec4(vtx_pos.x, vtx_pos.y, -vtx_pos.z, vtx_pos.w)));\n";
+ #else
+ constexpr std::string_view PositionOutput =
+-    "    gl_Position = vec4(vtx_pos.x, vtx_pos.y, -vtx_pos.z, vtx_pos.w);\n";
++    "    gl_Position = ApplyFourThree(vec4(vtx_pos.x, vtx_pos.y, -vtx_pos.z, vtx_pos.w));\n";
+ #endif
+ 
+ static std::string GetVertexInterfaceDeclaration(bool is_output, bool use_clip_planes,
+diff --git a/src/video_core/shader/generator/shader_uniforms.h b/src/video_core/shader/generator/shader_uniforms.h
+index 7d01d71f1..d18fda538 100644
+--- a/src/video_core/shader/generator/shader_uniforms.h
++++ b/src/video_core/shader/generator/shader_uniforms.h
+@@ -72,6 +72,7 @@ static_assert(sizeof(FSUniformData) < 16384,
+ struct VSUniformData {
+     u32 enable_clip1;
+     u32 flip_viewport;
++    f32 four_three_scale{1.f}; // NEBULOS: <1 widens the field of view of the top screen's (rotated) vertical axis
+     alignas(16) Common::Vec4f clip_coef;
+ #ifdef ENABLE_FREECAM
+     alignas(16) std::array<Common::Vec4f, 4> freecam_matrix{
+-- 
+2.54.0 (Apple Git-157)
+
