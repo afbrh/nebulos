@@ -19,6 +19,10 @@ class ReleaseOrderTest {
         listOf("The Legend of Zelda", "The Legend of Zelda II - The Adventure of Link", "The Legend of Zelda - Ocarina of Time", "The Legend of Zelda - Ocarina of Time 3D", "The Legend of Zelda - Twilight Princess", "The Legend of Zelda - Twilight Princess HD"),
         sorted("The Legend of Zelda", "The Legend of Zelda - Twilight Princess HD", "The Legend of Zelda - Ocarina of Time 3D", "The Legend of Zelda - Twilight Princess", "The Legend of Zelda II - The Adventure of Link", "The Legend of Zelda - Ocarina of Time", "The Legend of Zelda"))
 
+    @Test fun adventureOfLinkSortsSecondWithoutTheRomanNumeral() = assertEquals(
+        listOf("The Legend of Zelda", "The Legend of Zelda - The Adventure of Link", "The Legend of Zelda - A Link to the Past"),
+        sorted("The Legend of Zelda", "The Legend of Zelda - A Link to the Past", "The Legend of Zelda - The Adventure of Link", "The Legend of Zelda"))
+
     @Test fun windWakerSitsBetweenFourSwordsAndItsHdRemake() = assertEquals(
         listOf("The Legend of Zelda - Oracle of Ages", "The Legend of Zelda - The Wind Waker", "The Legend of Zelda - The Wind Waker HD", "The Legend of Zelda - Twilight Princess"),
         sorted("The Legend of Zelda", "The Legend of Zelda - Twilight Princess", "The Legend of Zelda - The Wind Waker HD", "The Legend of Zelda - The Wind Waker", "The Legend of Zelda - Oracle of Ages"))
