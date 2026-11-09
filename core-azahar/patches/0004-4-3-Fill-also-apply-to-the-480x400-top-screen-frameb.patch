@@ -1,0 +1,31 @@
+From 9d158d5a5d6db07b1561a79945d8687527b421cf Mon Sep 17 00:00:00 2001
+From: Ry <ry@Mac.eau.wi.charter.com>
+Date: Mon, 9 Nov 2026 08:50:34 -0600
+Subject: [PATCH] 4:3 Fill: also apply to the 480x400 top-screen framebuffer
+ (stereo eyes side by side), which is what OoT3D renders into
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ src/video_core/rasterizer_accelerated.cpp | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/src/video_core/rasterizer_accelerated.cpp b/src/video_core/rasterizer_accelerated.cpp
+index b79a0c308..3f3977bf2 100644
+--- a/src/video_core/rasterizer_accelerated.cpp
++++ b/src/video_core/rasterizer_accelerated.cpp
+@@ -161,9 +161,10 @@ void RasterizerAccelerated::SyncDrawUniforms() {
+     const bool prev_flipped = std::exchange(vs_data.flip_viewport, is_flipped);
+     vs_data_dirty |= is_flipped != prev_flipped;
+ 
+-    // NEBULOS 4:3 Fill: only draws into the top screen's framebuffer (240x400, stored rotated) are widened.
++    // NEBULOS 4:3 Fill: only draws into the top screen's framebuffer (240x400 or 480x400, stored rotated) are widened.
+     const auto& fb = regs.framebuffer.framebuffer;
+-    const bool top_screen = fb.GetWidth() == 240 && fb.GetHeight() == 400;
++    // 240 wide, or 480 wide when the game renders both stereo eyes side by side (each eye has its own viewport, so per-eye scaling is right).
++    const bool top_screen = (fb.GetWidth() == 240 || fb.GetWidth() == 480) && fb.GetHeight() == 400;
+     const f32 four_three = (top_screen && VideoCore::g_four_three_fill.load(std::memory_order_relaxed)) ? 0.8f : 1.f;
+     if (vs_data.four_three_scale != four_three) {
+         vs_data.four_three_scale = four_three;
+-- 
+2.54.0 (Apple Git-157)
+
