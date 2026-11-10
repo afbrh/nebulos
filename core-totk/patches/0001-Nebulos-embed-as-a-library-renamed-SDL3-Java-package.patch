@@ -1,0 +1,35 @@
+From 6e5e472339b8ab878b6fd74c5a7cca3899780647 Mon Sep 17 00:00:00 2001
+From: Ry <ry@Rys-MacBook-Pro.eau.wi.charter.com>
+Date: Tue, 10 Nov 2026 09:59:26 -0600
+Subject: [PATCH] Nebulos: embed as a library - renamed SDL3 Java package,
+ libtotk_main.so
+
+---
+ .../java/com/totkrecompandroid/TOTKRecompAndroidActivity.java | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/android/totkrecompandroid/app/src/main/java/com/totkrecompandroid/TOTKRecompAndroidActivity.java b/android/totkrecompandroid/app/src/main/java/com/totkrecompandroid/TOTKRecompAndroidActivity.java
+index e90d088..2309daf 100644
+--- a/android/totkrecompandroid/app/src/main/java/com/totkrecompandroid/TOTKRecompAndroidActivity.java
++++ b/android/totkrecompandroid/app/src/main/java/com/totkrecompandroid/TOTKRecompAndroidActivity.java
+@@ -38,7 +38,7 @@ import android.system.ErrnoException;
+ import android.system.Os;
+ import android.util.Log;
+ 
+-import org.libsdl.app.SDLActivity;
++import com.noryan.recompsdl.SDLActivity;
+ 
+ import java.io.ByteArrayOutputStream;
+ import java.io.File;
+@@ -90,7 +90,7 @@ public class TOTKRecompAndroidActivity extends SDLActivity {
+ 
+     @Override
+     protected String[] getLibraries() {
+-        return new String[] {"SDL3", "shaderc_shared", "main"};
++        return new String[] {"shaderc_shared", "totk_main"};  // Nebulos: SDL3 is linked statically into libtotk_main.so
+     }
+ 
+     @Override
+-- 
+2.54.0 (Apple Git-157)
+

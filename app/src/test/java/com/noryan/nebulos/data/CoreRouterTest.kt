@@ -102,22 +102,30 @@ class CoreRouterTest {
         assertEquals("cemu", CoreRouter.choose(System.WIIU, "Mario Kart 8", null, "wwhd", null, wiiu)!!.id)
     }
 
-    // ---- N64: Ocarina of Time -> shipwright, Majora's Mask -> twoship, everything else stays on Mupen64Plus-Next ----
+    // ---- N64: every game runs on Mupen64Plus-Next (the Ship of Harkinian / 2 Ship cores were removed) ----
     private val n64Libretro = Fake("retroarch", "Libretro cores", setOf(System.N64), listOf(sub("mupen64plus_next", "Mupen64Plus-Next", System.N64)))
-    private val shipwright = Fake("shipwright", "Ship of Harkinian (Ocarina of Time)", setOf(System.N64))
-    private val twoship = Fake("twoship", "2 Ship 2 Harkinian (Majora's Mask)", setOf(System.N64))
-    private val n64 = listOf(n64Libretro, shipwright, twoship)
+    private val n64 = listOf(n64Libretro)
 
-    @Test fun n64ZeldaGamesRouteToTheirNativePorts() {
+    @Test fun n64ZeldaGamesStayOnMupen() {
         val c = CoreRouter.candidates(System.N64, n64)
-        assertEquals("twoship", CoreRouter.autoChoice(System.N64, "The Legend of Zelda - Majora's Mask", c)!!.id)
-        assertEquals("shipwright", CoreRouter.autoChoice(System.N64, "The Legend of Zelda - Ocarina of Time", c)!!.id)
-        assertEquals("retroarch:mupen64plus_next", CoreRouter.autoChoice(System.N64, "Super Mario 64", c)!!.id)
-        // each native port only offers its own game; Mupen64Plus-Next stays selectable for both
-        assertEquals(listOf("retroarch:mupen64plus_next", "twoship"), CoreRouter.candidatesFor(System.N64, null, n64, "Majora's Mask").map { it.id })
-        assertEquals(listOf("retroarch:mupen64plus_next", "shipwright"), CoreRouter.candidatesFor(System.N64, null, n64, "Ocarina of Time").map { it.id })
-        assertEquals(listOf("retroarch:mupen64plus_next"), CoreRouter.candidatesFor(System.N64, null, n64, "GoldenEye 007").map { it.id })
-        assertEquals("retroarch:mupen64plus_next", CoreRouter.choose(System.N64, "Majora's Mask", null, "retroarch:mupen64plus_next", null, n64)!!.id)
-        assertEquals("shipwright", CoreRouter.choose(System.N64, "Ocarina of Time", null, "twoship", null, n64)!!.id)
+        assertEquals("retroarch:mupen64plus_next", CoreRouter.autoChoice(System.N64, "The Legend of Zelda - Majora's Mask", c)!!.id)
+        assertEquals("retroarch:mupen64plus_next", CoreRouter.autoChoice(System.N64, "The Legend of Zelda - Ocarina of Time", c)!!.id)
+        assertEquals(listOf("retroarch:mupen64plus_next"), CoreRouter.candidatesFor(System.N64, null, n64, "Ocarina of Time").map { it.id })
+    }
+
+    // ---- Switch: Breath of the Wild / Tears of the Kingdom run on the recomp cores by default, Eden stays selectable ----
+    private val eden = Fake("eden", "Eden", setOf(System.SWITCH))
+    private val botw = Fake("botw", "BOTW Recomp", setOf(System.SWITCH))
+    private val totk = Fake("totk", "TOTKDroid", setOf(System.SWITCH))
+    private val sw = listOf(eden, botw, totk)
+
+    @Test fun switchZeldaGamesAutoRouteToTheRecompCores() {
+        assertEquals("botw", CoreRouter.choose(System.SWITCH, "The Legend of Zelda - Breath of the Wild", null, null, null, sw)!!.id)
+        assertEquals("totk", CoreRouter.choose(System.SWITCH, "The Legend of Zelda: Tears of the Kingdom", null, null, null, sw)!!.id)
+        assertEquals("eden", CoreRouter.choose(System.SWITCH, "Super Mario Odyssey", null, null, null, sw)!!.id)
+        // Eden stays selectable for them, the recomps are offered only for their own game
+        assertEquals("eden", CoreRouter.choose(System.SWITCH, "The Legend of Zelda - Breath of the Wild", null, "eden", null, sw)!!.id)
+        assertEquals(listOf("eden", "botw"), CoreRouter.candidatesFor(System.SWITCH, null, sw, "Breath of the Wild").map { it.id })
+        assertEquals(listOf("eden"), CoreRouter.candidatesFor(System.SWITCH, null, sw, "Super Mario Odyssey").map { it.id })
     }
 }

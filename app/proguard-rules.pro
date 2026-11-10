@@ -28,9 +28,10 @@
 -keep class com.retroarch.** { *; }
 -keep class dev.twilitrealm.** { *; }
 -keep class dev.encounter.** { *; }
--keep class com.dishii.** { *; }
--keep class com.twoshipfork.** { *; }
 -keep class org.wwhdrecomp.** { *; }
+-keep class com.botwrecompandroid.** { *; }
+-keep class com.totkrecompandroid.** { *; }
+-keep class com.noryan.recompsdl.** { *; }
 # Looked up by name from native code (FindClass), with no Java reference R8 could see: Eden's initJvm asks for kotlin/Pair.
 -keep class kotlin.Pair { *; }
 -keep class androidx.core.util.Pair { *; }

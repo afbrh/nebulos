@@ -78,28 +78,12 @@ if (want("dusklight")) includeBuild("../dusklight-src/platforms/android") {
     dependencySubstitution { substitute(module("dev.twilitrealm:app")).using(project(":app")) }
 }
 
-// :core-shipwright (N64, The Legend of Zelda: Ocarina of Time ONLY). Ship of Harkinian (decomp-based native port) through the community
-// Android fork please-be-nice/Shipwright-android, cloned to ../shipwright-src (local branch `nebulos-local`, never pushed): its Android
-// project is a library consumed as a composite build; native libs libsoh.so + libSDL2.so, SDL2 Java package org.libsdl.appsoh.
-// Build notes: core-shipwright/README-shipwright.md (soh.o2r must exist in shipwright-src/Android/app/src/main/assets).
-if (want("shipwright")) include(":core-shipwright")
-if (want("shipwright")) includeBuild("../shipwright-src/Android") {
-    name = "shipwright"
-    dependencySubstitution { substitute(module("com.dishii:app")).using(project(":app")) }
-}
-
-// :core-twoship (N64, The Legend of Zelda: Majora's Mask ONLY). 2 Ship 2 Harkinian (decomp-based native port) through the community
-// Android fork linkzenic/2ship2harkinian-Android (v5.0.1-android.3), cloned to ../twoship-src (local branch `nebulos-local`, never
-// pushed): its Android project is a library consumed as a composite build; native libs lib2ship.so + libSDL2twoship.so, SDL2 Java
-// package org.libsdl.apptwoship (all distinct from :core-shipwright's, so both live in one APK).
-// Build notes: core-twoship/README-twoship.md (2ship.o2r must exist in twoship-src/Android/app/src/main/assets, vcpkg deps in
-// twoship-src/build/vcpkg).
-if (want("twoship")) include(":core-twoship")
-if (want("twoship")) includeBuild("../twoship-src/Android") {
-    name = "twoship"
-    dependencySubstitution { substitute(module("com.twoshipfork:app")).using(project(":app")) }
-}
-
 // :core-wwhd (Wii U: The Wind Waker HD only). Native runtime from ../wwhd-src (CMake, local branch `nebulos`), no game code in the library;
 // the game is translated on the device from the user's own .wua. See core-wwhd/README-wwhd.md.
 if (want("wwhd")) include(":core-wwhd")
+
+// :recomp-common + :core-botw (Switch, Breath of the Wild only). BOTWRecompAndroid (MIT) from ../botwrecomp-src (local branch `nebulos-local`, never
+// pushed): its Java glue is compiled into :core-botw, its runtime built with CMake into libbotw_main.so (SDL3 static, Java package
+// com.noryan.recompsdl in :recomp-common). Prerequisites: ../botwrecomp-src/android/deps/build_deps.sh and recomp-common/build_sdl_static.sh.
+if (want("botw")) include(":recomp-common", ":core-botw")
+if (want("totk")) include(":recomp-common", ":core-totk")   // TOTKDroid (../totkdroid-src, branch nebulos-local), same layout; needs recomp-common as above

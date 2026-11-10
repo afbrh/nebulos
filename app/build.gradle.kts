@@ -62,7 +62,8 @@ android {
             "lib/arm64-v8a/libgsl_alloc_hook.so", "lib/arm64-v8a/libfile_redirect_hook.so",
             "lib/arm64-v8a/libc++_shared.so", "lib/arm64-v8a/libusb-1.0.so",
             "lib/arm64-v8a/libVkLayer_khronos_validation.so", "lib/arm64-v8a/libSPIRV-Tools-shared.so",
-            "lib/arm64-v8a/libshaderc_shared.so",
+            "lib/arm64-v8a/libshaderc_shared.so", "lib/arm64-v8a/libavcodec.so", "lib/arm64-v8a/libavformat.so",
+            "lib/arm64-v8a/libavutil.so", "lib/arm64-v8a/libswscale.so", "lib/arm64-v8a/libswresample.so",
         )
     }
 }
@@ -73,7 +74,7 @@ dependencies {
     // CoreBootstrap.kt finds and registers them reflectively, so nothing here is referenced from code directly.
     // Override with -Pnebulos.cores=none or -Pnebulos.cores=dolphin,eden to link a subset (e.g. while a core is mid-work).
     val wanted = (findProperty("nebulos.cores") as String?)?.split(",")?.map { it.trim() }
-    listOf("retroarch", "dolphin", "primehack", "cemu", "eden", "azahar", "watermelonds", "armsx2", "dusklight", "shipwright", "twoship", "wwhd").forEach { id ->
+    listOf("retroarch", "dolphin", "primehack", "cemu", "eden", "azahar", "watermelonds", "armsx2", "dusklight", "wwhd", "botw", "totk").forEach { id ->
         if ((wanted == null || id in wanted) && rootProject.findProject(":core-$id") != null) implementation(project(":core-$id"))
     }
 
