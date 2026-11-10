@@ -1,0 +1,36 @@
+From b4dd4105c7325f0cc4850031afb2fc4aaa64c0b3 Mon Sep 17 00:00:00 2001
+From: Ry <ry@Rys-MacBook-Pro.eau.wi.charter.com>
+Date: Mon, 9 Nov 2026 18:04:52 -0600
+Subject: [PATCH] Nebulos 4:3 Fill: tell the top screen from the bottom by
+ viewport, not framebuffer width
+
+A Link Between Worlds draws both screens into one 240x400 framebuffer (bottom viewport 240x320), so the bottom screen was squashed
+to 5:3; Majora's Mask 3D's top screen sits in a 512x400 framebuffer and never got the fill.
+---
+ src/video_core/rasterizer_accelerated.cpp | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/src/video_core/rasterizer_accelerated.cpp b/src/video_core/rasterizer_accelerated.cpp
+index 3f3977bf2..d1a1a831d 100644
+--- a/src/video_core/rasterizer_accelerated.cpp
++++ b/src/video_core/rasterizer_accelerated.cpp
+@@ -163,8 +163,14 @@ void RasterizerAccelerated::SyncDrawUniforms() {
+ 
+     // NEBULOS 4:3 Fill: only draws into the top screen's framebuffer (240x400 or 480x400, stored rotated) are widened.
+     const auto& fb = regs.framebuffer.framebuffer;
+-    // 240 wide, or 480 wide when the game renders both stereo eyes side by side (each eye has its own viewport, so per-eye scaling is right).
+-    const bool top_screen = (fb.GetWidth() == 240 || fb.GetWidth() == 480) && fb.GetHeight() == 400;
++    // The top screen is drawn with a 240x400 viewport (480x400 when both stereo eyes sit side by side, each eye with its own viewport,
++    // so per-eye scaling is right). The framebuffer holding it may be wider than the viewport (Majora's Mask 3D: 512x400) or shared
++    // with the bottom screen (A Link Between Worlds draws the bottom screen's 240x320 viewport into the same 240x400 framebuffer), so
++    // the viewport, not the framebuffer width, tells the screens apart.
++    const float view_x = f24::FromRaw(regs.rasterizer.viewport_size_x).ToFloat32() * 2.f;
++    const float view_y = f24::FromRaw(regs.rasterizer.viewport_size_y).ToFloat32() * 2.f;
++    const bool top_screen = fb.GetHeight() == 400 && view_y > 399.5f && view_y < 400.5f &&
++                            ((view_x > 239.5f && view_x < 240.5f) || (view_x > 479.5f && view_x < 480.5f));
+     const f32 four_three = (top_screen && VideoCore::g_four_three_fill.load(std::memory_order_relaxed)) ? 0.8f : 1.f;
+     if (vs_data.four_three_scale != four_three) {
+         vs_data.four_three_scale = four_three;
+-- 
+2.54.0 (Apple Git-157)
+
