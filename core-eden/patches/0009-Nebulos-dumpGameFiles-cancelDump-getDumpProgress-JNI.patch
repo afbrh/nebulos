@@ -1,0 +1,409 @@
+From 36f4c2863141ccef066f2e00496f257a21666112 Mon Sep 17 00:00:00 2001
+From: Ry <ry@Rys-MacBook-Pro.eau.wi.charter.com>
+Date: Tue, 10 Nov 2026 09:25:38 -0600
+Subject: [PATCH] Nebulos: dumpGameFiles/cancelDump/getDumpProgress JNI (ExeFS
+ + update-applied RomFS dump to plain folders)
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ .../java/org/yuzu/yuzu_emu/NativeLibrary.kt   |  13 +
+ src/android/app/src/main/jni/CMakeLists.txt   |   1 +
+ src/android/app/src/main/jni/native_dump.cpp  | 350 ++++++++++++++++++
+ 3 files changed, 364 insertions(+)
+ create mode 100644 src/android/app/src/main/jni/native_dump.cpp
+
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/NativeLibrary.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/NativeLibrary.kt
+index 7be33246b..7259a2065 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/NativeLibrary.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/NativeLibrary.kt
+@@ -570,6 +570,19 @@ object NativeLibrary {
+      */
+     external fun getPatchesForFile(path: String, programId: String): Array<Patch>?
+ 
++    /**
++     * Nebulos: dumps the game's ExeFS (patched by the installed update) and RomFS (update applied, no LayeredFS) into
++     * `<outDir>/exefs` and `<outDir>/romfs`. BLOCKING, call from a worker thread. Resumable (finished files are skipped).
++     * @return JSON: {"ok":true,"titleId","name","versionRaw","version","displayVersion","updateSource",...} or {"ok":false,"error"}
++     */
++    external fun dumpGameFiles(path: String, outDir: String): String
++
++    /** Nebulos: asks a running [dumpGameFiles] to stop at the next chunk. */
++    external fun cancelDump()
++
++    /** Nebulos: [phase (0 idle,1 prepare,2 exefs,3 romfs,4 done), bytesDone, bytesTotal, filesDone, filesTotal]. */
++    external fun getDumpProgress(): LongArray
++
+     /**
+      * Removes an update for a given [programId]
+      * @param programId String representation of a game's program ID
+diff --git a/src/android/app/src/main/jni/CMakeLists.txt b/src/android/app/src/main/jni/CMakeLists.txt
+index 539e697e4..e59a46207 100644
+--- a/src/android/app/src/main/jni/CMakeLists.txt
++++ b/src/android/app/src/main/jni/CMakeLists.txt
+@@ -14,6 +14,7 @@ add_library(yuzu-android SHARED
+     android_settings.cpp
+     game_metadata.cpp
+     native_log.cpp
++    native_dump.cpp
+     android_config.cpp
+     android_config.h
+     native_input.cpp
+diff --git a/src/android/app/src/main/jni/native_dump.cpp b/src/android/app/src/main/jni/native_dump.cpp
+new file mode 100644
+index 000000000..c5ed17237
+--- /dev/null
++++ b/src/android/app/src/main/jni/native_dump.cpp
+@@ -0,0 +1,350 @@
++// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++// Nebulos: dump a game's ExeFS and RomFS (update applied, as the game sees them) into plain folders.
++
++#include <algorithm>
++#include <atomic>
++#include <chrono>
++#include <cstdio>
++#include <filesystem>
++#include <memory>
++#include <string>
++#include <system_error>
++#include <tuple>
++#include <vector>
++
++#include <jni.h>
++
++#include "common/android/android_common.h"
++#include "common/fs/fs.h"
++#include "common/logging.h"
++#include "core/core.h"
++#include "core/file_sys/card_image.h"
++#include "core/file_sys/common_funcs.h"
++#include "core/file_sys/content_archive.h"
++#include "core/file_sys/control_metadata.h"
++#include "core/file_sys/patch_manager.h"
++#include "core/file_sys/registered_cache.h"
++#include "core/file_sys/romfs.h"
++#include "core/file_sys/submission_package.h"
++#include "core/file_sys/vfs/vfs.h"
++#include "core/hle/service/filesystem/filesystem.h"
++#include "core/loader/loader.h"
++#include "jni/native.h"
++
++namespace fs = std::filesystem;
++
++namespace {
++
++struct DumpState {
++    std::atomic<bool> cancel{false};
++    std::atomic<bool> running{false};
++    std::atomic<int> phase{0}; // 0 idle, 1 preparing, 2 exefs, 3 romfs, 4 done
++    std::atomic<u64> done{0};
++    std::atomic<u64> total{0};
++    std::atomic<u64> files_done{0};
++    std::atomic<u64> files_total{0};
++};
++DumpState g_dump;
++
++struct DumpFile {
++    std::string rel;
++    FileSys::VirtualFile file;
++};
++
++std::string JsonEscape(const std::string& s) {
++    std::string out;
++    for (const char c : s) {
++        switch (c) {
++        case '"': out += "\\\""; break;
++        case '\\': out += "\\\\"; break;
++        case '\n': out += "\\n"; break;
++        case '\r': out += "\\r"; break;
++        case '\t': out += "\\t"; break;
++        default:
++            if (static_cast<unsigned char>(c) < 0x20) {
++                char buf[8];
++                std::snprintf(buf, sizeof(buf), "\\u%04x", c);
++                out += buf;
++            } else {
++                out += c;
++            }
++        }
++    }
++    return out;
++}
++
++std::string FormatVersion(u32 v) {
++    return std::to_string((v >> 24) & 0xFF) + "." + std::to_string((v >> 16) & 0xFF) + "." +
++           std::to_string((v >> 8) & 0xFF) + (v & 0xFF ? "." + std::to_string(v & 0xFF) : "");
++}
++
++void Collect(const FileSys::VirtualDir& dir, const std::string& rel, std::vector<DumpFile>& out,
++             u64& bytes) {
++    for (const auto& f : dir->GetFiles()) {
++        out.push_back({rel.empty() ? f->GetName() : rel + "/" + f->GetName(), f});
++        bytes += f->GetSize();
++    }
++    for (const auto& d : dir->GetSubdirectories()) {
++        Collect(d, rel.empty() ? d->GetName() : rel + "/" + d->GetName(), out, bytes);
++    }
++}
++
++// Copies one virtual file in 2 MiB chunks. A complete file of the right size is skipped (resumable dumps);
++// data goes to "<name>.part" and is renamed when finished.
++bool CopyOne(const FileSys::VirtualFile& src, const fs::path& dst, std::string& error,
++             std::vector<u8>& buffer) {
++    const u64 size = src->GetSize();
++    std::error_code ec;
++    if (fs::is_regular_file(dst, ec) && fs::file_size(dst, ec) == size) {
++        g_dump.done += size;
++        return true;
++    }
++    fs::create_directories(dst.parent_path(), ec);
++    const fs::path part = dst.string() + ".part";
++    FILE* fp = std::fopen(part.c_str(), "wb");
++    if (!fp) {
++        error = "cannot create " + part.string();
++        return false;
++    }
++    u64 off = 0;
++    while (off < size) {
++        if (g_dump.cancel) {
++            std::fclose(fp);
++            error = "cancelled";
++            return false;
++        }
++        const u64 n = std::min<u64>(buffer.size(), size - off);
++        if (src->Read(buffer.data(), n, off) != n) {
++            std::fclose(fp);
++            error = "read error in " + src->GetName() + " at offset " + std::to_string(off);
++            return false;
++        }
++        if (std::fwrite(buffer.data(), 1, n, fp) != n) {
++            std::fclose(fp);
++            error = "write error (disk full?) in " + part.string();
++            return false;
++        }
++        off += n;
++        g_dump.done += n;
++    }
++    if (std::fclose(fp) != 0) {
++        error = "close error for " + part.string();
++        return false;
++    }
++    fs::rename(part, dst, ec);
++    if (ec) {
++        error = "rename failed for " + dst.string() + ": " + ec.message();
++        return false;
++    }
++    return true;
++}
++
++std::string RunDump(const std::string& path, const std::string& out_dir) {
++    auto& session = EmulationSession::GetInstance();
++    auto& system = session.System();
++    const auto t0 = std::chrono::steady_clock::now();
++
++    std::string title_hex, version_str, display_version, update_note, game_name;
++    u32 version_raw = 0;
++    bool update_applied_exefs = false, update_applied_romfs = false;
++    u64 exefs_files = 0, romfs_files = 0, romfs_bytes = 0;
++
++    const auto fail = [&](const std::string& msg) {
++        return std::string("{\"ok\":false,\"error\":\"") + JsonEscape(msg) + "\"}";
++    };
++
++    const auto vfile = Core::GetGameFileFromPath(system.GetFilesystem(), path);
++    if (!vfile) {
++        return fail("cannot open game file");
++    }
++
++    // Make the game's embedded content (and any update packed in the XCI) visible to the content provider.
++    session.ConfigureFilesystemProvider(path);
++
++    const auto loader = Loader::GetLoader(system, vfile);
++    if (!loader) {
++        return fail("unsupported game container");
++    }
++    u64 program_id = 0;
++    if (loader->ReadProgramId(program_id) != Loader::ResultStatus::Success || program_id == 0) {
++        return fail("cannot read the program id (missing keys?)");
++    }
++    title_hex = fmt::format("{:016X}", program_id);
++
++    FileSys::VirtualFile update_raw;
++    loader->ReadUpdateRaw(update_raw);
++
++    // Base program NCA: from the container, else from the installed contents.
++    std::shared_ptr<FileSys::NSP> nsp;
++    std::shared_ptr<FileSys::XCI> xci = std::make_shared<FileSys::XCI>(vfile);
++    if (xci->GetStatus() == Loader::ResultStatus::Success && xci->GetSecurePartitionNSP()) {
++        nsp = xci->GetSecurePartitionNSP();
++    } else {
++        auto n = std::make_shared<FileSys::NSP>(vfile);
++        if (n->GetStatus() == Loader::ResultStatus::Success) {
++            nsp = n;
++        }
++    }
++    std::shared_ptr<FileSys::NCA> base_nca;
++    if (nsp) {
++        base_nca = nsp->GetNCA(program_id, FileSys::ContentRecordType::Program);
++    }
++    if (!base_nca) {
++        auto installed = system.GetContentProvider().GetEntry(program_id,
++                                                              FileSys::ContentRecordType::Program);
++        base_nca = std::move(installed);
++    }
++    if (!base_nca || base_nca->GetStatus() != Loader::ResultStatus::Success) {
++        return fail("base program NCA not found / unreadable (check keys)");
++    }
++
++    const auto& installed = system.GetContentProvider();
++    const FileSys::PatchManager pm{program_id, system.GetFileSystemController(), installed};
++
++    // Version information.
++    if (const auto v = pm.GetGameVersion()) {
++        version_raw = *v;
++    }
++    {
++        FileSys::NACP nacp;
++        if (loader->ReadControlData(nacp) == Loader::ResultStatus::Success) {
++            display_version = nacp.GetVersionString();
++            game_name = nacp.GetApplicationName();
++        }
++    }
++    const bool update_installed =
++        installed.HasEntry(FileSys::GetUpdateTitleID(program_id), FileSys::ContentRecordType::Program);
++    update_note = update_installed ? "installed update" : "";
++    if (update_raw) {
++        update_note += std::string(update_note.empty() ? "" : " + ") + "update packed in game file";
++    }
++    if (update_note.empty()) {
++        update_note = "no update found";
++    }
++
++    // ---- collect the lists
++    g_dump.phase = 2;
++    const auto base_exefs = base_nca->GetExeFS();
++    if (!base_exefs) {
++        return fail("base program has no ExeFS");
++    }
++    const auto exefs = pm.PatchExeFS(base_exefs);
++    update_applied_exefs = exefs != base_exefs;
++
++    const auto base_romfs = base_nca->GetRomFS();
++    if (!base_romfs) {
++        return fail("base program has no RomFS");
++    }
++    auto romfs = pm.PatchRomFS(base_nca.get(), base_romfs, FileSys::ContentRecordType::Program,
++                               update_raw, /*apply_layeredfs=*/false);
++    if (!romfs) {
++        return fail("RomFS patching failed");
++    }
++    update_applied_romfs = romfs != base_romfs;
++    const auto romfs_dir = FileSys::ExtractRomFS(romfs);
++    if (!romfs_dir) {
++        return fail("RomFS is unreadable");
++    }
++
++    std::vector<DumpFile> exefs_list, romfs_list;
++    u64 exefs_bytes = 0;
++    Collect(exefs, "", exefs_list, exefs_bytes);
++    Collect(romfs_dir, "", romfs_list, romfs_bytes);
++    exefs_files = exefs_list.size();
++    romfs_files = romfs_list.size();
++
++    // ---- space check
++    std::error_code ec;
++    fs::create_directories(out_dir, ec);
++    if (ec) {
++        return fail("cannot create output dir: " + ec.message());
++    }
++    const u64 need = exefs_bytes + romfs_bytes + (1ULL << 30);
++    const u64 freeb = Common::FS::GetFreeSpaceSize(fs::path(out_dir));
++    if (freeb < need) {
++        return fail("not enough free space: need " + std::to_string(need >> 20) + " MiB, have " +
++                    std::to_string(freeb >> 20) + " MiB");
++    }
++
++    g_dump.done = 0;
++    g_dump.total = exefs_bytes + romfs_bytes;
++    g_dump.files_done = 0;
++    g_dump.files_total = exefs_files + romfs_files;
++
++    std::vector<u8> buffer(2u << 20);
++    std::string error;
++    for (const auto& [list, sub, ph] : {std::tuple{&exefs_list, "exefs", 2},
++                                        std::tuple{&romfs_list, "romfs", 3}}) {
++        g_dump.phase = ph;
++        for (const auto& f : *list) {
++            if (!CopyOne(f.file, fs::path(out_dir) / sub / f.rel, error, buffer)) {
++                return fail(error);
++            }
++            ++g_dump.files_done;
++        }
++    }
++    g_dump.phase = 4;
++
++    const auto secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
++    std::string json = "{\"ok\":true";
++    json += ",\"titleId\":\"" + title_hex + "\"";
++    json += ",\"name\":\"" + JsonEscape(game_name) + "\"";
++    json += ",\"versionRaw\":" + std::to_string(version_raw);
++    json += ",\"version\":\"" + FormatVersion(version_raw) + "\"";
++    json += ",\"displayVersion\":\"" + JsonEscape(display_version) + "\"";
++    json += ",\"updateSource\":\"" + JsonEscape(update_note) + "\"";
++    json += std::string(",\"updateAppliedExefs\":") + (update_applied_exefs ? "true" : "false");
++    json += std::string(",\"updateAppliedRomfs\":") + (update_applied_romfs ? "true" : "false");
++    json += ",\"exefsFiles\":" + std::to_string(exefs_files);
++    json += ",\"exefsBytes\":" + std::to_string(exefs_bytes);
++    json += ",\"romfsFiles\":" + std::to_string(romfs_files);
++    json += ",\"romfsBytes\":" + std::to_string(romfs_bytes);
++    json += ",\"seconds\":" + std::to_string(secs);
++    json += "}";
++    return json;
++}
++
++} // namespace
++
++extern "C" {
++
++// Blocking: call from a worker thread. Returns a JSON string, {"ok":true,...} or {"ok":false,"error":"..."}.
++jstring Java_org_yuzu_yuzu_1emu_NativeLibrary_dumpGameFiles(JNIEnv* env, jobject, jstring jpath,
++                                                            jstring jout) {
++    bool expected = false;
++    if (!g_dump.running.compare_exchange_strong(expected, true)) {
++        return Common::Android::ToJString(env, "{\"ok\":false,\"error\":\"a dump is already running\"}");
++    }
++    g_dump.cancel = false;
++    g_dump.done = g_dump.total = g_dump.files_done = g_dump.files_total = 0;
++    g_dump.phase = 1;
++    std::string result;
++    try {
++        result = RunDump(Common::Android::GetJString(env, jpath),
++                         Common::Android::GetJString(env, jout));
++    } catch (const std::exception& e) {
++        result = std::string("{\"ok\":false,\"error\":\"exception: ") + JsonEscape(e.what()) + "\"}";
++    }
++    g_dump.phase = 0;
++    g_dump.running = false;
++    return Common::Android::ToJString(env, result);
++}
++
++void Java_org_yuzu_yuzu_1emu_NativeLibrary_cancelDump(JNIEnv*, jobject) {
++    g_dump.cancel = true;
++}
++
++// [phase, bytesDone, bytesTotal, filesDone, filesTotal]
++jlongArray Java_org_yuzu_yuzu_1emu_NativeLibrary_getDumpProgress(JNIEnv* env, jobject) {
++    const jlong v[5] = {g_dump.phase.load(), static_cast<jlong>(g_dump.done.load()),
++                        static_cast<jlong>(g_dump.total.load()),
++                        static_cast<jlong>(g_dump.files_done.load()),
++                        static_cast<jlong>(g_dump.files_total.load())};
++    jlongArray arr = env->NewLongArray(5);
++    env->SetLongArrayRegion(arr, 0, 5, v);
++    return arr;
++}
++
++} // extern "C"
+-- 
+2.54.0 (Apple Git-157)
+

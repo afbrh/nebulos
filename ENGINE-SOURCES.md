@@ -6,7 +6,7 @@ was rebuilt on 2026-11-08 after the original machine was lost, so it can be done
 folder (`patches-rebuilt` where an older, partial set already existed).
 
 Build environment used: Android Gradle Plugin 9.2.1, Kotlin 2.4.0, Gradle 9.4.1, JDK 17, cmake 3.31.6 + ninja from the Android SDK.
-NDKs: 27.3.13750724 (Dolphin, PrimeHack, Wind Waker HD LLVM, 2 Ship), 28.0.13004108 (WatermelonDS), 29.0.14206865 (Dusklight, ARMSX2),
+NDKs: 27.3.13750724 (Dolphin, PrimeHack, Wind Waker HD LLVM), 28.0.13004108 (WatermelonDS), 29.0.14206865 (Dusklight, ARMSX2),
 30.0.16248370 (Eden, and the app's `ndkVersion` so native libraries get stripped). `glslangValidator` must be on the PATH; Rust
 (rustup, target aarch64-linux-android) is needed by Dusklight and others.
 
@@ -15,12 +15,10 @@ app/build.gradle.kts read the same property; `app/src/noWatermelon` supplies a s
 
 | Engine | Upstream and base | Patches | State |
 |---|---|---|---|
-| eden-src | Eden `master` ae60f8e7f (version string 4.1.0-dev) | `core-eden/patches` | Java-side hooks rebuilt from the Release 15 decompile, UDP-socket and NSO-bss fixes re-applied. Pokemon Brilliant Diamond (0100000011D90000) is presented at 60 FPS: the composer forces its swap interval of 2 to 1 (patch 0008), and Nebulos disables fast forward for it. Not recreated: vibration stubs, `InputOverlay` no-overlay flag, EmuReady launch paths. The flavor dimension is named `edenVersion` (WatermelonDS has its own `version` dimension). |
+| eden-src | Eden `master` ae60f8e7f (version string 4.1.0-dev) | `core-eden/patches` | Java-side hooks rebuilt from the Release 15 decompile, UDP-socket and NSO-bss fixes re-applied. Pokemon Brilliant Diamond (0100000011D90000) is presented at 60 FPS: the composer forces its swap interval of 2 to 1 (patch 0008), and Nebulos disables fast forward for it. Patch 0009 adds `NativeLibrary.dumpGameFiles` (native_dump.cpp): dumps a game's ExeFS and update-applied RomFS into plain folders (driven by `EdenGameDump` / the `DUMP`-protected `EdenDumpService` in `:eden`). Not recreated: vibration stubs, `InputOverlay` no-overlay flag, EmuReady launch paths. The flavor dimension is named `edenVersion` (WatermelonDS has its own `version` dimension). |
 | dolphin-src | dolphin-emu/dolphin d57e268691 (2026-10-10) | `core-dolphin/patches`, `patches-rebuilt` | Patches 0001-0006 applied; two earlier patches (shader compile progress hook, shake override) were never exported and are RECONSTRUCTED in `patches-rebuilt`. |
 | primehack-romcore-src | shiiion/dolphin, branch `nebulos` | `core-primehack/patches` | Survived intact (only file modes were flipped; `git config core.fileMode false`). |
 | dusklight-src | TwilitRealm/dusklight b245c6bef8, aurora 08122911e8, borealis 8a1c87eb89 | `core-dusklight/patches` | README recipe followed; dusklight 0003 skipped (already contained in 0002). |
-| shipwright-src | please-be-nice/Shipwright-android f8dc69741, libultraship 3a9af4f | `core-shipwright/patches` | Applied cleanly. `soh.o2r` generated with the host tools (host deps built from source into `../shipwright-hostdeps/prefix`). |
-| twoship-src | linkzenic/2ship2harkinian-Android e6b1de75e, libultraship 45081d07 | `core-twoship/patches` | Applied cleanly. vcpkg at a073c28e5. |
 | armsx2-src | ARMSX2 `rebase-2.9`, HEAD 22cae50af7 | `core-armsx2/patches` | Survived; 9,595 missing files restored from git; shaderc third_party dirs refilled from the revisions in shaderc's DEPS. The 16 KB-page library is not built. |
 | cemu-src | SSimco/Cemu `android-port` 8759323e | `core-cemu/patches` | Library conversion + `setMLCPath`/`initializeForEmbedding` hooks RECONSTRUCTED; libusb vcpkg overlay port added for macOS hosts. JNI symbols match the old build (189/189). |
 | azahar-src | azahar-emu/azahar 6b4e7f2e6 | `core-azahar/patches` | Hooks RECONSTRUCTED. Renderer half of 4:3 Fill REBUILT 2026-11-09 (patches 0003-0005: vertex shader scales the rotated top-screen axis by 0.8, 2D edge-anchored; the top screen is recognised by its 240x400 / 480x400 VIEWPORT (not the framebuffer width: ALBW shares one 240x400 framebuffer between both screens, MM3D uses 512x400); verified on OoT3D by comparing the title logo's aspect with the 5:3 view). NOT recovered: draw-blending half of the 60 FPS patch, `svcprof`, the perf_stats frame-limiter fix, RomRunner-era edits listed in `core-azahar/LICENSE-NOTES.md`. Portable save paths (`!`-prefixed absolute paths) are a guess. |
@@ -40,6 +38,8 @@ app/build.gradle.kts read the same property; `app/src/noWatermelon` supplies a s
   states made by the old one. In-game saves are unaffected.
 - On-device test harness: scripts in the session scratchpad drove the Nova with controller key events (R1 switches tab, D-pad down +
   A opens the launch panel). The Nova must be kept awake (`adb shell svc power stayon true`).
+
+Retired 2026-11-10: Ship of Harkinian (`:core-shipwright`) and 2 Ship 2 Harkinian (`:core-twoship`) were removed from the app to shrink it; N64 Ocarina of Time / Majora's Mask run on Mupen64Plus-Next (RetroArch) like every other N64 game. Their source trees (`../shipwright-src`, `../twoship-src`, `../shipwright-hostdeps`) are no longer needed, and the modules are in git history.
 
 Not an engine: PPSSPP (`ppsspp-src`) has no Nebulos core module; it was not rebuilt.
 

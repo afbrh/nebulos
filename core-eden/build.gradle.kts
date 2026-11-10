@@ -18,6 +18,7 @@ android {
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303") // android.jar org.json is a stub on the JVM
     implementation(project(":nebulos-api"))
     // Eden's android project (../eden-src/src/android, :app converted to a library) via includeBuild in settings.
     // Native lib: libyuzu-android.so (unique among Nebulos cores); Java package org.yuzu.yuzu_emu (no relocation needed).
