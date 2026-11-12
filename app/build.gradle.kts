@@ -74,7 +74,7 @@ dependencies {
     // CoreBootstrap.kt finds and registers them reflectively, so nothing here is referenced from code directly.
     // Override with -Pnebulos.cores=none or -Pnebulos.cores=dolphin,eden to link a subset (e.g. while a core is mid-work).
     val wanted = (findProperty("nebulos.cores") as String?)?.split(",")?.map { it.trim() }
-    listOf("retroarch", "dolphin", "primehack", "cemu", "eden", "azahar", "watermelonds", "armsx2", "dusklight", "wwhd", "botw", "totk").forEach { id ->
+    listOf("retroarch", "dolphin", "primehack", "cemu", "eden", "azahar", "watermelonds", "armsx2", "dusklight", "wwhd").forEach { id ->
         if ((wanted == null || id in wanted) && rootProject.findProject(":core-$id") != null) implementation(project(":core-$id"))
     }
 

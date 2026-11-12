@@ -24,15 +24,6 @@
             android:process=":eden"
             tools:node="merge" />
 
-        <!-- Internal game-file dump (EdenGameDump). Exported only so `adb shell am start-foreground-service` can reach it;
-             android.permission.DUMP is held by the adb shell and the system, never by an installed app. -->
-        <service
-            android:name=".EdenDumpService"
-            android:process=":eden"
-            android:exported="true"
-            android:permission="android.permission.DUMP"
-            android:foregroundServiceType="dataSync" />
-
         <!-- Runs in :eden before Application.onCreate: initialises Eden (the stock YuzuApplication never runs because
              the Nebulos app has its own Application) and installs the Nebulos input/menu hooks. -->
         <provider

@@ -82,8 +82,3 @@ if (want("dusklight")) includeBuild("../dusklight-src/platforms/android") {
 // the game is translated on the device from the user's own .wua. See core-wwhd/README-wwhd.md.
 if (want("wwhd")) include(":core-wwhd")
 
-// :recomp-common + :core-botw (Switch, Breath of the Wild only). BOTWRecompAndroid (MIT) from ../botwrecomp-src (local branch `nebulos-local`, never
-// pushed): its Java glue is compiled into :core-botw, its runtime built with CMake into libbotw_main.so (SDL3 static, Java package
-// com.noryan.recompsdl in :recomp-common). Prerequisites: ../botwrecomp-src/android/deps/build_deps.sh and recomp-common/build_sdl_static.sh.
-if (want("botw")) include(":recomp-common", ":core-botw")
-if (want("totk")) include(":recomp-common", ":core-totk")   // TOTKDroid (../totkdroid-src, branch nebulos-local), same layout; needs recomp-common as above

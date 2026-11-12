@@ -112,20 +112,4 @@ class CoreRouterTest {
         assertEquals("retroarch:mupen64plus_next", CoreRouter.autoChoice(System.N64, "The Legend of Zelda - Ocarina of Time", c)!!.id)
         assertEquals(listOf("retroarch:mupen64plus_next"), CoreRouter.candidatesFor(System.N64, null, n64, "Ocarina of Time").map { it.id })
     }
-
-    // ---- Switch: Breath of the Wild / Tears of the Kingdom run on the recomp cores by default, Eden stays selectable ----
-    private val eden = Fake("eden", "Eden", setOf(System.SWITCH))
-    private val botw = Fake("botw", "BOTW Recomp", setOf(System.SWITCH))
-    private val totk = Fake("totk", "TOTKDroid", setOf(System.SWITCH))
-    private val sw = listOf(eden, botw, totk)
-
-    @Test fun switchZeldaGamesAutoRouteToTheRecompCores() {
-        assertEquals("botw", CoreRouter.choose(System.SWITCH, "The Legend of Zelda - Breath of the Wild", null, null, null, sw)!!.id)
-        assertEquals("totk", CoreRouter.choose(System.SWITCH, "The Legend of Zelda: Tears of the Kingdom", null, null, null, sw)!!.id)
-        assertEquals("eden", CoreRouter.choose(System.SWITCH, "Super Mario Odyssey", null, null, null, sw)!!.id)
-        // Eden stays selectable for them, the recomps are offered only for their own game
-        assertEquals("eden", CoreRouter.choose(System.SWITCH, "The Legend of Zelda - Breath of the Wild", null, "eden", null, sw)!!.id)
-        assertEquals(listOf("eden", "botw"), CoreRouter.candidatesFor(System.SWITCH, null, sw, "Breath of the Wild").map { it.id })
-        assertEquals(listOf("eden"), CoreRouter.candidatesFor(System.SWITCH, null, sw, "Super Mario Odyssey").map { it.id })
-    }
 }
