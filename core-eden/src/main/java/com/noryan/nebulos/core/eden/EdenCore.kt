@@ -50,18 +50,19 @@ object EdenCore : CoreDescriptor {
     /**
      * Portable save data (SAVEDATA.md): Eden's `save_directory` (EdenPath::SaveDir, what the SaveDataFactory opens) points at
      * `<save root>/eden/save`, giving `user/save/0000000000000000/<user uuid>/<titleid>` (game saves) and `system/save/...`.
-     * The patched eden-src also keeps the user profile (UUID, profiles.dat) and the Mii database there, because a game's save
-     * is filed under the profile UUID: without the profile a moved folder would be invisible on the new device.
+     * The user profile (UUID, profiles.dat) and the Mii database are NOT in the save root: this eden-src keeps them under
+     * `<externalFilesDir>/nand/system/save`, so a game's save (filed under the profile UUID) is only found while that profile survives.
      * Keys, firmware, installed content (the NAND), config, shaders and drivers stay in `<externalFilesDir>`.
      */
     fun saveDir(ctx: Context): File = SaveRoot.coreSubDir(ctx, id, "save")
 
     fun register() {
         CoreRegistry.register(this)
-        // Old location: <externalFilesDir>/nand/{user/save, system/save/<profile + Mii>}. Copy -> verify -> delete-old.
+        // Old location: <externalFilesDir>/nand/user/save. Copy -> verify -> delete-old.
+        // The profile (system/save/8000000000000010) and Mii database (...30) are deliberately NOT migrated: the eden-src in use has no
+        // patch that reads them from the save root, so Eden still loads them from <externalFilesDir>/nand. Moving them out made Eden
+        // create a fresh random profile on every launch, and every game's save (filed under the profile UUID) looked empty.
         fun nand(ctx: Context, rel: String) = File(File(ctx.getExternalFilesDir(null) ?: ctx.filesDir, "nand"), rel)
         SaveMigration.register(id, "eden user saves", "save/user/save") { ctx -> nand(ctx, "user/save") }
-        SaveMigration.register(id, "eden profile", "save/system/save/8000000000000010") { ctx -> nand(ctx, "system/save/8000000000000010") }
-        SaveMigration.register(id, "eden mii database", "save/system/save/8000000000000030") { ctx -> nand(ctx, "system/save/8000000000000030") }
     }
 }
