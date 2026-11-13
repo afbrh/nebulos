@@ -1,0 +1,37 @@
+From 84eeb2573c46dcc1e2809843127f47d392c0c46a Mon Sep 17 00:00:00 2001
+From: Ry <ry@Mac.eau.wi.charter.com>
+Date: Fri, 13 Nov 2026 15:30:56 -0600
+Subject: [PATCH] Nebulos: never show the performance or hardware (SoC)
+ overlays
+
+---
+ .../java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt   | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt
+index aa73b4b44..50a9105a4 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt
+@@ -1586,7 +1586,8 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
+ 
+     @SuppressLint("DefaultLocale")
+     private fun updateShowStatsOverlay() {
+-        val showPerfOverlay = BooleanSetting.SHOW_PERFORMANCE_OVERLAY.getBoolean()
++        // Nebulos: the performance overlay is never shown, whatever the saved config says.
++        val showPerfOverlay = false
+         binding.showStatsOverlayText.apply {
+             setTextColor(
+                 MaterialColors.getColor(
+@@ -1773,7 +1774,8 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
+     }
+ 
+     private fun updateSocOverlay() {
+-        val showSOCOverlay = BooleanSetting.SHOW_SOC_OVERLAY.getBoolean()
++        // Nebulos: the hardware (SoC) overlay is never shown either.
++        val showSOCOverlay = false
+         binding.showSocOverlayText.apply {
+             setTextColor(
+                 MaterialColors.getColor(
+-- 
+2.54.0 (Apple Git-157)
+
