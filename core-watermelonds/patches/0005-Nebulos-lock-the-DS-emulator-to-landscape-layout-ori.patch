@@ -1,0 +1,32 @@
+From fbbfa4452cd064b289a0736694f7fe9349008312 Mon Sep 17 00:00:00 2001
+From: Ry <ry@Mac.eau.wi.charter.com>
+Date: Fri, 13 Nov 2026 15:10:04 -0600
+Subject: [PATCH] Nebulos: lock the DS emulator to landscape (layout
+ orientation no longer unlocks rotation)
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ .../me/magnum/melonds/extensions/ActivityExtensions.kt     | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/app/src/main/java/me/magnum/melonds/extensions/ActivityExtensions.kt b/app/src/main/java/me/magnum/melonds/extensions/ActivityExtensions.kt
+index a4ed6411..628a1d23 100644
+--- a/app/src/main/java/me/magnum/melonds/extensions/ActivityExtensions.kt
++++ b/app/src/main/java/me/magnum/melonds/extensions/ActivityExtensions.kt
+@@ -10,11 +10,8 @@ import me.magnum.melonds.domain.model.layout.LayoutConfiguration
+  * @return True if a change in [Activity.getRequestedOrientation] has been made, false otherwise.
+  */
+ fun Activity.setLayoutOrientation(layoutOrientation: LayoutConfiguration.LayoutOrientation): Boolean {
+-    val desiredSystemOrientation = when(layoutOrientation) {
+-        LayoutConfiguration.LayoutOrientation.FOLLOW_SYSTEM -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+-        LayoutConfiguration.LayoutOrientation.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+-        LayoutConfiguration.LayoutOrientation.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+-    }
++    // Nebulos: the DS screen never rotates; whatever the layout asks for, the activity stays locked to landscape.
++    val desiredSystemOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+ 
+     return if (requestedOrientation != desiredSystemOrientation) {
+         requestedOrientation = desiredSystemOrientation
+-- 
+2.54.0 (Apple Git-157)
+
