@@ -43,6 +43,7 @@ object EdenCore : CoreDescriptor {
             // compiled against the unshrunk class then fails with NoSuchMethodError at launch (title, path, programId, developer, version, isHomebrew).
             putExtra("game", Game(title, path, "", "", "", false))
             putExtra("nebulos.title", title)
+            putExtra("nebulos.forceDynarmic", EdenMods.forceDynarmic(title))
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
         }
     }
