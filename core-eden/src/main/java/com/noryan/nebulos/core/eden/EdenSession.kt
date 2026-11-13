@@ -20,8 +20,7 @@ import org.yuzu.yuzu_emu.features.input.model.NativeButton
  * "overlay" controller on port 0, so it works whether or not a physical pad is attached and independent of the
  * touch overlay being visible.
  */
-class EdenSession(private val context: android.content.Context) : CoreSession, StateSlotProvider, StateSupport, FastForwardSupport,
-    com.noryan.nebulos.api.ToggleOptionSupport {
+class EdenSession(private val context: android.content.Context) : CoreSession, StateSlotProvider, StateSupport, FastForwardSupport {
     override val stateUnavailableReason: String = EdenCore.STATE_UNAVAILABLE_REASON
     /** Slots never exist: Eden has no save states. */
     override fun slotInfo(slot: Int) = SlotInfo(slot, false)
@@ -69,26 +68,6 @@ class EdenSession(private val context: android.content.Context) : CoreSession, S
     private val gameTitle = (context as? android.app.Activity)?.intent?.getStringExtra("nebulos.title").orEmpty()
     override val fastForwardAvailable: Boolean = !EdenMods.noFastForward(gameTitle)
 
-    // "30 FPS Cap" (Link's Awakening only): the emulator presents a game that asks for 60 FPS at 30. Remembered between launches.
-    private val optPrefs = context.getSharedPreferences("nebulos_eden_options", android.content.Context.MODE_PRIVATE)
-    private val capKey = "cap30"
-    private var cap30 = false
-    init {
-        if (EdenMods.cap30Available(gameTitle)) {
-            cap30 = optPrefs.getBoolean(capKey, false)
-            runCatching { NativeLibrary.setNebulosCap30(cap30) }
-        }
-    }
-    override val toggleLabel: String = "30 FPS Cap"
-    override val toggleAvailable: Boolean get() = EdenMods.cap30Available(gameTitle)
-    override fun toggleValue(): Boolean = cap30
-    override fun toggle(): Boolean = try {
-        val next = !cap30
-        NativeLibrary.setNebulosCap30(next)
-        cap30 = next
-        optPrefs.edit().putBoolean(capKey, next).apply()
-        true
-    } catch (t: Throwable) { android.util.Log.w("EdenSession", "30 FPS cap failed", t); false }
 
     // Saved normal-speed state, valid while fast forward is on.
     private var ffOn = false

@@ -1,35 +1,30 @@
-From be5d57ef20479379b07ef12a70cff019bc585665 Mon Sep 17 00:00:00 2001
+From 7855bad8206f0908458e10cf68347e78c73a989c Mon Sep 17 00:00:00 2001
 From: Ry <ry@Mac.eau.wi.charter.com>
 Date: Fri, 13 Nov 2026 12:48:42 -0600
 Subject: [PATCH] Nebulos: per-title dynarmic override
- (setNebulosForceDynarmic) and a 30 FPS cap switch (setNebulosCap30)
+ (setNebulosForceDynarmic)
 
-Link's Awakening's camera alternates every frame on NCE; the host now runs it on dynarmic without touching the saved config. The cap presents a game that asks for swap interval 1 at 30 FPS.
+Link's Awakening's camera alternates every frame on NCE; the host runs it on dynarmic without touching the saved config.
 
 Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
 ---
- .../app/src/main/java/org/yuzu/yuzu_emu/NativeLibrary.kt | 6 ++++++
- .../org/yuzu/yuzu_emu/fragments/EmulationFragment.kt     | 3 +++
- src/android/app/src/main/jni/native.cpp                  | 9 +++++++++
- src/common/settings.cpp                                  | 6 +++++-
- src/common/settings.h                                    | 4 ++++
- src/core/hle/service/nvnflinger/hardware_composer.cpp    | 3 +++
- src/core/hle/service/nvnflinger/hardware_composer.h      | 3 +++
- 7 files changed, 33 insertions(+), 1 deletion(-)
+ .../app/src/main/java/org/yuzu/yuzu_emu/NativeLibrary.kt    | 3 +++
+ .../java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt   | 3 +++
+ src/android/app/src/main/jni/native.cpp                     | 4 ++++
+ src/common/settings.cpp                                     | 6 +++++-
+ src/common/settings.h                                       | 4 ++++
+ 5 files changed, 19 insertions(+), 1 deletion(-)
 
 diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/NativeLibrary.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/NativeLibrary.kt
-index 7259a2065..fbc494c9b 100644
+index 7259a2065..06c7c4beb 100644
 --- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/NativeLibrary.kt
 +++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/NativeLibrary.kt
-@@ -239,6 +239,12 @@ object NativeLibrary {
+@@ -239,6 +239,9 @@ object NativeLibrary {
       */
      external fun setTurboSpeedLimit(enabled: Boolean)
  
 +    /** Nebulos: run this title on dynarmic even though NCE is configured (does not touch the saved config). */
 +    external fun setNebulosForceDynarmic(enabled: Boolean)
-+
-+    /** Nebulos: present a game that asks for 60 FPS at 30 FPS. */
-+    external fun setNebulosCap30(enabled: Boolean)
 +
      /**
       * Set the current speed limit to the configured slow speed.
@@ -49,27 +44,15 @@ index d0ba568c0..aa73b4b44 100644
              return@EmulationState driverViewModel.isInteractionAllowed.value &&
                  !isStoppingForRomSwap
 diff --git a/src/android/app/src/main/jni/native.cpp b/src/android/app/src/main/jni/native.cpp
-index 772dbddf2..1901f1eb9 100644
+index 772dbddf2..df0395488 100644
 --- a/src/android/app/src/main/jni/native.cpp
 +++ b/src/android/app/src/main/jni/native.cpp
-@@ -82,6 +82,7 @@ extern "C" {
- #include "core/hle/service/am/applet_manager.h"
- #include "core/hle/service/am/frontend/applets.h"
- #include "core/hle/service/filesystem/filesystem.h"
-+#include "core/hle/service/nvnflinger/hardware_composer.h"
- #include "core/hle/service/set/system_settings_server.h"
- #include "core/loader/loader.h"
- #include "frontend_common/config.h"
-@@ -1336,6 +1337,14 @@ jboolean Java_org_yuzu_yuzu_1emu_NativeLibrary_GetDebugKnobAt(JNIEnv* env, jobje
+@@ -1336,6 +1336,10 @@ jboolean Java_org_yuzu_yuzu_1emu_NativeLibrary_GetDebugKnobAt(JNIEnv* env, jobje
      return static_cast<jboolean>(Settings::GetDebugKnobAt(static_cast<u8>(index)));
  }
  
 +void Java_org_yuzu_yuzu_1emu_NativeLibrary_setNebulosForceDynarmic(JNIEnv *env, jobject jobj, jboolean enabled) {
 +    Settings::g_nebulos_force_dynarmic.store(enabled, std::memory_order_relaxed);
-+}
-+
-+void Java_org_yuzu_yuzu_1emu_NativeLibrary_setNebulosCap30(JNIEnv *env, jobject jobj, jboolean enabled) {
-+    Service::Nvnflinger::g_cap_30.store(enabled, std::memory_order_relaxed);
 +}
 +
  void Java_org_yuzu_yuzu_1emu_NativeLibrary_setTurboSpeedLimit(JNIEnv *env, jobject jobj, jboolean enabled) {
@@ -115,34 +98,6 @@ index 427850c3d..af4372d24 100644
  void SetCurrentProgramID(u64 program_id);
  u64 GetCurrentProgramID();
  
-diff --git a/src/core/hle/service/nvnflinger/hardware_composer.cpp b/src/core/hle/service/nvnflinger/hardware_composer.cpp
-index 564535f2e..92185e8c4 100644
---- a/src/core/hle/service/nvnflinger/hardware_composer.cpp
-+++ b/src/core/hle/service/nvnflinger/hardware_composer.cpp
-@@ -24,6 +24,9 @@ s32 NormalizeSwapInterval(f32* out_speed_scale, s32 swap_interval) {
-     if (g_force_swap_interval_1.load(std::memory_order_relaxed) && swap_interval > 1 && swap_interval < 5) {
-         swap_interval = 1;
-     }
-+    if (g_cap_30.load(std::memory_order_relaxed) && swap_interval == 1) {
-+        swap_interval = 2;
-+    }
-     if (swap_interval <= 0) {
-         // As an extension, treat nonpositive swap interval as speed multiplier.
-         if (out_speed_scale) {
-diff --git a/src/core/hle/service/nvnflinger/hardware_composer.h b/src/core/hle/service/nvnflinger/hardware_composer.h
-index 9a16a276e..2239382dd 100644
---- a/src/core/hle/service/nvnflinger/hardware_composer.h
-+++ b/src/core/hle/service/nvnflinger/hardware_composer.h
-@@ -22,6 +22,9 @@ namespace Service::Nvnflinger {
- // NEBULOS: set by the VI conductor while a title that asks for a swap interval of 2 (30 FPS) should be presented every vsync (60 FPS) instead.
- inline std::atomic<bool> g_force_swap_interval_1{false};
- 
-+// NEBULOS: host toggle ("30 FPS Cap"): a game that asks for every vsync (swap interval 1) is presented every second vsync instead.
-+inline std::atomic<bool> g_cap_30{false};
-+
- using ConsumerId = s32;
- 
- class HardwareComposer {
 -- 
 2.54.0 (Apple Git-157)
 

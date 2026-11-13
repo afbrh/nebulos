@@ -49,12 +49,10 @@ object EdenMods {
 
     /**
      * Link's Awakening (Switch) runs on dynarmic instead of NCE: with NCE its camera alternates between two positions every frame while
-     * Link moves. Dynarmic is slower, but the picture is steady. It is also the one game with the "30 FPS Cap" menu toggle: its overworld
-     * flips between asking for 30 and 60 FPS, and some people prefer a locked 30.
+     * Link moves. Dynarmic is slower, but the picture is steady.
      */
     private val LINKS_AWAKENING = Regex("link.?s\\s*awakening", RegexOption.IGNORE_CASE)
     fun forceDynarmic(gameTitle: String) = LINKS_AWAKENING.containsMatchIn(matchTitle(gameTitle))
-    fun cap30Available(gameTitle: String) = forceDynarmic(gameTitle)
 
     private fun aspectGame(gameTitle: String) = matchTitle(gameTitle).let { t -> ASPECT_GAMES.firstOrNull { it.title.containsMatchIn(t) } }
     /** The 4:3 mod folder (under load/) a game title selects, or null. */
