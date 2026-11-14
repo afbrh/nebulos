@@ -1,0 +1,120 @@
+From d4b7119842abeff2904d30a8b254b47a72587363 Mon Sep 17 00:00:00 2001
+From: Ry <ry@Mac.eau.wi.charter.com>
+Date: Fri, 13 Nov 2026 19:26:58 -0600
+Subject: [PATCH] Nebulos: beforeLoad hook + dumpRomfsFile (extract one RomFS
+ file) for per-game LayeredFS patches
+
+---
+ .../java/org/yuzu/yuzu_emu/NativeLibrary.kt   |  3 ++
+ .../yuzu_emu/fragments/EmulationFragment.kt   |  3 ++
+ .../org/yuzu/yuzu_emu/utils/NebulosBridge.kt  |  3 ++
+ src/android/app/src/main/jni/native_dump.cpp  | 37 +++++++++++++++++++
+ 4 files changed, 46 insertions(+)
+
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/NativeLibrary.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/NativeLibrary.kt
+index 06c7c4beb..a5399b0af 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/NativeLibrary.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/NativeLibrary.kt
+@@ -580,6 +580,9 @@ object NativeLibrary {
+      */
+     external fun dumpGameFiles(path: String, outDir: String): String
+ 
++    /** Nebulos: extracts ONE RomFS file (e.g. "Layout/MenuPause.arc", update applied) to `<outDir>/romfs/<rel>`. Blocking; JSON result like [dumpGameFiles]. */
++    external fun dumpRomfsFile(path: String, rel: String, outDir: String): String
++
+     /** Nebulos: asks a running [dumpGameFiles] to stop at the next chunk. */
+     external fun cancelDump()
+ 
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt
+index de1a627b1..0e0f8dad9 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt
+@@ -364,6 +364,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
+         // Nebulos: per-title CPU backend (decided by the host, passed as an intent extra).
+         NativeLibrary.setNebulosForceDynarmic(requireActivity().intent?.getBooleanExtra("nebulos.forceDynarmic", false) == true)
+ 
++        // Nebulos: let the host prepare per-game LayeredFS files from the game's own data before it loads.
++        NebulosBridge.beforeLoad?.let { hook -> runCatching { hook(game!!.path) } }
++
+         emulationState = EmulationState(game!!.path) {
+             return@EmulationState driverViewModel.isInteractionAllowed.value &&
+                 !isStoppingForRomSwap
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/NebulosBridge.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/NebulosBridge.kt
+index c8ff3ab83..b7b0fec07 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/NebulosBridge.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/NebulosBridge.kt
+@@ -17,6 +17,9 @@ object NebulosBridge {
+     @Volatile var progress: ((Float, String?) -> Unit)? = null
+     @Volatile var loadingText: ((String) -> Unit)? = null
+ 
++    /** Called with the game path on the UI thread right before the game is loaded (the host may prepare LayeredFS files). */
++    @Volatile var beforeLoad: ((String) -> Unit)? = null
++
+     /** Portable save folder (`<save root>/eden/save`); applied between config load and System init (see DirectoryInitialization). */
+     @Volatile var saveDir: String? = null
+ 
+diff --git a/src/android/app/src/main/jni/native_dump.cpp b/src/android/app/src/main/jni/native_dump.cpp
+index 2295fdcd8..93b2adf4e 100644
+--- a/src/android/app/src/main/jni/native_dump.cpp
++++ b/src/android/app/src/main/jni/native_dump.cpp
+@@ -48,6 +48,7 @@ struct DumpState {
+     std::atomic<u64> files_total{0};
+ };
+ DumpState g_dump;
++std::string g_only_romfs; // when set, RunDump copies just this RomFS file (relative path) and nothing else
+ 
+ struct DumpFile {
+     std::string rel;
+@@ -253,6 +254,18 @@ std::string RunDump(const std::string& path, const std::string& out_dir) {
+     u64 exefs_bytes = 0;
+     Collect(exefs, "", exefs_list, exefs_bytes);
+     Collect(romfs_dir, "", romfs_list, romfs_bytes);
++    if (!g_only_romfs.empty()) {
++        exefs_list.clear();
++        exefs_bytes = 0;
++        std::erase_if(romfs_list, [](const DumpFile& f) { return f.rel != g_only_romfs; });
++        romfs_bytes = 0;
++        for (const auto& f : romfs_list) {
++            romfs_bytes += f.file->GetSize();
++        }
++        if (romfs_list.empty()) {
++            return fail("RomFS file not found: " + g_only_romfs);
++        }
++    }
+     exefs_files = exefs_list.size();
+     romfs_files = romfs_list.size();
+ 
+@@ -333,6 +346,30 @@ jstring Java_org_yuzu_yuzu_1emu_NativeLibrary_dumpGameFiles(JNIEnv* env, jobject
+     return Common::Android::ToJString(env, result);
+ }
+ 
++// Blocking. Extracts one RomFS file to <outDir>/romfs/<rel>.
++jstring Java_org_yuzu_yuzu_1emu_NativeLibrary_dumpRomfsFile(JNIEnv* env, jobject, jstring jpath,
++                                                            jstring jrel, jstring jout) {
++    bool expected = false;
++    if (!g_dump.running.compare_exchange_strong(expected, true)) {
++        return Common::Android::ToJString(env, "{\"ok\":false,\"error\":\"a dump is already running\"}");
++    }
++    g_dump.cancel = false;
++    g_dump.done = g_dump.total = g_dump.files_done = g_dump.files_total = 0;
++    g_dump.phase = 1;
++    g_only_romfs = Common::Android::GetJString(env, jrel);
++    std::string result;
++    try {
++        result = RunDump(Common::Android::GetJString(env, jpath),
++                         Common::Android::GetJString(env, jout));
++    } catch (const std::exception& e) {
++        result = std::string("{\"ok\":false,\"error\":\"exception: ") + JsonEscape(e.what()) + "\"}";
++    }
++    g_only_romfs.clear();
++    g_dump.phase = 0;
++    g_dump.running = false;
++    return Common::Android::ToJString(env, result);
++}
++
+ void Java_org_yuzu_yuzu_1emu_NativeLibrary_cancelDump(JNIEnv*, jobject) {
+     g_dump.cancel = true;
+ }
+-- 
+2.54.0 (Apple Git-157)
+

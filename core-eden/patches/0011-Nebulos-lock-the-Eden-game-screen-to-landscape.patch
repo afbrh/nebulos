@@ -1,0 +1,44 @@
+From feeda2d56e1216a52bbbae81cbe13167b7f96a62 Mon Sep 17 00:00:00 2001
+From: Ry <ry@Mac.eau.wi.charter.com>
+Date: Fri, 13 Nov 2026 18:25:11 -0600
+Subject: [PATCH] Nebulos: lock the Eden game screen to landscape (no sensor
+ flip)
+
+---
+ .../yuzu_emu/fragments/EmulationFragment.kt   | 20 ++-----------------
+ 1 file changed, 2 insertions(+), 18 deletions(-)
+
+diff --git a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt
+index 50a9105a4..de1a627b1 100644
+--- a/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt
++++ b/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt
+@@ -1870,24 +1870,8 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
+     @SuppressLint("SourceLockedOrientationActivity")
+     private fun updateOrientation() {
+         emulationActivity?.let {
+-            val orientationSetting =
+-                EmulationOrientation.from(IntSetting.RENDERER_SCREEN_LAYOUT.getInt())
+-            it.requestedOrientation = when (orientationSetting) {
+-                EmulationOrientation.Unspecified -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+-                EmulationOrientation.SensorLandscape ->
+-                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+-
+-                EmulationOrientation.Landscape -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+-                EmulationOrientation.ReverseLandscape ->
+-                    ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
+-
+-                EmulationOrientation.SensorPortrait ->
+-                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+-
+-                EmulationOrientation.Portrait -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+-                EmulationOrientation.ReversePortrait ->
+-                    ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT
+-            }
++            // Nebulos: the game screen never rotates; fixed landscape whatever the screen layout setting says.
++            it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+         }
+     }
+ 
+-- 
+2.54.0 (Apple Git-157)
+

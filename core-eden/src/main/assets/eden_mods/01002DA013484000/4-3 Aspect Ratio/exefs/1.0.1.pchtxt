@@ -26,10 +26,16 @@
 016cac94 C0030000
 016cac98 D0020000
 016997dc FBDD213F
-0105c950 290200B470564139F0010034F00309AA110E40F9D10000B41E5E40BDC823201E21010054F00311AAFAFFFF17F0509E5250F5A7727E01271E1F02271EDE0B3F1ECB03261E8B9E00B9EFA9FE17
+0105c950 290200B4705641391F2003D5F00309AA110E40F9D10000B41E5E40BDC823201E21010054F00311AAFAFFFF17F0509E5250F5A7727E01271E1F02271EDE0B3F1ECB03261E8B9E00B9EFA9FE17
 01007150 00560114
 0105c99c 141A311E50E99552F0E7A7721F02271E940A3F1EF829FA17
 0105c9b4 0018211E50E99552F0E7A7721F02271E00083F1EBD29FA17
 00ee718c 04D60514
 00ee70b8 3FD60514
+// Menus: the game only applies the ui2d root-pane scale (the 0.8444 constant above) to HUD layouts; menu layouts skip it
+// (flag byte at ctx+0x55 == 0, the cbz at 01006f04 now jumps to the cave instead of skipping), so circles in menus come out tall. For those root panes run a cave that
+// (the top-level translate fix cave at 0105c950 no longer requires the flag either, so menu positions - and the cursor, which is placed
+// from them - stay where the 16:9 layout put them) multiplies the Y scale by 0.7488 (same 4:3 factor as the HUD) and rejoins at 01006f20. HUD roots (flag set) keep the original path.
+01006f04 EAD72A34
+0105ca00 6A2B9652EAE7A7724201271E0008221E44A9FE17
 @stop

@@ -98,4 +98,68 @@ object EdenMods {
             for (c in children) copyTree(ctx, "$asset/$c", File(dest, c))
         }
     }
+
+    // --- Skyward Sword HD: the pause screen's frozen-scene backdrop ------------------------------------------------------------
+    // The 4:3 mod makes the game render a 4:3 frame, but the pause menu shows that frame in a 16:9 picture pane (Layout/MenuPause.arc,
+    // layout pauseBace_00, picture P_capture_02), which squashes it. Crop the picture to the middle 75% of the frame (4:3 -> 16:9) via
+    // its texture coordinates. The archive is the game's own data, so it is never shipped: it is extracted from the player's copy on
+    // the first launch and patched here, then used as a LayeredFS file of the 4:3 mod.
+
+    private const val SSHD_ID = "01002DA013484000"
+    private const val SSHD_MOD = "4-3 Aspect Ratio"
+    private const val PAUSE_ARC = "Layout/MenuPause.arc"
+
+    /** Runs in the game process right before the game loads ([org.yuzu.yuzu_emu.utils.NebulosBridge.beforeLoad]). */
+    fun prepareRomfs(ctx: Context, gameTitle: String, gamePath: String) {
+        if (aspectGame(gameTitle)?.dir?.startsWith(SSHD_ID) != true) return
+        val modDir = File(ctx.getExternalFilesDir(null) ?: return, "load/$SSHD_ID/$SSHD_MOD")
+        if (!modDir.isDirectory) return // the player deleted the mod: leave it off
+        val target = File(modDir, "romfs/$PAUSE_ARC")
+        if (target.exists()) return
+        val tmp = File(ctx.cacheDir, "romfs_extract").also { it.deleteRecursively(); it.mkdirs() }
+        try {
+            val res = org.yuzu.yuzu_emu.NativeLibrary.dumpRomfsFile(gamePath, PAUSE_ARC, tmp.absolutePath)
+            val src = File(tmp, "romfs/$PAUSE_ARC")
+            if (!res.contains("\"ok\":true") || !src.isFile) return
+            val bytes = src.readBytes()
+            if (!cropPauseCapture(bytes)) return
+            target.parentFile?.mkdirs()
+            val part = File(target.parentFile, target.name + ".part")
+            part.writeBytes(bytes)
+            part.renameTo(target)
+        } finally {
+            tmp.deleteRecursively()
+        }
+    }
+
+    /** Sets P_capture_02's texture coordinates to the middle 75% of the frame; false (nothing changed) if the file is not what we expect. */
+    internal fun cropPauseCapture(b: ByteArray): Boolean {
+        val pic = byteArrayOf('p'.code.toByte(), 'i'.code.toByte(), 'c'.code.toByte(), '1'.code.toByte())
+        val name = "P_capture_02".toByteArray()
+        var i = 0
+        while (i + 0x60 + 32 <= b.size) {
+            // 'pic1' section: magic, size, 4 flag bytes, 16-byte name; texture coordinates follow the colours, material and count.
+            if (b[i] == pic[0] && b[i + 1] == pic[1] && b[i + 2] == pic[2] && b[i + 3] == pic[3] && matches(b, i + 12, name)) {
+                val t = i + 0x60
+                val expect = floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f, 1f, 1f)
+                for (k in 0 until 8) if (readBeFloat(b, t + 4 * k) != expect[k]) return false
+                writeBeFloat(b, t + 4, 0.125f); writeBeFloat(b, t + 12, 0.125f)
+                writeBeFloat(b, t + 20, 0.875f); writeBeFloat(b, t + 28, 0.875f)
+                return true
+            }
+            i++
+        }
+        return false
+    }
+
+    private fun matches(b: ByteArray, at: Int, s: ByteArray): Boolean {
+        for (k in s.indices) if (b[at + k] != s[k]) return false
+        return b[at + s.size].toInt() == 0
+    }
+    private fun readBeFloat(b: ByteArray, at: Int) =
+        java.lang.Float.intBitsToFloat(((b[at].toInt() and 255) shl 24) or ((b[at + 1].toInt() and 255) shl 16) or ((b[at + 2].toInt() and 255) shl 8) or (b[at + 3].toInt() and 255))
+    private fun writeBeFloat(b: ByteArray, at: Int, v: Float) {
+        val x = java.lang.Float.floatToIntBits(v)
+        b[at] = (x ushr 24).toByte(); b[at + 1] = (x ushr 16).toByte(); b[at + 2] = (x ushr 8).toByte(); b[at + 3] = x.toByte()
+    }
 }

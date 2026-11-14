@@ -34,6 +34,8 @@ object EdenHost {
         NebulosBridge.loadingText = { h.setLoadingText(it) }
         NebulosBridge.ready = { h.onGameReadyAfterPicture(minLit = com.noryan.nebulos.api.PictureGate.MIN_LIT_STRICT, isCurrent = { hooks === h }) }
         NebulosBridge.flushPending()
+        val gameTitle = activity.intent?.getStringExtra("nebulos.title").orEmpty()
+        NebulosBridge.beforeLoad = { path -> EdenMods.prepareRomfs(activity, gameTitle, path) }
         EdenDriver.pendingNotice?.let { h.notice(it); EdenDriver.pendingNotice = null }
         val window = activity.window
         val original: Window.Callback = window.callback
@@ -102,6 +104,6 @@ object EdenHost {
     fun detach(@Suppress("UNUSED_PARAMETER") activity: EmulationActivity) {
         hooks?.onDestroy(); hooks = null; session = null
         NebulosBridge.notice = null; NebulosBridge.error = null; NebulosBridge.progress = null
-        NebulosBridge.loadingText = null; NebulosBridge.ready = null
+        NebulosBridge.loadingText = null; NebulosBridge.ready = null; NebulosBridge.beforeLoad = null
     }
 }
