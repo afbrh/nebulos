@@ -1,0 +1,183 @@
+From f1398553e9f4236667578c72d89fdd82d677da0a Mon Sep 17 00:00:00 2001
+From: Ry <ry@Mac.eau.wi.charter.com>
+Date: Sat, 14 Nov 2026 07:51:48 -0600
+Subject: [PATCH] Nebulos 4:3 Fill: fade the culled strips at the top screen's
+ edges, and a game-camera-patched mode
+
+Games that cull what they draw to the camera's original view (A Link Between Worlds) show holes in the extra 25% vertical strips that 4:3
+Fill reveals. The present shader fades those strips to black. When the host widens the game's own camera with a code patch
+(setFramePatch flag address 1) the game draws the strips itself: the vertex shader then leaves 3D draws alone and the fade stays off.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ src/android/app/src/main/jni/native.cpp             | 8 ++++++++
+ src/video_core/four_three.h                         | 4 ++++
+ src/video_core/host_shaders/vulkan_present.frag     | 7 +++++++
+ src/video_core/rasterizer_accelerated.cpp           | 6 ++++++
+ src/video_core/renderer_vulkan/renderer_vulkan.cpp  | 5 +++++
+ src/video_core/renderer_vulkan/renderer_vulkan.h    | 4 +++-
+ src/video_core/shader/generator/glsl_shader_gen.cpp | 3 ++-
+ src/video_core/shader/generator/shader_uniforms.h   | 1 +
+ 8 files changed, 36 insertions(+), 2 deletions(-)
+
+diff --git a/src/android/app/src/main/jni/native.cpp b/src/android/app/src/main/jni/native.cpp
+index 567d7f27b..c8ecc312e 100644
+--- a/src/android/app/src/main/jni/native.cpp
++++ b/src/android/app/src/main/jni/native.cpp
+@@ -263,6 +263,11 @@ static void ApplyFramePatch(Core::System& system) {
+         }
+     }
+ 
++    if (frame_patch.flag_addr == 1) {
++        // NEBULOS: flag_addr 1 marks the 4:3 camera patch: the shader leaves 3D draws alone only while the game itself is patched.
++        VideoCore::g_four_three_game_patched = frame_patch.enable && frame_patch.verified && !frame_patch.refused;
++    }
++
+     if (frame_patch.enable) {
+         if (!frame_patch.verified) {
+             // Only switch on if the words about to be patched still hold the original values of the build the patch was made for.
+@@ -1411,6 +1416,9 @@ void Java_org_citra_citra_1emu_NativeLibrary_setFramePatch(JNIEnv* env,
+     };
+     std::scoped_lock lock{frame_patch_mutex};
+     frame_patch.flag_addr = static_cast<u32>(flag_addr);
++    if (flag_addr != 1) {
++        VideoCore::g_four_three_game_patched = false;
++    }
+     frame_patch.on = to_vec(j_on);
+     frame_patch.off = to_vec(j_off);
+     frame_patch.once = to_vec(j_once);
+diff --git a/src/video_core/four_three.h b/src/video_core/four_three.h
+index ae8a51721..9cb9a492d 100644
+--- a/src/video_core/four_three.h
++++ b/src/video_core/four_three.h
+@@ -8,4 +8,8 @@ namespace VideoCore {
+ /// True while the host shows the top screen as a 4:3 picture: top-screen draws then see 25% more vertical field of view.
+ inline std::atomic<bool> g_four_three_fill{false};
+ 
++/// True while the running game's own camera has been widened by a code patch (the game then draws and culls the extra 25% itself):
++/// the vertex shader must not widen 3D draws again, and the edge fade (a cover-up for culled strips) is not needed.
++inline std::atomic<bool> g_four_three_game_patched{false};
++
+ } // namespace VideoCore
+diff --git a/src/video_core/host_shaders/vulkan_present.frag b/src/video_core/host_shaders/vulkan_present.frag
+index 28f93566c..96eeb5bb2 100644
+--- a/src/video_core/host_shaders/vulkan_present.frag
++++ b/src/video_core/host_shaders/vulkan_present.frag
+@@ -16,6 +16,7 @@ layout (push_constant, std140) uniform DrawInfo {
+     int screen_id_r;
+     int layer;
+     int reverse_interlaced;
++    int fade_edges;
+ };
+ 
+ layout (set = 0, binding = 0) uniform sampler2D screen_textures[3];
+@@ -37,4 +38,10 @@ vec4 GetScreen(int screen_id) {
+ 
+ void main() {
+     color = GetScreen(screen_id_l);
++    // NEBULOS 4:3 Fill: the extra strips above/below the game's original view show terrain the game culled (blue gaps that pop in
++    // and out); fade them to black. frag_tex_coord.x runs along the screen's visible vertical axis (the 3DS framebuffer is rotated).
++    if (fade_edges != 0) {
++        float e = min(frag_tex_coord.x, 1.0 - frag_tex_coord.x);
++        color.rgb *= smoothstep(0.04, 0.10, e);
++    }
+ }
+diff --git a/src/video_core/rasterizer_accelerated.cpp b/src/video_core/rasterizer_accelerated.cpp
+index d1a1a831d..ca57999a1 100644
+--- a/src/video_core/rasterizer_accelerated.cpp
++++ b/src/video_core/rasterizer_accelerated.cpp
+@@ -172,6 +172,12 @@ void RasterizerAccelerated::SyncDrawUniforms() {
+     const bool top_screen = fb.GetHeight() == 400 && view_y > 399.5f && view_y < 400.5f &&
+                             ((view_x > 239.5f && view_x < 240.5f) || (view_x > 479.5f && view_x < 480.5f));
+     const f32 four_three = (top_screen && VideoCore::g_four_three_fill.load(std::memory_order_relaxed)) ? 0.8f : 1.f;
++    // When the game widens its own camera (code patch) 3D draws are left alone; 2D draws (HUD) are still adjusted.
++    const f32 three_d = VideoCore::g_four_three_game_patched.load(std::memory_order_relaxed) ? 1.f : four_three;
++    if (vs_data.four_three_3d != three_d) {
++        vs_data.four_three_3d = three_d;
++        vs_data_dirty = true;
++    }
+     if (vs_data.four_three_scale != four_three) {
+         vs_data.four_three_scale = four_three;
+         vs_data_dirty = true;
+diff --git a/src/video_core/renderer_vulkan/renderer_vulkan.cpp b/src/video_core/renderer_vulkan/renderer_vulkan.cpp
+index 219d11ce3..d6b438bd5 100644
+--- a/src/video_core/renderer_vulkan/renderer_vulkan.cpp
++++ b/src/video_core/renderer_vulkan/renderer_vulkan.cpp
+@@ -11,6 +11,7 @@
+ #include "core/frontend/emu_window.h"
+ #include "video_core/gpu.h"
+ #include "video_core/pica/pica_core.h"
++#include "video_core/four_three.h"
+ #include "video_core/renderer_vulkan/renderer_vulkan.h"
+ #include "video_core/renderer_vulkan/vk_memory_util.h"
+ #include "video_core/renderer_vulkan/vk_shader_util.h"
+@@ -803,6 +804,8 @@ void RendererVulkan::DrawSingleScreen(u32 screen_id, float x, float y, float w,
+                         1.0f / static_cast<f32>(screen_info.texture.height * scale_factor));
+     draw_info.o_resolution = Common::MakeVec(h, w, 1.0f / h, 1.0f / w);
+     draw_info.screen_id_l = screen_id;
++    draw_info.fade_edges = (screen_id != 2 && VideoCore::g_four_three_fill.load(std::memory_order_relaxed) &&
++                                !VideoCore::g_four_three_game_patched.load(std::memory_order_relaxed)) ? 1 : 0;
+ 
+     scheduler.Record([this, offset = offset, info = draw_info](vk::CommandBuffer cmdbuf) {
+         const u32 first_vertex = static_cast<u32>(offset) / sizeof(ScreenRectVertex);
+@@ -876,6 +879,8 @@ void RendererVulkan::DrawSingleScreenStereo(u32 screen_id_l, u32 screen_id_r, fl
+     draw_info.o_resolution = Common::MakeVec(h, w, 1.0f / h, 1.0f / w);
+     draw_info.screen_id_l = screen_id_l;
+     draw_info.screen_id_r = screen_id_r;
++    draw_info.fade_edges = (VideoCore::g_four_three_fill.load(std::memory_order_relaxed) &&
++                            !VideoCore::g_four_three_game_patched.load(std::memory_order_relaxed)) ? 1 : 0;
+ 
+     scheduler.Record([this, offset = offset, info = draw_info](vk::CommandBuffer cmdbuf) {
+         const u32 first_vertex = static_cast<u32>(offset) / sizeof(ScreenRectVertex);
+diff --git a/src/video_core/renderer_vulkan/renderer_vulkan.h b/src/video_core/renderer_vulkan/renderer_vulkan.h
+index 7b921e5fb..420024382 100644
+--- a/src/video_core/renderer_vulkan/renderer_vulkan.h
++++ b/src/video_core/renderer_vulkan/renderer_vulkan.h
+@@ -62,8 +62,10 @@ struct PresentUniformData {
+     int screen_id_r = 0;
+     int layer = 0;
+     int reverse_interlaced = 0;
++    int fade_edges = 0; // NEBULOS: 4:3 Fill hides the culled strip at the top screen's top and bottom
++    int pad[3]{};
+ };
+-static_assert(sizeof(PresentUniformData) == 112,
++static_assert(sizeof(PresentUniformData) == 128,
+               "PresentUniformData does not structure in shader!");
+ 
+ class RendererVulkan : public VideoCore::RendererBase {
+diff --git a/src/video_core/shader/generator/glsl_shader_gen.cpp b/src/video_core/shader/generator/glsl_shader_gen.cpp
+index c0ceec80e..a650c8c4f 100644
+--- a/src/video_core/shader/generator/glsl_shader_gen.cpp
++++ b/src/video_core/shader/generator/glsl_shader_gen.cpp
+@@ -35,6 +35,7 @@ layout (binding = 1, std140) uniform vs_data {
+ #endif
+     bool enable_clip1;
+     bool flip_viewport;
++    float four_three_3d;
+     float four_three_scale;
+     vec4 clip_coef;
+ )"
+@@ -69,7 +70,7 @@ vec4 ApplyFourThree(vec4 pos) {
+             float edge = sign(pos.x) * smoothstep(0.5, 0.7, a);
+             pos.x = k * pos.x + (1.0 - k) * edge;
+         } else {
+-            pos.x *= k;
++            pos.x *= four_three_3d; // k, or 1.0 when the game widens its own camera
+         }
+     }
+     return pos;
+diff --git a/src/video_core/shader/generator/shader_uniforms.h b/src/video_core/shader/generator/shader_uniforms.h
+index d18fda538..89df4bd0f 100644
+--- a/src/video_core/shader/generator/shader_uniforms.h
++++ b/src/video_core/shader/generator/shader_uniforms.h
+@@ -72,6 +72,7 @@ static_assert(sizeof(FSUniformData) < 16384,
+ struct VSUniformData {
+     u32 enable_clip1;
+     u32 flip_viewport;
++    f32 four_three_3d{1.f}; // NEBULOS: scale for 3D draws: four_three_scale, or 1 when the game widens its own camera (code patch)
+     f32 four_three_scale{1.f}; // NEBULOS: <1 widens the field of view of the top screen's (rotated) vertical axis
+     alignas(16) Common::Vec4f clip_coef;
+ #ifdef ENABLE_FREECAM
+-- 
+2.54.0 (Apple Git-157)
+
