@@ -52,7 +52,9 @@ object EdenMods {
      * Link moves. Dynarmic is slower, but the picture is steady.
      */
     private val LINKS_AWAKENING = Regex("link.?s\\s*awakening", RegexOption.IGNORE_CASE)
-    fun forceDynarmic(gameTitle: String) = LINKS_AWAKENING.containsMatchIn(matchTitle(gameTitle))
+    /** Echoes of Wisdom is the same engine and shows the same tearing/flashing on NCE, so it gets the same override. */
+    private val ECHOES = Regex("echoes\\s*of\\s*wisdom", RegexOption.IGNORE_CASE)
+    fun forceDynarmic(gameTitle: String) = matchTitle(gameTitle).let { LINKS_AWAKENING.containsMatchIn(it) || ECHOES.containsMatchIn(it) }
 
     private fun aspectGame(gameTitle: String) = matchTitle(gameTitle).let { t -> ASPECT_GAMES.firstOrNull { it.title.containsMatchIn(t) } }
     /** The 4:3 mod folder (under load/) a game title selects, or null. */
