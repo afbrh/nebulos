@@ -1,0 +1,29 @@
+From 1fb934b6fa0ff5e604b069b178e388d69a9db4e4 Mon Sep 17 00:00:00 2001
+From: ry <ry@local>
+Date: Sat, 14 Nov 2026 20:50:16 -0600
+Subject: [PATCH] nx2 video: wait up to 2 s for the guest to release a decoder
+ image (100 ms let a busy GPU read frames mixed with the next)
+
+---
+ src/core/hle/service/nx2_gsv.h | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/src/core/hle/service/nx2_gsv.h b/src/core/hle/service/nx2_gsv.h
+index 1873d67..7b5a2d8 100644
+--- a/src/core/hle/service/nx2_gsv.h
++++ b/src/core/hle/service/nx2_gsv.h
+@@ -3359,7 +3359,10 @@ private:
+             return;
+         }
+         auto& syncpoints = system.Host1x().GetSyncpointManager();
+-        const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds{100};
++        // NEBULOS: was 100 ms. While the GPU is saturated (cold shader cache, Adreno) the game's draw that still reads this image can take longer; writing
++        // the next frame over it then mixes two frames in one picture (blocks of the previous scene inside the new one). A bounded 2 s wait keeps
++        // a lost fence from hanging the movie for good.
++        const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds{2000};
+         while (!syncpoints.IsReadyGuest(fence.syncpoint, fence.value) &&
+                std::chrono::steady_clock::now() < deadline) {
+             std::this_thread::sleep_for(std::chrono::milliseconds{1});
+-- 
+2.54.0 (Apple Git-157)
+
