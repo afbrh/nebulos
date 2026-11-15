@@ -19,9 +19,9 @@ android {
         minSdk = 30
         targetSdk = 35
         // Release numbering is a plain count: every release adds 1 to versionName (the 9th release is "9"). versionCode also adds 1 per
-        // release; it is 17 for release 15 (release 14 was 16, release 13 was 15, release 12 was 14, release 11 was 13, release 10 was 12, release 9 was 11) because 0.7.0 already used 10 and Android never installs a lower code over a higher one.
-        versionCode = 17
-        versionName = "15"
+        // release; it is 18 for release 16 (release 15 was 17, release 14 was 16, release 13 was 15, release 12 was 14, release 11 was 13, release 10 was 12, release 9 was 11) because 0.7.0 already used 10 and Android never installs a lower code over a higher one.
+        versionCode = 18
+        versionName = "16"
         ndk { abiFilters += "arm64-v8a" }
         missingDimensionStrategy("edenVersion", "legacy")
         missingDimensionStrategy("lichiiVersion", "mainline")
