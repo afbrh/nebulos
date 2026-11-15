@@ -21,6 +21,7 @@
 -keep class me.magnum.** { *; }
 -keep class org.citra.** { *; }
 -keep class org.yuzu.** { *; }
+-keep class com.noryan.lichii.** { *; }
 -keep class org.libsdl.** { *; }
 -keep class org.dolphinemu.** { *; }
 -keep class info.cemu.** { *; }

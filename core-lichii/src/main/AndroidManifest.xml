@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <application>
+
+        <!-- The whole Eden runtime lives in its own process so libyuzu-android.so, Vulkan and its GL/EGL state never
+             share an address space with other Nebulos cores. -->
+        <activity
+            android:name="com.noryan.lichii.activities.EmulationActivity"
+            android:process=":lichii"
+            android:taskAffinity="com.noryan.nebulos.lichii"
+            android:enableOnBackInvokedCallback="true"
+            android:exported="false"
+            tools:node="merge"
+            android:theme="@style/Theme.NebulosLichii"
+            android:screenOrientation="landscape"
+            tools:replace="android:exported,android:theme,android:screenOrientation">
+            <!-- Nebulos launches this explicitly; drop the public VIEW/NFC filters of the stock app. -->
+            <intent-filter tools:node="removeAll" />
+        </activity>
+
+        <!-- The engine's own library UI is never used: no second launcher icon. -->
+        <activity
+            android:name="com.noryan.lichii.ui.main.MainActivity"
+            android:process=":lichii"
+            android:exported="false"
+            tools:node="merge"
+            tools:replace="android:exported">
+            <intent-filter tools:node="removeAll" />
+        </activity>
+
+        <service
+            android:name="com.noryan.lichii.utils.ForegroundService"
+            android:process=":lichii"
+            tools:node="merge" />
+
+        <!-- Runs in :lichii before Application.onCreate: initialises Eden (the stock YuzuApplication never runs because
+             the Nebulos app has its own Application) and installs the Nebulos input/menu hooks. -->
+        <provider
+            android:name="com.noryan.nebulos.core.lichii.LichiiInitProvider"
+            android:authorities="${applicationId}.nebulos.lichii.init"
+            android:process=":lichii"
+            android:exported="false"
+            android:initOrder="100" />
+    </application>
+</manifest>

@@ -9,7 +9,9 @@ enum class System(val family: Family) {
     GBA(Family.NINTENDO), NDS(Family.NINTENDO), N3DS(Family.NINTENDO), GAMECUBE(Family.NINTENDO),
     WII(Family.NINTENDO), WIIU(Family.NINTENDO), SWITCH(Family.NINTENDO),
     PS1(Family.PLAYSTATION), PS2(Family.PLAYSTATION), PSP(Family.PLAYSTATION),
-    GENESIS(Family.OTHER), MASTER_SYSTEM(Family.OTHER), PCE(Family.OTHER), ATARI(Family.OTHER), ARCADE(Family.OTHER), OTHER(Family.OTHER);
+    GENESIS(Family.OTHER), MASTER_SYSTEM(Family.OTHER), PCE(Family.OTHER), ATARI(Family.OTHER), ARCADE(Family.OTHER), OTHER(Family.OTHER),
+    /** Appended last (never renumber): Nintendo Switch 2 titles, run by the Lichii core. */
+    SWITCH2(Family.NINTENDO);
     enum class Family { NINTENDO, PLAYSTATION, OTHER }
 }
 

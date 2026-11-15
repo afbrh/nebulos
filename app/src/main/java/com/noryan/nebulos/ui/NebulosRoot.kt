@@ -66,7 +66,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 fun systemLabel(s: System): String = when (s) {
     System.NES -> "NES"; System.SNES -> "SNES"; System.N64 -> "N64"; System.GB -> "GameBoy"; System.GBC -> "GameBoy Color"
     System.GBA -> "GBA"; System.NDS -> "DS"; System.N3DS -> "3DS"; System.GAMECUBE -> "GameCube"; System.WII -> "Wii"
-    System.WIIU -> "Wii U"; System.SWITCH -> "Switch"; System.PS1 -> "PS1"; System.PS2 -> "PS2"; System.PSP -> "PSP"
+    System.WIIU -> "Wii U"; System.SWITCH -> "Switch"; System.SWITCH2 -> "Switch 2"; System.PS1 -> "PS1"; System.PS2 -> "PS2"; System.PSP -> "PSP"
     System.GENESIS -> "Genesis"; System.MASTER_SYSTEM -> "Master System"; System.PCE -> "PC Engine"; System.ATARI -> "Atari"
     System.ARCADE -> "Arcade"; System.OTHER -> "Other"
 }

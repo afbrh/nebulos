@@ -1,0 +1,3 @@
+Lichii is GPL-3.0-or-later (a fork of Eden, itself a fork of yuzu), consumed here from pavelgajdo/Lichii-Android (Hokkaido 0.6.4, commit 57c1360,
+branch nx2), which builds on zortos293/Lichii. Nebulos is GPLv3, so the combination is compatible. The bundled Turnip driver (lichii_turnip_driver.zip)
+is Mesa freedreno, MIT. No game, key or firmware is shipped; the user's prod.keys and firmware are copied from Eden's folder at first launch.

@@ -1,0 +1,71 @@
+From 46ff30a4d92d1f20899a515f3fa2ff739434bca4 Mon Sep 17 00:00:00 2001
+From: ry <ry@local>
+Date: Sat, 14 Nov 2026 19:39:06 -0600
+Subject: [PATCH 1/2] Build fixes for NDK 30 / CMake 3.31.6
+
+---
+ src/android/app/build.gradle.kts    | 4 ++--
+ src/common/android/android_common.h | 2 ++
+ src/common/fs/fs_android.cpp        | 4 ++--
+ 3 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/src/android/app/build.gradle.kts b/src/android/app/build.gradle.kts
+index 11c8c06..e049b3f 100644
+--- a/src/android/app/build.gradle.kts
++++ b/src/android/app/build.gradle.kts
+@@ -36,7 +36,7 @@ android {
+     namespace = "org.yuzu.yuzu_emu"
+ 
+     compileSdkVersion = "android-36"
+-    ndkVersion = "28.2.13676358"
++    ndkVersion = "30.0.16248370"
+ 
+     val isNightly =
+         providers.gradleProperty("nightly").orNull?.toBooleanStrictOrNull() ?: false
+@@ -259,7 +259,7 @@ android {
+ 
+     externalNativeBuild {
+         cmake {
+-            version = "3.31.5"
++            version = "3.31.6"
+             path = file("${edenDir}/CMakeLists.txt")
+         }
+     }
+diff --git a/src/common/android/android_common.h b/src/common/android/android_common.h
+index a16add3..ee510a1 100644
+--- a/src/common/android/android_common.h
++++ b/src/common/android/android_common.h
+@@ -7,6 +7,8 @@
+ #pragma once
+ 
+ #include <string>
++#include <string_view>
++#include <vector>
+ 
+ #include <jni.h>
+ #include "common/common_types.h"
+diff --git a/src/common/fs/fs_android.cpp b/src/common/fs/fs_android.cpp
+index 9a80532..49dec06 100644
+--- a/src/common/fs/fs_android.cpp
++++ b/src/common/fs/fs_android.cpp
+@@ -95,7 +95,7 @@ bool Exists(const std::string& filepath) {
+ 
+ std::string GetParentDirectory(const std::string& filepath) {
+     if (s_get_parent_directory == nullptr) {
+-        return 0;
++        return {};
+     }
+     auto env = Common::Android::GetEnvForThread();
+     jstring j_return = static_cast<jstring>(env->CallStaticObjectMethod(
+@@ -108,7 +108,7 @@ std::string GetParentDirectory(const std::string& filepath) {
+ 
+ std::string GetFilename(const std::string& filepath) {
+     if (s_get_filename == nullptr) {
+-        return 0;
++        return {};
+     }
+     auto env = Common::Android::GetEnvForThread();
+     jstring j_return = static_cast<jstring>(env->CallStaticObjectMethod(
+-- 
+2.54.0 (Apple Git-157)
+

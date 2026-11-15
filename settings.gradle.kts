@@ -18,6 +18,14 @@ if (want("eden")) includeBuild("../eden-src/src/android") {
     dependencySubstitution { substitute(module("dev.eden_emu:app")).using(project(":app")) }
 }
 
+// :core-lichii (Switch 2). Lichii, via pavelgajdo/Lichii-Android (Hokkaido), GPLv3: ../lichii-android-src/src/android (:app converted to a library,
+// package relocated to com.noryan.lichii, native library liblichii-android.so) as a composite build.
+if (want("lichii")) include(":core-lichii")
+if (want("lichii")) includeBuild("../lichii-android-src/src/android") {
+    name = "lichii"
+    dependencySubstitution { substitute(module("com.noryan.lichii:app")).using(project(":app")) }
+}
+
 // :core-cemu (Wii U). SSimco's Cemu android project (cemu-src, local library-converted build) as a composite build.
 if (want("cemu")) include(":core-cemu")
 if (want("cemu")) includeBuild("../cemu-src/src/android") {
