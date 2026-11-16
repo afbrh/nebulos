@@ -23,7 +23,23 @@ object LichiiHost {
         private set
     private var hooks: NebulosCoreHost.Hooks? = null
 
+    /** The game's picture is cropped to a centred 4:3 slice (set per launch, see [configureCrop]). */
+    @Volatile private var cropFill = false
+
+    /**
+     * Ocarina of Time on a 4:3 screen (the Nova): the fork's EDEN_NX2_CROP_CENTER_43 cuts the 16:9 picture down to its centred 4:3 slice and
+     * the engine's layout fills the window with it, so the picture is undistorted (the sides are lost). Read by the engine at the first
+     * present, so this must run before the game starts (here: right after the Activity is created). Real 4:3 (a wider view) is a TODO.
+     */
+    private fun configureCrop(activity: EmulationActivity) {
+        val title = activity.intent.getStringExtra("nebulos.title").orEmpty().lowercase()
+        val b = (activity.getSystemService(android.content.Context.WINDOW_SERVICE) as android.view.WindowManager).maximumWindowMetrics.bounds
+        cropFill = "ocarina" in title && com.noryan.nebulos.api.FourByThree.defaultOn(b.width(), b.height())
+        runCatching { android.system.Os.setenv("EDEN_NX2_CROP_CENTER_43", if (cropFill) "1" else "0", true) }
+    }
+
     fun attach(activity: EmulationActivity) {
+        configureCrop(activity)
         val s = LichiiSession(activity).also { session = it }
         val h = NebulosCoreHost.install(activity, s, System.SWITCH2).also { hooks = it }
         // Nebulos owns all non-game UI: Eden's loading card/toasts/dialogs are patched out (eden-src, local only) and
@@ -69,7 +85,7 @@ object LichiiHost {
         // below the picture).
         val fill = false
         fun hugTop() {
-            val pic = view.width * 9 / 16
+            val pic = if (cropFill) view.height else view.width * 9 / 16
             val bar = (view.height - pic) / 2
             if (fill && pic > 0 && bar > 2) {
                 // Stretch the 16:9 picture (drawn centred, bars above and below) over the whole surface height.

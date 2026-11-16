@@ -1,0 +1,75 @@
+From efe71b4a8736ae06083702f19c93141a8e227e9d Mon Sep 17 00:00:00 2001
+From: Ry <ry@Mac.eau.wi.charter.com>
+Date: Mon, 16 Nov 2026 06:37:38 -0600
+Subject: [PATCH] Centred 4:3 crop mode (EDEN_NX2_CROP_CENTER_43)
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ src/core/frontend/framebuffer_layout.cpp |  9 +++++++++
+ src/core/hle/service/nx2_gsv.h           | 16 +++++++++++++++-
+ 2 files changed, 24 insertions(+), 1 deletion(-)
+
+diff --git a/src/core/frontend/framebuffer_layout.cpp b/src/core/frontend/framebuffer_layout.cpp
+index cd7b5b3..acf16d4 100644
+--- a/src/core/frontend/framebuffer_layout.cpp
++++ b/src/core/frontend/framebuffer_layout.cpp
+@@ -4,6 +4,7 @@
+ // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
++#include <cstdlib>
+ #include <cmath>
+ 
+ #include "common/assert.h"
+@@ -49,6 +50,14 @@ FramebufferLayout DefaultFrameLayout(u32 width, u32 height) noexcept {
+ /// @param window_aspect_ratio Current window aspect ratio
+ /// @return Emulation render window aspect ratio
+ float EmulationAspectRatio(Settings::AspectRatio aspect, float window_aspect_ratio) noexcept {
++    // NEBULOS: with EDEN_NX2_CROP_CENTER_43 the presented picture is already a 4:3 slice, so it fills the window (no letterbox).
++    static const bool crop_43 = [] {
++        const char* v = std::getenv("EDEN_NX2_CROP_CENTER_43");
++        return v != nullptr && v[0] == '1';
++    }();
++    if (crop_43) {
++        return window_aspect_ratio;
++    }
+     switch (aspect) {
+     case Settings::AspectRatio::R16_9:
+         return 9.0f / 16.0f;
+diff --git a/src/core/hle/service/nx2_gsv.h b/src/core/hle/service/nx2_gsv.h
+index 7b5a2d8..07c46e7 100644
+--- a/src/core/hle/service/nx2_gsv.h
++++ b/src/core/hle/service/nx2_gsv.h
+@@ -2279,6 +2279,20 @@ private:
+             crop_width = env_crop_w;
+             crop_height = env_crop_h;
+         }
++        // NEBULOS: EDEN_NX2_CROP_CENTER_43=1 shows the centred 4:3 slice of the drawn area (full height) instead of all of it,
++        // so a 16:9 game fills a 4:3 screen without stretching (the sides are cut off).
++        static const bool env_center_43 = [] {
++            const char* v = std::getenv("EDEN_NX2_CROP_CENTER_43");
++            return v != nullptr && v[0] == '1';
++        }();
++        u32 crop_left = 0;
++        if (env_center_43) {
++            const u32 slice = crop_height * 4 / 3;
++            if (slice > 0 && slice < crop_width) {
++                crop_left = (crop_width - slice) / 2;
++                crop_width = crop_left + slice; // crop_rect's right edge
++            }
++        }
+         const u64 shown = (u64{layout.width} << 48) | (u64{layout.height} << 32) |
+                           (u64{crop_width} << 16) | crop_height;
+         if (shown != m_shown_layout) {
+@@ -2298,7 +2312,7 @@ private:
+             .pixel_format = image_format == 4 ? android::PixelFormat::Rgba1010102
+                                               : android::PixelFormat::Rgba8888,
+             .transform_flags = android::BufferTransformFlags::Unset,
+-            .crop_rect = {0, 0, static_cast<int>(crop_width), static_cast<int>(crop_height)},
++            .crop_rect = {static_cast<int>(crop_left), 0, static_cast<int>(crop_width), static_cast<int>(crop_height)},
+             .blending = Tegra::BlendMode::Opaque,
+             .native_tiling = true,
+         }};
+-- 
+2.54.0 (Apple Git-157)
+
