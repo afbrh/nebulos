@@ -72,7 +72,8 @@ internal class RaSession(
     // The choice is saved per system and applied live (bridge op 8 on the RetroArch thread, ordered after pause/resume). The
     // request runs off the main thread because the menu calls cycleOption on it; the row updates at once.
     override val optionLabel = "Shader"
-    override val optionAvailable get() = ShaderChoice.applies(system)
+    // Super Mario 64 never gets a shader (no row, and it launches with none).
+    override val optionAvailable get() = ShaderChoice.applies(system) && !(system == System.N64 && sm64Game(romKey))
     @Volatile private var shaderPick: ShaderChoice.Pick? = null
     override fun optionValue(): String = (shaderPick ?: ShaderChoice.current(context, system).also { shaderPick = it }).label
     override fun cycleOption(): Boolean = applyShader { it.next() }
@@ -221,6 +222,8 @@ internal class RaSession(
 
     // N64 (Mupen64Plus-Next): the pad's A and B are the N64 A and B (the core reads RetroPad B as N64 A and RetroPad Y as N64 B), and X / Y are
     // C-right / C-down, sent as a full right-stick push so they work whatever the core's own C-button ids are; the real right stick still gives all four.
+    // Super Mario 64: the right stick's left/right are inverted (stick right = camera C-left), by the player's preference.
+    private val invertRightX = system == System.N64 && sm64Game(romKey)
     private var cRightHeld = false
     private var cDownHeld = false
 
@@ -234,7 +237,7 @@ internal class RaSession(
 
     private fun pushSticks() {
         val lx = stick[3] - stick[2]; val ly = stick[1] - stick[0]
-        var rx = stick[7] - stick[6]; var ry = stick[5] - stick[4]
+        var rx = if (invertRightX) stick[6] - stick[7] else stick[7] - stick[6]; var ry = stick[5] - stick[4]
         if (cRightHeld) rx = 1f
         if (cDownHeld) ry = 1f
         RaBridge.nativeAxis(0, 0, (lx * 32767).toInt()); RaBridge.nativeAxis(0, 1, (ly * 32767).toInt())
@@ -265,6 +268,8 @@ internal class RaSession(
 
     companion object {
         private const val TAG = "NebulosRa"
+        private val SM64_GAME = Regex("super[\\s_]*mario[\\s_]*64", RegexOption.IGNORE_CASE)
+        internal fun sm64Game(romKey: String): Boolean = SM64_GAME.containsMatchIn(com.noryan.nebulos.api.TitleMatch.clean(romKey))
         private val XBR1_GAMES = Regex("metroid\\s*-?\\s*(fusion|zero\\s*mission)", RegexOption.IGNORE_CASE)
 
         /** Matches on the file name with `_` as a space and brackets removed, so "Metroid_Fusion.gba" and "Metroid Fusion (USA).gba" count too. */

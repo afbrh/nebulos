@@ -71,7 +71,8 @@ object RetroArchCore : CoreDescriptor {
         val spec = specFor(request.system, ext, request.subCoreId)
             ?: throw IllegalArgumentException("No bundled core runs ${request.system}")
         val corePath = RaFiles.ensureCore(ctx, spec)
-        val pick = if (ShaderChoice.applies(request.system) && request.system in spec.systems) ShaderChoice.current(ctx, request.system) else null
+        val noShader = request.system == System.N64 && RaSession.sm64Game(File(request.romPath.ifBlank { request.romUri.orEmpty() }).name)   // Super Mario 64: no shader
+        val pick = if (ShaderChoice.applies(request.system) && request.system in spec.systems && !noShader) ShaderChoice.current(ctx, request.system) else null
         val cfg = RaFiles.writeConfig(ctx, spec, CrtShader.isEnabled(ctx), request.system, CrtShader.isEnabled(ctx, CrtShader.Look.GBA_LCD), pick,
             IntegerScale.isOn(ctx, request.system))
         val rom = request.romPath.ifBlank { request.romUri.orEmpty() }
