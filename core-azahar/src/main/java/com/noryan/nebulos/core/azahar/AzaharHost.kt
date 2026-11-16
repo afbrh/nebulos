@@ -122,6 +122,7 @@ object AzaharHost {
         // The emulator draws the top screen as a native 4:3 picture exactly while the 4:3 Fill layout is in force (with PiP: only while the top screen is the big one).
         val nativeFill = AzaharScreenLayouts.usesNativeFourThree(mode, bottomFocus)
         runCatching { NativeLibrary.setFourThreeFill(nativeFill) }
+        runCatching { NativeLibrary.setFourThreeAnchor2D(AzaharFourThree.smoothPin2d(titleId)) }
         runCatching { NativeLibrary.setFourThreeFadeEdges(AzaharFourThree.fadesEdges(titleId)) }
         AzaharFovPatch.apply(titleId, nativeFill)
         put(IntSetting.SCREEN_LAYOUT, CUSTOM_LAYOUT)

@@ -1,0 +1,102 @@
+From 2146743dcd64986fc13ad75aca5a2812d9184e87 Mon Sep 17 00:00:00 2001
+From: Ry <ry@Mac.eau.wi.charter.com>
+Date: Mon, 16 Nov 2026 12:44:05 -0600
+Subject: [PATCH] Nebulos 4:3 Fill: edge-lock mapping for 2D draws
+ (setFourThreeAnchor2D), for games that composite a rendered scene with a
+ full-screen quad
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ .../src/main/java/org/citra/citra_emu/NativeLibrary.kt   | 1 +
+ src/android/app/src/main/jni/native.cpp                  | 7 +++++++
+ src/video_core/four_three.h                              | 5 +++++
+ src/video_core/rasterizer_accelerated.cpp                | 7 +++++--
+ src/video_core/shader/generator/glsl_shader_gen.cpp      | 9 +++++++--
+ 5 files changed, 25 insertions(+), 4 deletions(-)
+
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/NativeLibrary.kt b/src/android/app/src/main/java/org/citra/citra_emu/NativeLibrary.kt
+index ab41dc80b..acb60bf64 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/NativeLibrary.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/NativeLibrary.kt
+@@ -253,6 +253,7 @@ object NativeLibrary {
+ 
+     /** True while the top screen should be drawn as a native 4:3 picture ("4:3 Fill" layout). */
+     external fun setFourThreeFill(on: Boolean)
++    external fun setFourThreeAnchor2D(on: Boolean)
+     external fun setFourThreeFadeEdges(on: Boolean)
+ 
+     /**
+diff --git a/src/android/app/src/main/jni/native.cpp b/src/android/app/src/main/jni/native.cpp
+index e2918737c..9a5f9ce03 100644
+--- a/src/android/app/src/main/jni/native.cpp
++++ b/src/android/app/src/main/jni/native.cpp
+@@ -1404,6 +1404,13 @@ void Java_org_citra_citra_1emu_NativeLibrary_setFourThreeFadeEdges([[maybe_unuse
+     LOG_INFO(Frontend, "Nebulos 4:3 fill edge fade: {}", on != JNI_FALSE);
+ }
+ 
++void Java_org_citra_citra_1emu_NativeLibrary_setFourThreeAnchor2D([[maybe_unused]] JNIEnv* env,
++                                                                  [[maybe_unused]] jobject obj,
++                                                                  jboolean on) {
++    VideoCore::g_four_three_anchor_2d = (on != JNI_FALSE);
++    LOG_INFO(Frontend, "Nebulos 4:3 fill smooth 2D pin: {}", on != JNI_FALSE);
++}
++
+ void Java_org_citra_citra_1emu_NativeLibrary_setFramePatch(JNIEnv* env,
+                                                            [[maybe_unused]] jobject obj,
+                                                            jint flag_addr, jintArray j_on,
+diff --git a/src/video_core/four_three.h b/src/video_core/four_three.h
+index ee421a4b1..0e009d73a 100644
+--- a/src/video_core/four_three.h
++++ b/src/video_core/four_three.h
+@@ -16,4 +16,9 @@ inline std::atomic<bool> g_four_three_game_patched{false};
+ /// The host turns it off for games that draw those strips fine.
+ inline std::atomic<bool> g_four_three_fade_edges{true};
+ 
++/// True (default): 2D draws are pinned toward the screen edges by a smooth mapping. False: 2D draws are scaled like 3D except vertices on
++/// the screen edge (|x| == 1), which stay put. For games that render the scene into a texture and composite it with a full-screen
++/// quad (Ocarina of Time 3D): the quad is already widened, and the smooth mapping warps it and the text.
++inline std::atomic<bool> g_four_three_anchor_2d{true};
++
+ } // namespace VideoCore
+diff --git a/src/video_core/rasterizer_accelerated.cpp b/src/video_core/rasterizer_accelerated.cpp
+index ca57999a1..dbb58512c 100644
+--- a/src/video_core/rasterizer_accelerated.cpp
++++ b/src/video_core/rasterizer_accelerated.cpp
+@@ -178,8 +178,11 @@ void RasterizerAccelerated::SyncDrawUniforms() {
+         vs_data.four_three_3d = three_d;
+         vs_data_dirty = true;
+     }
+-    if (vs_data.four_three_scale != four_three) {
+-        vs_data.four_three_scale = four_three;
++    // A negative scale tells the vertex shader to use the edge-lock mapping for 2D draws (see g_four_three_anchor_2d).
++    const f32 scale_uniform =
++        VideoCore::g_four_three_anchor_2d.load(std::memory_order_relaxed) ? four_three : -four_three;
++    if (vs_data.four_three_scale != scale_uniform) {
++        vs_data.four_three_scale = scale_uniform;
+         vs_data_dirty = true;
+     }
+ 
+diff --git a/src/video_core/shader/generator/glsl_shader_gen.cpp b/src/video_core/shader/generator/glsl_shader_gen.cpp
+index a650c8c4f..ed66a2d2a 100644
+--- a/src/video_core/shader/generator/glsl_shader_gen.cpp
++++ b/src/video_core/shader/generator/glsl_shader_gen.cpp
+@@ -63,9 +63,14 @@ vec4 SanitizeVertex(vec4 vtx_pos) {
+ // Scaling it by four_three_scale (0.8) shows 25% more of the scene there; the picture is then presented stretched by 1.25, which
+ // restores the proportions. 2D draws (w == 1: HUD, fades) keep their proportions the same way but stay anchored to the screen edges.
+ vec4 ApplyFourThree(vec4 pos) {
+-    float k = four_three_scale;
++    float k = abs(four_three_scale);
+     if (k < 1.0) {
+-        if (abs(pos.w - 1.0) < 0.0001) {
++        if (abs(pos.w - 1.0) < 0.0001 && four_three_scale < 0.0) {
++            // Edge-lock mode: vertices on the screen edge stay (full-screen composite quads keep covering the screen), the rest scale.
++            if (abs(pos.x) < 0.999) {
++                pos.x *= k;
++            }
++        } else if (abs(pos.w - 1.0) < 0.0001) {
+             float a = abs(pos.x);
+             float edge = sign(pos.x) * smoothstep(0.5, 0.7, a);
+             pos.x = k * pos.x + (1.0 - k) * edge;
+-- 
+2.54.0 (Apple Git-157)
+

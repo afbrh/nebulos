@@ -28,6 +28,9 @@ object AzaharFourThree {
 
     fun fadesEdges(titleId: String?): Boolean = titleId?.uppercase() !in NO_EDGE_FADE
 
+    /** The same games composite a rendered scene with a full-screen quad, so 2D draws use the edge-lock mapping instead of the smooth pin. */
+    fun smoothPin2d(titleId: String?): Boolean = fadesEdges(titleId)
+
     private const val PREFS = "nebulos_azahar_state"
     private const val KEY_PREFIX = "fill43_"
 
