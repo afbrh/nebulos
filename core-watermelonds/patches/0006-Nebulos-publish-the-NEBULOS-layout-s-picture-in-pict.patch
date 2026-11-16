@@ -1,0 +1,53 @@
+From c970168bcb7271ed9e2af4bf7bc73d8732a406cd Mon Sep 17 00:00:00 2001
+From: Ry <ry@Mac.eau.wi.charter.com>
+Date: Mon, 16 Nov 2026 15:08:45 -0600
+Subject: [PATCH] Nebulos: publish the NEBULOS layout's picture-in-picture rect
+ (NebulosBridge.pipRect) for double-tap swap
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ .../main/java/me/magnum/melonds/nebulos/NebulosBridge.kt   | 7 +++++++
+ .../java/me/magnum/melonds/nebulos/NebulosScreenLayouts.kt | 2 ++
+ 2 files changed, 9 insertions(+)
+
+diff --git a/app/src/main/java/me/magnum/melonds/nebulos/NebulosBridge.kt b/app/src/main/java/me/magnum/melonds/nebulos/NebulosBridge.kt
+index e6ed8f71..fd1872f7 100644
+--- a/app/src/main/java/me/magnum/melonds/nebulos/NebulosBridge.kt
++++ b/app/src/main/java/me/magnum/melonds/nebulos/NebulosBridge.kt
+@@ -31,6 +31,13 @@ object NebulosBridge {
+     /** Which screen arrangement Nebulos wants (see [NebulosScreenLayouts]); published by the Nebulos core session. */
+     val screenLayout = MutableStateFlow(NebulosScreenLayout(NebulosScreenLayouts.Mode.NEBULOS, false))
+ 
++    /**
++     * The small (picture-in-picture) screen of the NEBULOS layout as x, y, width, height in layout pixels, or null in any other layout.
++     * Published by [NebulosScreenLayouts.apply]; Nebulos uses it to detect a double tap on the small screen.
++     */
++    @Volatile
++    var pipRect: IntArray? = null
++
+     private val pending = ArrayList<(Host) -> Unit>()
+ 
+     @Volatile
+diff --git a/app/src/main/java/me/magnum/melonds/nebulos/NebulosScreenLayouts.kt b/app/src/main/java/me/magnum/melonds/nebulos/NebulosScreenLayouts.kt
+index 5265b728..87e37daa 100644
+--- a/app/src/main/java/me/magnum/melonds/nebulos/NebulosScreenLayouts.kt
++++ b/app/src/main/java/me/magnum/melonds/nebulos/NebulosScreenLayouts.kt
+@@ -29,6 +29,7 @@ object NebulosScreenLayouts {
+         val primary = if (choice.bottomFocus) LayoutComponent.BOTTOM_SCREEN else LayoutComponent.TOP_SCREEN
+         val other = if (choice.bottomFocus) LayoutComponent.TOP_SCREEN else LayoutComponent.BOTTOM_SCREEN
+ 
++        NebulosBridge.pipRect = null
+         val components = when (choice.mode) {
+             Mode.NEBULOS -> {
+                 val scale = min(x / 256, y / 192)
+@@ -36,6 +37,7 @@ object NebulosScreenLayouts {
+                 val gap = if (scale >= 1) PIP_GAP else 0
+                 val pipW = if (scale < 1) fit.width / 4 else 256
+                 val pipH = if (scale < 1) fit.height / 4 else 192
++                NebulosBridge.pipRect = intArrayOf(left + x - pipW - gap, top + gap, pipW, pipH)
+                 listOf(
+                     PositionedLayoutComponent(Rect(fit.x + left, fit.y + top, fit.width, fit.height), primary),
+                     PositionedLayoutComponent(Rect(left + x - pipW - gap, top + gap, pipW, pipH), other, onTop = true),
+-- 
+2.54.0 (Apple Git-157)
+

@@ -111,7 +111,7 @@ object AzaharHost {
     private const val CUSTOM_LAYOUT = 5 // Settings::LayoutOption::CustomLayout on Android
 
     /** Window size for the layout maths: the game is forced to landscape, so the long side is the width. */
-    private fun windowSize(ctx: Context): Pair<Int, Int> {
+    internal fun windowSize(ctx: Context): Pair<Int, Int> {
         val b = (ctx.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager).maximumWindowMetrics.bounds
         return maxOf(b.width(), b.height()) to minOf(b.width(), b.height())
     }
@@ -185,7 +185,6 @@ object AzaharHost {
         val s = AzaharSession(a).also { session = it }
         // One call wires the router, the shared menu, hotkeys AND Nebulos's loading screen / notices / error panel.
         val h = NebulosCoreHost.install(a, s, SYSTEM).also { hooks = it }
-        s.comboClock = { h.router.lastHotkeyAtMs }
         // Nebulos owns all non-game UI: Azahar's loading layout/toasts/dialogs are patched out (azahar-src, local only)
         // and report through NebulosBridge instead.
         NebulosBridge.notice = { h.notice(it) }
@@ -220,6 +219,12 @@ object AzaharHost {
                 // Stock activity would map raw gamepad keys itself; those must not double-fire.
                 if (e.source and (android.view.InputDevice.SOURCE_GAMEPAD or android.view.InputDevice.SOURCE_DPAD) != 0) return true
                 return super.dispatchKeyEvent(e)
+            }
+
+            override fun dispatchTouchEvent(e: MotionEvent): Boolean {
+                // Double tap on the small screen of the Nebulos layout swaps the screens (the second tap is not passed to the game).
+                if (hooks?.menu?.isOpen != true && s.onTouch(e)) return true
+                return super.dispatchTouchEvent(e)
             }
 
             override fun dispatchGenericMotionEvent(e: MotionEvent): Boolean {

@@ -19,7 +19,7 @@ import org.citra.citra_emu.NativeLibrary.ButtonType as B
  * save/load signals while running, so a paused session is briefly un-paused for the operation. These two methods
  * block (<= ~4 s); the menu already calls them off the main thread.
  */
-class AzaharSession(private val activity: Activity) : CoreSession, StateSlotProvider, FastForwardSupport, com.noryan.nebulos.api.OptionCycleSupport, com.noryan.nebulos.api.ToggleOptionSupport, com.noryan.nebulos.api.SecondToggleOptionSupport {
+class AzaharSession(private val activity: Activity) : CoreSession, StateSlotProvider, FastForwardSupport, com.noryan.nebulos.api.OptionCycleSupport, com.noryan.nebulos.api.SecondToggleOptionSupport {
     @Volatile var paused = false
         private set
     private val stick = FloatArray(4) // lx, ly, rx, ry; screen convention (down positive) as Azahar expects
@@ -34,16 +34,19 @@ class AzaharSession(private val activity: Activity) : CoreSession, StateSlotProv
         true
     } catch (_: Throwable) { false }
 
-    // ---- screen layout: "Single Screen" / "Stacked" (see AzaharScreenLayouts); L3 or R3 tapped alone swaps the screens ---------------------
+    // ---- screen layout: "Single Screen" / "Stacked" (see AzaharScreenLayouts); a double tap on the small screen swaps the screens ---------------------
     private var layoutMode = AzaharHost.currentMode(activity)
     private var bottomFocus = false
-    private val swapShortcut = com.noryan.nebulos.api.SwapScreensShortcut(activity, "nebulos_azahar_state") {
-        if (AzaharHost.customLayout) { bottomFocus = !bottomFocus; AzaharHost.applyScreenLayout(activity, layoutMode, bottomFocus) }
-    }
-    /** Set by the host: uptime of the last hotkey combo (InputRouter.lastHotkeyAtMs), to tell an L3/R3 tap from one in a combo. */
-    var comboClock: () -> Long
-        get() = swapShortcut.comboClock
-        set(v) { swapShortcut.comboClock = v }
+    /** Double tap on the small screen of the Nebulos layout swaps the screens (the only way to swap). */
+    private val doubleTap = com.noryan.nebulos.api.DoubleTapSwap(activity.resources.displayMetrics.density,
+        smallRect = {
+            if (layoutMode != AzaharScreenLayouts.Mode.FILL_PIP || !AzaharHost.customLayout) null
+            else { val (w, h) = AzaharHost.windowSize(activity); AzaharScreenLayouts.compute(layoutMode, bottomFocus, w, h).bottomSlot.let { intArrayOf(it.x, it.y, it.width, it.height) } }
+        },
+        onSwap = { bottomFocus = !bottomFocus; AzaharHost.applyScreenLayout(activity, layoutMode, bottomFocus) })
+
+    /** Feed every touch of the game window; true = consumed (see [com.noryan.nebulos.api.DoubleTapSwap]). */
+    fun onTouch(e: android.view.MotionEvent): Boolean = doubleTap.onTouch(e)
 
     override val optionLabel = "Screen Layout"
     override val optionAvailable get() = AzaharHost.customLayout
@@ -59,11 +62,6 @@ class AzaharSession(private val activity: Activity) : CoreSession, StateSlotProv
         AzaharHost.applyScreenLayout(activity, st.mode, bottomFocus)
         return true
     }
-
-    override val toggleLabel = "Swap Screens"
-    override val toggleAvailable get() = AzaharHost.customLayout
-    override fun toggleValue() = swapShortcut.enabled
-    override fun toggle() = swapShortcut.toggle()
 
     override val secondToggleLabel = "60 FPS"
     override val secondToggleAvailable get() = AzaharHost.sixtySpec != null
@@ -115,7 +113,6 @@ class AzaharSession(private val activity: Activity) : CoreSession, StateSlotProv
     }
 
     override fun injectButton(pad: Pad, pressed: Boolean) {
-        if (swapShortcut.onButton(pad, pressed)) return
         val id = when (pad) {
             Pad.A -> B.BUTTON_A; Pad.B -> B.BUTTON_B; Pad.X -> B.BUTTON_X; Pad.Y -> B.BUTTON_Y // Nintendo family: 1:1
             Pad.L1 -> B.TRIGGER_L; Pad.R1 -> B.TRIGGER_R

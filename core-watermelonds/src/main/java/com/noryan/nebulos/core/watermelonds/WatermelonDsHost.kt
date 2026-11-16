@@ -62,7 +62,14 @@ internal object WatermelonDsHost {
         val session = WatermelonDsSession(activity, romPath, activity)
         // NebulosCoreHost wires InputRouter (profiles/mapping/hotkeys) + the shared menu + hotkey actions + keep-screen-on.
         val hooks = NebulosCoreHost.install(activity, session, System.NDS)
-        session.comboClock = { hooks.router.lastHotkeyAtMs }
+        // A double tap on the small screen swaps the screens; the second tap never reaches the game.
+        val orig = activity.window.callback
+        activity.window.callback = object : androidx.appcompat.view.WindowCallbackWrapper(orig) {
+            override fun dispatchTouchEvent(e: MotionEvent): Boolean {
+                if (!hooks.menu.isOpen && session.onTouch(e)) return true
+                return super.dispatchTouchEvent(e)
+            }
+        }
         current = Attached(activity, hooks)
 
         NebulosBridge.host = object : NebulosBridge.Host {
