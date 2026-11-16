@@ -131,6 +131,17 @@ internal object RaFiles {
             "audio_fastforward_mute" to "true",
         )
         cfg.putAll(CrtShader.configKeys(shadersDir))
+        // NES / SNES: low-latency timing (these games respond within a frame or two, so every buffered frame is felt). Two swapchain images instead
+        // of three, a 32 ms audio buffer instead of 64 ms, and one frame of run-ahead (the core is run one frame ahead and the picture shown is
+        // that of the next frame, which removes the game's own one-frame input delay).
+        if (system == com.noryan.nebulos.api.System.NES || system == com.noryan.nebulos.api.System.SNES) cfg.putAll(mapOf(
+            "video_max_swapchain_images" to "2",
+            "audio_latency" to "32",
+            "run_ahead_enabled" to "true",
+            "run_ahead_frames" to "1",
+            "run_ahead_secondary_instance" to "false",
+            "run_ahead_hide_warnings" to "true",
+        ))
         // GBA: full-width picture at the game's own shape, pinned to the top of the screen (see GbaViewport).
         if (system == com.noryan.nebulos.api.System.GBA && com.noryan.nebulos.api.System.GBA in spec.systems)
             cfg.putAll(GbaViewport.configKeys)
