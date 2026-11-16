@@ -1,0 +1,84 @@
+From 85a75dc651e7bb63896c1037f2208b089523f99d Mon Sep 17 00:00:00 2001
+From: Ry <ry@Mac.eau.wi.charter.com>
+Date: Mon, 16 Nov 2026 12:24:04 -0600
+Subject: [PATCH] Nebulos 4:3 Fill: host switch to turn the edge fade off per
+ game (setFourThreeFadeEdges)
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ .../app/src/main/java/org/citra/citra_emu/NativeLibrary.kt | 1 +
+ src/android/app/src/main/jni/native.cpp                    | 7 +++++++
+ src/video_core/four_three.h                                | 4 ++++
+ src/video_core/renderer_vulkan/renderer_vulkan.cpp         | 6 ++++--
+ 4 files changed, 16 insertions(+), 2 deletions(-)
+
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/NativeLibrary.kt b/src/android/app/src/main/java/org/citra/citra_emu/NativeLibrary.kt
+index 2f4797c4c..ab41dc80b 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/NativeLibrary.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/NativeLibrary.kt
+@@ -253,6 +253,7 @@ object NativeLibrary {
+ 
+     /** True while the top screen should be drawn as a native 4:3 picture ("4:3 Fill" layout). */
+     external fun setFourThreeFill(on: Boolean)
++    external fun setFourThreeFadeEdges(on: Boolean)
+ 
+     /**
+      * Per-frame guest-memory patch set (the "60 FPS" patch). [on] / [off] are (address, word) pairs, [once] pairs are written a single
+diff --git a/src/android/app/src/main/jni/native.cpp b/src/android/app/src/main/jni/native.cpp
+index c8ecc312e..e2918737c 100644
+--- a/src/android/app/src/main/jni/native.cpp
++++ b/src/android/app/src/main/jni/native.cpp
+@@ -1397,6 +1397,13 @@ void Java_org_citra_citra_1emu_NativeLibrary_setFourThreeFill([[maybe_unused]] J
+     LOG_INFO(Frontend, "Nebulos 4:3 fill: {}", on != JNI_FALSE);
+ }
+ 
++void Java_org_citra_citra_1emu_NativeLibrary_setFourThreeFadeEdges([[maybe_unused]] JNIEnv* env,
++                                                                   [[maybe_unused]] jobject obj,
++                                                                   jboolean on) {
++    VideoCore::g_four_three_fade_edges = (on != JNI_FALSE);
++    LOG_INFO(Frontend, "Nebulos 4:3 fill edge fade: {}", on != JNI_FALSE);
++}
++
+ void Java_org_citra_citra_1emu_NativeLibrary_setFramePatch(JNIEnv* env,
+                                                            [[maybe_unused]] jobject obj,
+                                                            jint flag_addr, jintArray j_on,
+diff --git a/src/video_core/four_three.h b/src/video_core/four_three.h
+index 9cb9a492d..ee421a4b1 100644
+--- a/src/video_core/four_three.h
++++ b/src/video_core/four_three.h
+@@ -12,4 +12,8 @@ inline std::atomic<bool> g_four_three_fill{false};
+ /// the vertex shader must not widen 3D draws again, and the edge fade (a cover-up for culled strips) is not needed.
+ inline std::atomic<bool> g_four_three_game_patched{false};
+ 
++/// True (default) while 4:3 Fill fades the strips at the top screen's top and bottom edges (a cover-up for games that cull them).
++/// The host turns it off for games that draw those strips fine.
++inline std::atomic<bool> g_four_three_fade_edges{true};
++
+ } // namespace VideoCore
+diff --git a/src/video_core/renderer_vulkan/renderer_vulkan.cpp b/src/video_core/renderer_vulkan/renderer_vulkan.cpp
+index d6b438bd5..4ca142066 100644
+--- a/src/video_core/renderer_vulkan/renderer_vulkan.cpp
++++ b/src/video_core/renderer_vulkan/renderer_vulkan.cpp
+@@ -805,7 +805,8 @@ void RendererVulkan::DrawSingleScreen(u32 screen_id, float x, float y, float w,
+     draw_info.o_resolution = Common::MakeVec(h, w, 1.0f / h, 1.0f / w);
+     draw_info.screen_id_l = screen_id;
+     draw_info.fade_edges = (screen_id != 2 && VideoCore::g_four_three_fill.load(std::memory_order_relaxed) &&
+-                                !VideoCore::g_four_three_game_patched.load(std::memory_order_relaxed)) ? 1 : 0;
++                                !VideoCore::g_four_three_game_patched.load(std::memory_order_relaxed) &&
++                                VideoCore::g_four_three_fade_edges.load(std::memory_order_relaxed)) ? 1 : 0;
+ 
+     scheduler.Record([this, offset = offset, info = draw_info](vk::CommandBuffer cmdbuf) {
+         const u32 first_vertex = static_cast<u32>(offset) / sizeof(ScreenRectVertex);
+@@ -880,7 +881,8 @@ void RendererVulkan::DrawSingleScreenStereo(u32 screen_id_l, u32 screen_id_r, fl
+     draw_info.screen_id_l = screen_id_l;
+     draw_info.screen_id_r = screen_id_r;
+     draw_info.fade_edges = (VideoCore::g_four_three_fill.load(std::memory_order_relaxed) &&
+-                            !VideoCore::g_four_three_game_patched.load(std::memory_order_relaxed)) ? 1 : 0;
++                            !VideoCore::g_four_three_game_patched.load(std::memory_order_relaxed) &&
++                            VideoCore::g_four_three_fade_edges.load(std::memory_order_relaxed)) ? 1 : 0;
+ 
+     scheduler.Record([this, offset = offset, info = draw_info](vk::CommandBuffer cmdbuf) {
+         const u32 first_vertex = static_cast<u32>(offset) / sizeof(ScreenRectVertex);
+-- 
+2.54.0 (Apple Git-157)
+

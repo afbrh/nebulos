@@ -17,6 +17,17 @@ object AzaharFourThree {
     /** Title ids (16 upper-case hex digits) for which the default is OFF, with why. The user can still turn it on. */
     val DENY: Map<String, String> = emptyMap()
 
+    /**
+     * Grezzo's 3D remakes (Ocarina of Time 3D, Majora's Mask 3D; USA/EUR/JPN title ids) draw the extra strips 4:3 Fill reveals, so the
+     * emulator's black edge fade (a cover-up for games that cull them) is left off for them.
+     */
+    private val NO_EDGE_FADE = setOf(
+        "0004000000033400", "0004000000033500", "0004000000033600",
+        "0004000000125400", "0004000000125500", "0004000000125600",
+    )
+
+    fun fadesEdges(titleId: String?): Boolean = titleId?.uppercase() !in NO_EDGE_FADE
+
     private const val PREFS = "nebulos_azahar_state"
     private const val KEY_PREFIX = "fill43_"
 
