@@ -73,6 +73,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val editor = MutableStateFlow<CollectionEditor?>(null)
     val accessGranted = MutableStateFlow(Environment.isExternalStorageManager())
     val romDir = MutableStateFlow(prefs.romDir)
+    val listLayout = MutableStateFlow(com.noryan.nebulos.data.ListLayout.parse(prefs.listLayout))
+    fun setListLayout(l: com.noryan.nebulos.data.ListLayout) { listLayout.value = l; prefs.listLayout = l.name }
     val biosDir = MutableStateFlow(prefs.biosDir)
     val setup = MutableStateFlow<Setup>(Setup.Ready)
     val scanning = MutableStateFlow(false)

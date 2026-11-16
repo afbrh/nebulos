@@ -65,8 +65,8 @@ fun FocusLine(
             textAlign = if (center) TextAlign.Center else TextAlign.Start, modifier = if (center) Modifier else Modifier.weight(1f))
         if (right != null) {
             Spacer(Modifier.width(12.dp))
-            // The value: right-aligned in the right ~60% of the line, wrapping to a few lines for a full folder path.
-            Text(right, Modifier.fillMaxWidth(0.62f), style = style, color = c2, maxLines = 3, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End)
+            // The value: right-aligned in the right ~60% of the line, wrapping to a few lines for a full folder path. A short value (NO, ON) takes only the room it needs, so the label can use the rest.
+            Text(right, if (right.length <= 12) Modifier else Modifier.fillMaxWidth(0.62f), style = style, color = c2, maxLines = 3, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End)
         }
     }
 }

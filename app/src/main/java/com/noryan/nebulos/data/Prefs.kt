@@ -23,6 +23,10 @@ class Prefs(ctx: Context) {
         set(v) { sp.edit().putInt("detect_version", v).apply() }
     fun systemCore(s: System): String? = sp.getString("syscore_${s.name}", null)
     fun setSystemCore(s: System, id: String?) { sp.edit().apply { if (id == null) remove("syscore_${s.name}") else putString("syscore_${s.name}", id) }.apply() }
+    /** How the game list is organised (ListLayout name). */
+    var listLayout: String
+        get() = sp.getString("list_layout", null) ?: ListLayout.OPTIMIZED.name
+        set(v) { sp.edit().putString("list_layout", v).apply() }
     /** Selected content tab: 0 = GAMES, else a collection id. Resolved against the live collections on use (never trusted blindly). */
     var selectedTab: Long
         get() = sp.getLong("selected_tab", 0L)

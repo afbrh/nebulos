@@ -290,7 +290,19 @@ private fun seriesOf(title: String): String? = SERIES.firstOrNull { title.starts
 private const val OTHER_TAB = "Other"
 
 /** Tabs: series with the most games first (ties by name; PS2 always counts as one), then OTHER with every game that is not part of one. */
-private fun categoriesOf(games: List<com.noryan.nebulos.data.GameEntity>): List<Category> {
+private fun categoriesOf(games: List<com.noryan.nebulos.data.GameEntity>, layout: com.noryan.nebulos.data.ListLayout = com.noryan.nebulos.data.ListLayout.OPTIMIZED): List<Category> {
+    when (layout) {
+        // One A-Z list (a single category draws no tabs).
+        com.noryan.nebulos.data.ListLayout.ALPHABETICAL ->
+            return listOf(Category("All Games", games.sortedBy { it.title.lowercase() }.map { ListRow(it, false) }))
+        // One tab per console, in the console order of the System enum (OTHER last), games A-Z.
+        com.noryan.nebulos.data.ListLayout.SYSTEM -> {
+            val bySystem = games.groupBy { g -> sysOf(g) ?: System.OTHER }
+            return System.entries.filter { it in bySystem }.sortedBy { it == System.OTHER }
+                .map { s -> Category(systemLabel(s), bySystem.getValue(s).sortedBy { it.title.lowercase() }.map { ListRow(it, false) }) }
+        }
+        com.noryan.nebulos.data.ListLayout.OPTIMIZED -> Unit
+    }
     val groups = games.groupBy { headingOf(it) }.filter { it.key != null && (it.value.size >= 2 || it.key == PS2_HEADING) }
     val out = groups.entries.sortedWith(compareBy({ -it.value.size }, { it.key!!.lowercase() })).map { (s, members) ->
         Category(s!!, members.sortedWith(compareBy({ if (s == PS2_HEADING) 0 else ReleaseOrder.rank(s, it.title) }, { it.title.lowercase() })).map { ListRow(it, true) })
@@ -325,8 +337,9 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
     val games = if (collectionId == null) all else CollectionRules.gamesOf(all, members[collectionId].orEmpty())
     val cols = collections.orEmpty()
     // Series (see [seriesOf]) are tabs across the top; the selected tab's games are listed under them. Fewer than two tabs = a plain list.
-    val cats = remember(games) { categoriesOf(games) }
-    var catSel by remember(collectionId) { mutableStateOf<String?>(null) }
+    val layout by vm.listLayout.collectAsStateWithLifecycle()
+    val cats = remember(games, layout) { categoriesOf(games, layout) }
+    var catSel by remember(collectionId, layout) { mutableStateOf<String?>(null) }
     val cat = cats.firstOrNull { it.name == catSel } ?: cats.firstOrNull()
     val rows = cat?.rows.orEmpty()
     // Shoulder buttons step the selected tab (stops at the ends). A press that happened before this list appeared is ignored.
@@ -530,8 +543,24 @@ private fun SettingsTab(vm: MainViewModel, pickRom: () -> Unit, pickBios: () -> 
         }
         if (saveWarning != null && open != "save") item { Note("WARNING: $saveWarning") }
         item {
+            val layout by vm.listLayout.collectAsStateWithLifecycle()
+            // A / tap steps to the next layout; Left / Right step either way (wrapping).
+            val cycle = { d: Int ->
+                val all = com.noryan.nebulos.data.ListLayout.entries
+                vm.setListLayout(all[((layout.ordinal + d) % all.size + all.size) % all.size])
+            }
+            val keys = Modifier.onPreviewKeyEvent { e ->
+                when {
+                    e.key == Key.DirectionLeft -> { if (e.type == KeyEventType.KeyDown) cycle(-1); true }
+                    e.key == Key.DirectionRight -> { if (e.type == KeyEventType.KeyDown) cycle(1); true }
+                    else -> false
+                }
+            }
+            FocusLine("GAME LIST", keys, right = "< ${layout.label}${if (layout == com.noryan.nebulos.data.ListLayout.OPTIMIZED) " (DEFAULT)" else ""} >") { cycle(1) }
+        }
+        item {
             val isHome by rememberIsHomeApp()
-            FocusLine("NEBULOS LAUNCHER", right = if (isHome) "YES" else "NO", onClick = { openHomeAppSettings(ctx) })
+            FocusLine("NEBULOS SET AS HOME LAUNCHER", right = if (isHome) "YES" else "NO", onClick = { openHomeAppSettings(ctx) })
         }
         item { Section("ABOUT") }
         item { Note("Nebulos ${BuildConfig.VERSION_NAME} - GPLv3. Embedded emulator cores keep their own licenses.") }
@@ -544,8 +573,8 @@ private fun SettingsTab(vm: MainViewModel, pickRom: () -> Unit, pickBios: () -> 
  * bordered box that holds [children] (options drawn as flat small buttons, notes as centered text).
  */
 @Composable
-private fun SettingRow(label: String, value: String?, expanded: Boolean, onToggle: () -> Unit, dim: Boolean = false, children: @Composable () -> Unit) {
-    FocusLine(label, right = value, marked = expanded, dim = dim, onAlt = onToggle, onClick = onToggle)
+private fun SettingRow(label: String, value: String?, expanded: Boolean, onToggle: () -> Unit, dim: Boolean = false, modifier: Modifier = Modifier, children: @Composable () -> Unit) {
+    FocusLine(label, modifier, right = value, marked = expanded, dim = dim, onAlt = onToggle, onClick = onToggle)
     if (expanded) CompositionLocalProvider(LocalListIndent provides 28.dp) { Column { children() } }
 }
 
