@@ -59,6 +59,12 @@ internal object RaFiles {
         val cfgDir = File(base, "config").apply { mkdirs() }
         val opt = File(cfgDir, spec.id + ".opt")
         if (!opt.exists()) opt.writeText(spec.options.entries.joinToString("\n") { "${it.key} = \"${it.value}\"" } + "\n")
+        if (spec.forcedOptions.isNotEmpty()) {
+            // RetroArch reads <config>/<spec.id>.opt (core_options_path) or, for a per-core/per-game save, <config>/<Library name>/*.opt.
+            val files = listOf(opt) + cfgDir.listFiles { f -> f.isDirectory }.orEmpty().flatMap { d -> d.listFiles { f -> f.extension == "opt" }.orEmpty().toList() }
+            files.filter { it == opt || it.readText().contains(spec.forcedOptions.keys.first().substringBefore('_') + "_") }
+                .forEach { forceOptions(it, spec.forcedOptions) }
+        }
         val cfg = linkedMapOf(
             // ---- paths ----
             "libretro_directory" to File(ctx.applicationInfo.dataDir, "cores").absolutePath,
@@ -160,5 +166,17 @@ internal object RaFiles {
         val f = File(cfgDir, spec.id + ".cfg")
         f.writeText(cfg.entries.joinToString("\n") { "${it.key} = \"${it.value}\"" } + "\n")
         return f
+    }
+
+    /** Set [forced] keys in an `key = "value"` option file, replacing existing lines and appending missing ones. */
+    private fun forceOptions(file: File, forced: Map<String, String>) = runCatching {
+        val lines = file.takeIf { it.exists() }?.readLines().orEmpty().filter { it.isNotBlank() }.toMutableList()
+        var changed = !file.exists()
+        for ((k, v) in forced) {
+            val want = "$k = \"$v\""
+            val i = lines.indexOfFirst { it.substringBefore('=').trim() == k }
+            if (i < 0) { lines += want; changed = true } else if (lines[i].trim() != want) { lines[i] = want; changed = true }
+        }
+        if (changed) file.writeText(lines.joinToString("\n") + "\n")
     }
 }

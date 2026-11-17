@@ -19,6 +19,8 @@ internal data class CoreSpec(
     val options: Map<String, String> = emptyMap(),
     /** Extra retroarch.cfg lines for this core. */
     val cfg: Map<String, String> = emptyMap(),
+    /** Core options rewritten on EVERY launch, in every .opt file RetroArch may read for this core (a stale or hand-changed value cannot stick). */
+    val forcedOptions: Map<String, String> = emptyMap(),
 )
 
 internal fun CoreSpec.toSubCore() = SubCore(
@@ -34,7 +36,9 @@ internal fun CoreSpec.toSubCore() = SubCore(
  * extension -> system -> core.
  */
 internal object CoreTable {
-    val NESTOPIA = CoreSpec("nestopia", "nestopia_libretro_android.so", "Nestopia UE", setOf(System.NES), "GPL-2.0-or-later", "2.0.0 92578fd")
+    val NESTOPIA = CoreSpec("nestopia", "nestopia_libretro_android.so", "Nestopia UE", setOf(System.NES), "GPL-2.0-or-later", "2.0.0 92578fd",
+        // The Blargg NTSC filter blurs and colour-fringes the picture inside the core (no shader setting can turn it off).
+        forcedOptions = mapOf("nestopia_blargg_ntsc_filter" to "disabled"))
     val BSNES = CoreSpec("bsnes2014_performance", "bsnes2014_performance_libretro_android.so", "bsnes 2014 (performance)",
         setOf(System.SNES), "GPL-3.0", "v094 (Performance) 3c1394e")
     val FCEUMM = CoreSpec("fceumm", "fceumm_libretro_android.so", "FCEUmm", setOf(System.NES), "GPL-2.0-or-later", "(SVN) 7a542da")
