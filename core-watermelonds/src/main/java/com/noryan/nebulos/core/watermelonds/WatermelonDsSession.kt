@@ -139,9 +139,9 @@ class WatermelonDsSession(
         if (ZeldaStickMove.isSupportedGameCode(ZeldaStickMove.gameCode(romPath)))
             ZeldaStickMove({ x, y -> MelonEmulator.onScreenTouch(x, y) }, { MelonEmulator.onScreenRelease() }) else null
 
-    /** Phantom Hourglass (US): answers the "which hand holds the stylus" question with Right (see [HandednessPrompt]). */
-    private val handPrompt: HandednessPrompt? =
-        if (HandednessPrompt.isSupportedGameCode(ZeldaStickMove.gameCode(romPath))) HandednessPrompt().also { it.start() } else null
+    /** Phantom Hourglass / Spirit Tracks (US): answers the "which hand holds the stylus" question with Right (see [HandednessPrompt]). */
+    private val handPrompt: HandednessPrompt? = ZeldaStickMove.gameCode(romPath)?.takeIf { HandednessPrompt.isSupportedGameCode(it) }
+        ?.let { HandednessPrompt(it).also { p -> p.start() } }
 
     override fun injectButton(pad: Pad, pressed: Boolean) {
         zelda?.let { z ->

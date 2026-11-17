@@ -5,13 +5,14 @@ import me.magnum.melonds.MelonEmulator
 import me.magnum.melonds.nebulos.NebulosBridge
 
 /**
- * Phantom Hourglass asks "Do you hold the stylus in your right or left hand?" every time a new file is created. This answers it:
+ * Phantom Hourglass and Spirit Tracks ask "Do you hold the stylus in your right or left hand?" every time a new file is created. This answers it:
  * "Right", then "Yes" on the "You use your right hand?" confirmation. A watcher thread hashes the dialogue bubble of the touch screen
  * ([NebulosBridge.screenshotBuffer], filled by [MelonEmulator.takeScreenshot]) and taps only when the picture is exactly one of the two known dialogues,
- * stable for a few polls, so nothing else on screen is ever touched. Only the US game (AZEE) is recognised; other regions never match.
+ * stable for a few polls, so nothing else on screen is ever touched. Phantom Hourglass and Spirit Tracks are both recognised, US versions only (AZEE, BKIE); other regions never match.
  * Nothing is read from or written to the game's memory or save.
  */
-internal class HandednessPrompt {
+internal class HandednessPrompt(gameCode: String) {
+    private val profile: Profile = profileFor(gameCode) ?: Profile(0, 0, 0, 0, 0, 0)
     @Volatile private var running = false
     private var thread: Thread? = null
 
@@ -40,8 +41,8 @@ internal class HandednessPrompt {
             if (LOG_HASHES && stable == STABLE_POLLS && h != loggedAt) { loggedAt = h; android.util.Log.i(TAG, "bubble hash ${Integer.toHexString(h)}") }
             if (stable < STABLE_POLLS || SystemClock.uptimeMillis() < cooldownUntil) continue
             when (h) {
-                PROMPT_HASH -> { tap(RIGHT_X, RIGHT_Y); android.util.Log.i(TAG, "answered: Right") }
-                CONFIRM_RIGHT_HASH -> { tap(YES_X, YES_Y); android.util.Log.i(TAG, "answered: Yes") }
+                profile.promptHash -> { tap(profile.rightX, profile.rightY); android.util.Log.i(TAG, "answered: Right") }
+                profile.confirmHash -> { tap(profile.yesX, profile.yesY); android.util.Log.i(TAG, "answered: Yes") }
                 else -> continue
             }
             cooldownUntil = SystemClock.uptimeMillis() + COOLDOWN_MS
@@ -75,17 +76,21 @@ internal class HandednessPrompt {
         private const val STABLE_POLLS = 4
         private const val HOLD_MS = 160L
         private const val COOLDOWN_MS = 1800L
-        // The text area inside the dialogue bubble (both prompts use the same speech box; the bubble's rounded corners show the animated
+        // The text area inside the dialogue bubble (both prompts use the same speech box in each game; Phantom Hourglass's bubble corners show an animated
         // wood background, so they are left out): touch-screen pixels x 28-218, y 158-188.
         private const val BX = 28; private const val BY = 158; private const val BW = 190; private const val BH = 30
-        // Button centres (touch-screen pixels): the upper of the two pills is "Right" / "Yes".
-        private const val RIGHT_X = 205; private const val RIGHT_Y = 112
-        private const val YES_X = 205; private const val YES_Y = 112
-        // FNV-1a hashes of the bubble in the two dialogues (captured on a real run of the US game).
-        private const val PROMPT_HASH = 0x70012b38
-        private const val CONFIRM_RIGHT_HASH = 0x398b1b8e
+        /**
+         * What one game shows: FNV-1a hashes of the bubble in the two dialogues (captured on a real run; 0 = not captured, never matches) and the
+         * touch-screen pixel centres of the "Right" and "Yes" buttons.
+         */
+        private class Profile(val promptHash: Int, val confirmHash: Int, val rightX: Int, val rightY: Int, val yesX: Int, val yesY: Int)
 
-        /** Phantom Hourglass, US (game code AZEE). */
-        fun isSupportedGameCode(code: String?) = code == "AZEE"
+        private val PHANTOM_HOURGLASS_US = Profile(0x70012b38, 0x398b1b8e, 205, 112, 205, 112)
+        private val SPIRIT_TRACKS_US = Profile(0x0daddd80, 0x043fed40, 205, 112, 205, 112)
+
+        private fun profileFor(code: String?): Profile? = when (code) { "AZEE" -> PHANTOM_HOURGLASS_US; "BKIE" -> SPIRIT_TRACKS_US; else -> null }
+
+        /** Phantom Hourglass (AZEE) and Spirit Tracks (BKIE), US versions. */
+        fun isSupportedGameCode(code: String?) = profileFor(code) != null
     }
 }
