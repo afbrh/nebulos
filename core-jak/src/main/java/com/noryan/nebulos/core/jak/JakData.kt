@@ -17,7 +17,7 @@ import java.io.IOException
 internal object JakData {
     private const val TAG = "JakData"
     /** Bump when the APK's support files (assets/jak) or the extractor/engine data format change: re-copies assets, re-extracts games. */
-    const val DATA_VERSION = "1"
+    const val DATA_VERSION = "2"
     private const val SUPPORT_MARKER = ".nebulos_support_version"
     private const val GAME_MARKER = ".nebulos_extracted_version"
     /** Free space needed on top of what is already there before an import starts (extractor working data + output), per game. */
@@ -65,10 +65,10 @@ internal object JakData {
         for (n in names) copyAssetTree(ctx, "$assetPath/$n", File(dest, n))
     }
 
-    /** Extractor command line (see core-jak/README-jak.md). `-a` = decompile + compile + build all, ARM64 backend. */
+    /** Extractor command line (see core-jak/README-jak.md): -e extract the disc, -d decompile, -c compile the game code (ARM64 backend). */
     private fun extractorCommand(ctx: Context, game: String, iso: String, proj: File): List<String> = listOf(
         File(ctx.applicationInfo.nativeLibraryDir, "libjak_extractor.so").absolutePath,
-        iso, "-g", game, "-a", "--instruction-set", "arm64", "--proj-path", proj.absolutePath,
+        "-g", game, "-e", "-d", "-c", "--instruction-set", "arm64", "--proj-path", proj.absolutePath, iso,
     )
 
     private fun extract(ctx: Context, proj: File, game: String, iso: String, progress: (String) -> Unit): String? {
@@ -93,7 +93,7 @@ internal object JakData {
                         tail.addLast(line); if (tail.size > 12) tail.removeFirst()
                         val t = progressText(line) ?: continue
                         val now = android.os.SystemClock.uptimeMillis()
-                        if (now - lastShown > 700) { lastShown = now; progress("Preparing $title: $t") }
+                        if (line.contains("[PROGRESS]") || now - lastShown > 700) { lastShown = now; progress("Preparing $title: $t") }
                     }
                 }
             }
@@ -108,14 +108,23 @@ internal object JakData {
         if (!File(out, "fr3").isDirectory || !File(out, "obj").isDirectory) return "Preparing $title finished but the game data is incomplete."
         File(out, GAME_MARKER).writeText(DATA_VERSION)
         // The extractor's working copy of the disc contents is not needed any more.
-        File(proj, "iso_data").takeIf { it.isDirectory }?.deleteRecursively()
+        for (d in listOf("iso_data", "decompiler_out")) File(proj, d).takeIf { it.isDirectory }?.deleteRecursively()
         return null
     }
 
     /** One short progress phrase from an extractor log line, or null to ignore the line. */
     internal fun progressText(line: String): String? {
         val t = line.replace(Regex("""\u001B\[[0-9;]*m"""), "").trim()
-        if (t.isEmpty()) return null
-        return t.take(60)
+        Regex("""\[PROGRESS]\s+stage=(\w+)""").find(t)?.let {
+            return when (it.groupValues[1]) {
+                "extract" -> "reading the disc"
+                "decompile" -> "converting game data (the longest step)"
+                "compile" -> "compiling the game"
+                "done" -> "finishing"
+                else -> it.groupValues[1]
+            }
+        }
+        Regex("""^\[\s*(\d+)%]\s+\[goalc""").find(t)?.let { return "compiling the game ${it.groupValues[1]}%" }
+        return null   // everything else is log noise
     }
 }

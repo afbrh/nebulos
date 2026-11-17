@@ -24,7 +24,12 @@ pause = the display loop stops presenting so the game thread blocks on vsync, an
 ## First launch of a game: on-device import
 
 The game code is compiled and the disc's data converted by OpenGOAL's own extractor, shipped as `libjak_extractor.so` (a PIE executable
-in jniLibs, started from the app's native-library dir). `JakActivity.getArguments()` runs on SDL's own thread before the engine starts,
+in jniLibs, started from the app's native-library dir): `libjak_extractor.so -g jakN -e -d -c --instruction-set arm64 --proj-path <dir> <iso>`
+(extract the disc, decompile, compile with the ARM64 backend). It prints `[PROGRESS] stage=...` and `[ NN%] [goalc ]` lines that drive
+the loading-screen text. The extractor needs `goal_src`, `decompiler/config`, `game/assets` and `custom_assets` under `<dir>`: they are
+staged into the APK assets by `native/build.sh` and copied out once per `JakData.DATA_VERSION` (134 MB on disk, ~21 MB in the APK).
+Measured on the Nova (12 GB): Jak 1 ~45 s / 3.1 GB peak RAM, Jak II ~2.3 min / 6.9 GB, Jak 3 ~2.7 min / 7.7 GB (all in one pass, the
+loading screen shows progress). `iso_data` and `decompiler_out` working folders are deleted afterwards. `JakActivity.getArguments()` runs on SDL's own thread before the engine starts,
 so the import blocks there while the Nebulos loading screen shows the extractor's progress. Output: `<externalFilesDir>/jak/out/<game>/
 {iso,fr3,obj}` (Jak 1 ~1.7 GB, Jak II ~5.4 GB, Jak 3 ~5.8 GB), marker `.nebulos_extracted_version`. Later launches start at once.
 Support files from the APK assets (`game/assets`, GLSL ES shaders) are copied to `<externalFilesDir>/jak` once per `JakData.DATA_VERSION`.

@@ -32,4 +32,10 @@ rm -rf "$ASSETS/game"; mkdir -p "$ASSETS/game/graphics/opengl_renderer"
 python3 "$SRC/android-app/tools/translate_shaders.py" "$SRC/game/graphics/opengl_renderer/shaders" "$ASSETS/game/graphics/opengl_renderer/shaders_es" \
   /Users/ry/Desktop/claude/spirv-cross-src/build/spirv-cross
 cp -R "$SRC/game/assets" "$ASSETS/game/assets"
+# the extractor reads these from --proj-path at runtime (goal_src is compiled, decompiler config drives the decompile, custom assets are merged)
+rm -rf "$ASSETS/goal_src" "$ASSETS/decompiler" "$ASSETS/custom_assets"
+mkdir -p "$ASSETS/goal_src" "$ASSETS/decompiler/config" "$ASSETS/custom_assets"
+cp -R "$SRC/goal_src/common" "$SRC/goal_src/jak1" "$SRC/goal_src/jak2" "$SRC/goal_src/jak3" "$SRC/goal_src/goal-lib.gc" "$SRC/goal_src/goos-lib.gs" "$ASSETS/goal_src/"
+cp -R "$SRC/decompiler/config/jak1" "$SRC/decompiler/config/jak2" "$SRC/decompiler/config/jak3" "$ASSETS/decompiler/config/"
+for g in jak1 jak2 jak3; do [ -d "$SRC/custom_assets/$g" ] && cp -R "$SRC/custom_assets/$g" "$ASSETS/custom_assets/$g"; done
 echo "staged: $(du -sh "$LIBS" | cut -f1) libs, $(du -sh "$ASSETS" | cut -f1) assets"

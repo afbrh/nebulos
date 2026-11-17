@@ -33,7 +33,7 @@ class Ps2DiscIdTest {
     }
 
     @Test fun notAnIsoIsNull() {
-        val f = File.createTempFile("x", ".iso").apply { deleteOnExit(); writeBytes(ByteArray(100000)) }
+        val f = File.createTempFile("notiso", ".iso").apply { deleteOnExit(); writeBytes(ByteArray(100000)) }
         assertNull(Ps2DiscId.readSerial(f))
     }
 }
