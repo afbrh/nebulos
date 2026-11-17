@@ -122,6 +122,7 @@ class WatermelonDsSession(
      */
     override fun close() {
         zelda?.stop()
+        handPrompt?.stop()
         runCatching { MelonEmulator.pauseEmulation() }
         // Cartridge saves are written by melonDS' SaveManager (debounced 2 s, final write when the emulator is stopped).
         // Stop the emulator HERE, synchronously on a worker, so the final .sav write in the save root completes before
@@ -138,10 +139,15 @@ class WatermelonDsSession(
         if (ZeldaStickMove.isSupportedGameCode(ZeldaStickMove.gameCode(romPath)))
             ZeldaStickMove({ x, y -> MelonEmulator.onScreenTouch(x, y) }, { MelonEmulator.onScreenRelease() }) else null
 
+    /** Phantom Hourglass (US): answers the "which hand holds the stylus" question with Right (see [HandednessPrompt]). */
+    private val handPrompt: HandednessPrompt? =
+        if (HandednessPrompt.isSupportedGameCode(ZeldaStickMove.gameCode(romPath))) HandednessPrompt().also { it.start() } else null
+
     override fun injectButton(pad: Pad, pressed: Boolean) {
         zelda?.let { z ->
             when (pad) {
                 Pad.SELECT -> z.select(pressed)
+                Pad.A -> if (z.owns()) { if (pressed) z.interact(); return }
                 Pad.DPAD_UP -> if (z.owns()) { z.dpad(0, pressed); return }
                 Pad.DPAD_DOWN -> if (z.owns()) { z.dpad(1, pressed); return }
                 Pad.DPAD_LEFT -> if (z.owns()) { z.dpad(2, pressed); return }

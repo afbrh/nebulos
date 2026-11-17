@@ -289,7 +289,10 @@ private fun seriesOf(title: String): String? = SERIES.firstOrNull { title.starts
 /** Name of the tab that holds every game that is not part of a series. */
 private const val OTHER_TAB = "Other"
 
-/** Tabs: series with the most games first (ties by name; PS2 always counts as one), then OTHER with every game that is not part of one. */
+/** Tabs that always come first, in this order, when the library has them. */
+private val PINNED_TABS = listOf("The Legend of Zelda", "Metroid", "Super Mario", PS2_HEADING)
+
+/** Tabs: Zelda, Metroid, Mario, PS2 (always in that order), then any other series with the most games first (ties by name), then OTHER with every game that is not part of one. */
 private fun categoriesOf(games: List<com.noryan.nebulos.data.GameEntity>, layout: com.noryan.nebulos.data.ListLayout = com.noryan.nebulos.data.ListLayout.OPTIMIZED): List<Category> {
     when (layout) {
         // One A-Z list (a single category draws no tabs).
@@ -304,7 +307,7 @@ private fun categoriesOf(games: List<com.noryan.nebulos.data.GameEntity>, layout
         com.noryan.nebulos.data.ListLayout.OPTIMIZED -> Unit
     }
     val groups = games.groupBy { headingOf(it) }.filter { it.key != null && (it.value.size >= 2 || it.key == PS2_HEADING) }
-    val out = groups.entries.sortedWith(compareBy({ -it.value.size }, { it.key!!.lowercase() })).map { (s, members) ->
+    val out = groups.entries.sortedWith(compareBy({ PINNED_TABS.indexOf(it.key).let { i -> if (i < 0) PINNED_TABS.size else i } }, { -it.value.size }, { it.key!!.lowercase() })).map { (s, members) ->
         Category(s!!, members.sortedWith(compareBy({ if (s == PS2_HEADING) 0 else ReleaseOrder.rank(s, it.title) }, { it.title.lowercase() })).map { ListRow(it, true) })
     }
     val rest = games.filter { g -> headingOf(g)?.let { it in groups.keys } != true }
@@ -397,11 +400,12 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
                 )
                 if (launchFor == g.id) {
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopStart) {
-                        Column(Modifier.padding(start = 16.dp, top = 4.dp, bottom = 10.dp).widthIn(max = 296.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            // The first button is the one that continues: RESUME GAME with a save state, else START GAME.
-                            if (launchResume) OptionButton("RESUME GAME", Modifier.focusRequester(launchFocus)) { launchFor = null; vm.launch(ctx, g) }
-                            OptionButton("START GAME", if (launchResume) Modifier else Modifier.focusRequester(launchFocus)) { launchFor = null; vm.launch(ctx, g, fresh = launchResume) }
-                            OptionButton("GAME OPTIONS") { launchFor = null; expanded = g.id }
+                        // One row, left to right: RESUME (only with a save state), START, OPTIONS.
+                        Row(Modifier.padding(start = 16.dp, top = 4.dp, bottom = 10.dp, end = 16.dp).widthIn(max = 600.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // The first button is the one that continues: RESUME with a save state, else START.
+                            if (launchResume) OptionButton("RESUME", Modifier.weight(1f).focusRequester(launchFocus)) { launchFor = null; vm.launch(ctx, g) }
+                            OptionButton("START", Modifier.weight(1f).then(if (launchResume) Modifier else Modifier.focusRequester(launchFocus))) { launchFor = null; vm.launch(ctx, g, fresh = launchResume) }
+                            OptionButton("OPTIONS", Modifier.weight(1f)) { launchFor = null; expanded = g.id }
                         }
                     }
                 }

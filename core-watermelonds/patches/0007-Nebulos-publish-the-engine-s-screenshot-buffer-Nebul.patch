@@ -1,0 +1,47 @@
+From cec1c01097287d48d210cb70723997a4937181d5 Mon Sep 17 00:00:00 2001
+From: Ry <ry@Rys-MacBook-Pro.local>
+Date: Tue, 17 Nov 2026 10:31:17 -0600
+Subject: [PATCH] Nebulos: publish the engine's screenshot buffer
+ (NebulosBridge.screenshotBuffer) so Nebulos can read the real touch-screen
+ picture
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ .../melonds/impl/emulator/AndroidEmulatorManager.kt       | 1 +
+ .../main/java/me/magnum/melonds/nebulos/NebulosBridge.kt  | 8 ++++++++
+ 2 files changed, 9 insertions(+)
+
+diff --git a/app/src/main/java/me/magnum/melonds/impl/emulator/AndroidEmulatorManager.kt b/app/src/main/java/me/magnum/melonds/impl/emulator/AndroidEmulatorManager.kt
+index 3542d383..5379b177 100644
+--- a/app/src/main/java/me/magnum/melonds/impl/emulator/AndroidEmulatorManager.kt
++++ b/app/src/main/java/me/magnum/melonds/impl/emulator/AndroidEmulatorManager.kt
+@@ -727,6 +727,7 @@ class AndroidEmulatorManager(
+                 settingsRepository.getVulkanDriverConfiguration(context.applicationInfo.nativeLibraryDir)
+             )
+         }
++        me.magnum.melonds.nebulos.NebulosBridge.screenshotBuffer = screenshotFrameBufferProvider.frameBuffer()
+         MelonEmulator.setupEmulator(
+             emulatorConfiguration = emulatorConfiguration,
+             dsiCameraSource = cameraManager,
+diff --git a/app/src/main/java/me/magnum/melonds/nebulos/NebulosBridge.kt b/app/src/main/java/me/magnum/melonds/nebulos/NebulosBridge.kt
+index fd1872f7..813c146d 100644
+--- a/app/src/main/java/me/magnum/melonds/nebulos/NebulosBridge.kt
++++ b/app/src/main/java/me/magnum/melonds/nebulos/NebulosBridge.kt
+@@ -38,6 +38,14 @@ object NebulosBridge {
+     @Volatile
+     var pipRect: IntArray? = null
+ 
++    /**
++     * The engine's screenshot buffer: 256 x 384 BGRA pixels, the top screen in rows 0-191 and the touch screen in rows 192-383. It is filled
++     * by [me.magnum.melonds.MelonEmulator.takeScreenshot] (which waits for the next frame), so Nebulos can read the real picture (the
++     * Vulkan renderer composes frames on the GPU; there is no CPU copy otherwise). Set when the emulator is set up.
++     */
++    @Volatile
++    var screenshotBuffer: java.nio.ByteBuffer? = null
++
+     private val pending = ArrayList<(Host) -> Unit>()
+ 
+     @Volatile
+-- 
+2.54.0 (Apple Git-157)
+
