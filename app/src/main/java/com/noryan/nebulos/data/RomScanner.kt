@@ -74,8 +74,9 @@ object RomScanner {
                 if (detected == null) continue
                 // GameCube / Wii discs: remember the 6-char disc ID (routing by game ID, e.g. Twilight Princess -> Dusklight).
                 // Reused while the file is unchanged (same size) so rescans do not touch every image again.
-                val gameId = if (r.isDir || (detected != System.GAMECUBE && detected != System.WII)) null
+                val gameId = if (r.isDir || (detected != System.GAMECUBE && detected != System.WII && detected != System.PS2)) null
                 else if (prev != null && prev.sizeBytes == size && prev.gameId != null) prev.gameId
+                else if (detected == System.PS2) com.noryan.nebulos.api.Ps2DiscId.readSerial(r.file)   // "SCUS-97124": Jak and Daxter -> OpenGOAL
                 else com.noryan.nebulos.api.DiscId.readFile(r.file)?.gameId
                 out += GameEntity(
                     id = prev?.id ?: 0, uri = path, realPath = path, fileName = name, title = cleanTitle(name),

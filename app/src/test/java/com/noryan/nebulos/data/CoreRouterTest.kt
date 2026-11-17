@@ -112,4 +112,18 @@ class CoreRouterTest {
         assertEquals("retroarch:mupen64plus_next", CoreRouter.autoChoice(System.N64, "The Legend of Zelda - Ocarina of Time", c)!!.id)
         assertEquals(listOf("retroarch:mupen64plus_next"), CoreRouter.candidatesFor(System.N64, null, n64, "Ocarina of Time").map { it.id })
     }
+
+    // ---- Jak and Daxter -> OpenGOAL (routing by PS2 disc serial) ----
+    private val ps2 = Fake("armsx2", "ARMSX2", setOf(System.PS2))
+    private val jak = Fake("jak", "OpenGOAL (Jak and Daxter)", setOf(System.PS2))
+    private val ps2Cores = listOf(ps2, jak)
+
+    @Test fun jakSerialsAutoRouteToOpenGoalOthersToArmsx2() {
+        for (id in listOf("SCUS-97124", "SCUS-97265", "SCUS-97330", "SCES-50361"))
+            assertEquals(id, "jak", CoreRouter.autoChoice(System.PS2, "Jak", CoreRouter.candidates(System.PS2, ps2Cores), id)!!.id)
+        for (id in listOf("SLUS-20000", null))
+            assertEquals(id, "armsx2", CoreRouter.autoChoice(System.PS2, "Other", CoreRouter.candidates(System.PS2, ps2Cores), id)!!.id)
+        assertEquals("armsx2", CoreRouter.choose(System.PS2, "Jak", "SCUS-97124", "armsx2", null, ps2Cores)!!.id)   // per-game override keeps ARMSX2
+        assertEquals("armsx2", CoreRouter.choose(System.PS2, "X", "SLUS-20000", "jak", null, ps2Cores)!!.id)         // OpenGOAL cannot be forced onto other games
+    }
 }

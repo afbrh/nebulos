@@ -11,7 +11,7 @@ import com.noryan.nebulos.api.CoreRegistry
  */
 object CoreBootstrap {
     private const val TAG = "CoreBootstrap"
-    val CORE_IDS = listOf("retroarch", "dolphin", "primehack", "cemu", "eden", "lichii", "azahar", "watermelonds", "armsx2", "dusklight", "wwhd")
+    val CORE_IDS = listOf("retroarch", "dolphin", "primehack", "cemu", "eden", "lichii", "azahar", "watermelonds", "armsx2", "dusklight", "wwhd", "jak")
 
     private val DISPLAY_CASE = mapOf(
         "retroarch" to listOf("RetroArch", "Retroarch"), "primehack" to listOf("PrimeHack", "Primehack"),

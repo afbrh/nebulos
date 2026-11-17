@@ -86,6 +86,10 @@ if (want("dusklight")) includeBuild("../dusklight-src/platforms/android") {
     dependencySubstitution { substitute(module("dev.twilitrealm:app")).using(project(":app")) }
 }
 
+// :core-jak (PS2, Jak and Daxter trilogy). OpenGOAL native port from ../jak-android-src (local branch `android-port`, never pushed);
+// native libs are produced by core-jak/native/build.sh (NDK 27). See core-jak/README-jak.md.
+if (want("jak")) include(":core-jak")
+
 // :core-wwhd (Wii U: The Wind Waker HD only). Native runtime from ../wwhd-src (CMake, local branch `nebulos`), no game code in the library;
 // the game is translated on the device from the user's own .wua. See core-wwhd/README-wwhd.md.
 if (want("wwhd")) include(":core-wwhd")

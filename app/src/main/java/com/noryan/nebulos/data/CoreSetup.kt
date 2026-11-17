@@ -83,7 +83,9 @@ object GameSpecificCores {
     private val WWHD_TITLE = Regex("wind\\s*waker", RegexOption.IGNORE_CASE)   // only reached for Wii U games (candidates are per system), where it is always the HD version
 
     /** Cores that can only run particular discs, id -> predicate on the 6-char disc game ID (null = unknown ID). */
-    private val matchers: Map<String, (String?) -> Boolean> = mapOf("dusklight" to ::isTwilightPrincess)
+    private val JAK_SERIALS = setOf("SCUS-97124", "SCES-50361", "SCPS-15021", "SCPS-56003", "SCUS-97265", "SCES-51608", "SCPS-15057",
+        "SCKA-20010", "SCUS-97330", "SCUS-97516", "SCKA-20040", "SCES-52460")
+    private val matchers: Map<String, (String?) -> Boolean> = mapOf("dusklight" to ::isTwilightPrincess, "jak" to ::isJakAndDaxter)
 
     /** Cores that can only run particular games recognised by name, id -> predicate on the game's title. */
     private val titleMatchers: Map<String, (String?) -> Boolean> = mapOf("wwhd" to ::isWindWakerHd)
@@ -96,6 +98,17 @@ object GameSpecificCores {
             }
         }.getOrNull()
         return r ?: (gameId in TP_GC_IDS)
+    }
+
+    /** Jak and Daxter trilogy PS2 discs (OpenGOAL core), recognised by the serial the scanner reads from SYSTEM.CNF. */
+    fun isJakAndDaxter(serial: String?): Boolean {
+        if (serial == null) return false
+        val r = runCatching {
+            Class.forName("com.noryan.nebulos.core.jak.JakCore").let { c ->
+                c.getMethod("isJakSerial", String::class.java).invoke(c.getField("INSTANCE").get(null), serial) as? Boolean
+            }
+        }.getOrNull()
+        return r ?: (serial in JAK_SERIALS)
     }
 
     fun isWindWakerHd(title: String?): Boolean {
