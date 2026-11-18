@@ -65,7 +65,8 @@ internal class JakSession(private val activity: JakActivity) : CoreSession, Stat
     // SDL: +Y is down; canonical "up" is positive.
     private fun lx() = JakNative.nativeAxis(JakInput.AXIS_LEFTX, JakInput.stick(dirs[2], dirs[3]))
     private fun ly() = JakNative.nativeAxis(JakInput.AXIS_LEFTY, JakInput.stick(dirs[0], dirs[1]))
-    private fun rx() = JakNative.nativeAxis(JakInput.AXIS_RIGHTX, JakInput.stick(dirs[6], dirs[7]))
+    // right stick left/right is inverted for all three games (user preference): negative/positive swapped
+    private fun rx() = JakNative.nativeAxis(JakInput.AXIS_RIGHTX, JakInput.stick(dirs[7], dirs[6]))
     private fun ry() = JakNative.nativeAxis(JakInput.AXIS_RIGHTY, JakInput.stick(dirs[4], dirs[5]))
 
     private inline fun call(block: () -> Unit) {
