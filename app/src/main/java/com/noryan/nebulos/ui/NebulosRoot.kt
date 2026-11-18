@@ -327,6 +327,7 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
     val scanning by vm.scanning.collectAsStateWithLifecycle()
     val launching by vm.launching.collectAsStateWithLifecycle()
     var expanded by remember(collectionId) { mutableStateOf<Long?>(null) }
+    var texOpen by remember(collectionId) { mutableStateOf<Long?>(null) }
     val optFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     LaunchedEffect(expanded) { if (expanded != null) runCatching { optFocus.requestFocus() } }
     var addOpen by remember(collectionId) { mutableStateOf<Long?>(null) }
@@ -413,6 +414,7 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
                     val cands = sys?.let { CoreRouter.candidatesFor(it, g.gameId, title = g.title) }.orEmpty()
                     val auto = sys?.let { CoreRouter.autoChoice(it, g.title, gameId = g.gameId) }
                     val chosen = CoreRouter.resolveOverride(g.coreOverride, cands)
+                    val chosenOrAuto = chosen?.core ?: auto?.core
                     val autoLabel = "AUTO" + (auto?.displayName?.let { " ($it)" } ?: "")
                     // A narrow, centered stack of in-game-menu-style buttons under the game's name.
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopStart) {
@@ -426,6 +428,22 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
                                         val inIt = g.id in members[c.id].orEmpty()
                                         OptionButton((if (inIt) "[X] " else "[ ] ") + CollectionRules.tabLabel(c.name), selected = inIt, small = true, flat = true) { vm.setMember(c.id, g.id, !inIt) }
                                     }
+                                }
+                            }
+                            // HD TEXTURES (Jak 1 only): pick a community texture pack from <_Nebulos>/jak-core/jak1/texture_packs. The game re-imports with it.
+                            if (chosenOrAuto?.id == "jak" && vm.jakGame(g) == "jak1") {
+                                val packs = remember(texOpen, tick) { com.noryan.nebulos.core.jak.JakTexturePacks.list(ctx, "jak1") }
+                                val pack = vm.texturePack(g)?.takeIf { it in packs }
+                                val texLabel = "HD TEXTURES: " + (pack?.removeSuffix(".zip")?.uppercase() ?: "OFF")
+                                if (texOpen != g.id) {
+                                    OptionButton(texLabel) { texOpen = g.id }
+                                } else ExpandBox(header = { OptionButton(texLabel, selected = true, flat = true) { texOpen = null } }) {
+                                    if (pack != null) OptionButton("OFF (ORIGINAL TEXTURES)", small = true, flat = true) { vm.setTexturePack(g, null); texOpen = null }
+                                    packs.filter { it != pack }.forEach { n -> OptionButton(n.removeSuffix(".zip").uppercase(), small = true, flat = true) { vm.setTexturePack(g, n); texOpen = null } }
+                                    Text(if (packs.isEmpty()) "NO PACKS FOUND. PUT A PACK FOLDER OR .ZIP IN _NEBULOS/JAK-CORE/JAK1/TEXTURE_PACKS"
+                                         else "THE GAME IS RE-PREPARED WITH A NEW PACK ON ITS NEXT START (ABOUT A MINUTE)",
+                                        Modifier.padding(8.dp).fillMaxWidth(), style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                                 }
                             }
                             // One CORE field. Closed: a single button. Open: the same box grows, with the current choice as its header

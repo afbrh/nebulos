@@ -31,4 +31,7 @@ class Prefs(ctx: Context) {
     var selectedTab: Long
         get() = sp.getLong("selected_tab", 0L)
         set(v) { sp.edit().putLong("selected_tab", v).apply() }
+    /** Small per-game choices made in GAME OPTIONS (key e.g. "texpack"); null = default. Keyed by the game's database id. */
+    fun gameOpt(gameId: Long, key: String): String? = sp.getString("gopt_${gameId}_$key", null)
+    fun setGameOpt(gameId: Long, key: String, v: String?) { sp.edit().apply { if (v == null) remove("gopt_${gameId}_$key") else putString("gopt_${gameId}_$key", v) }.apply() }
 }
