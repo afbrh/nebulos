@@ -39,8 +39,6 @@ object JakCore : CoreDescriptor {
 
     const val EXTRA_ROM_PATH = "nebulos.jak.path"
     const val EXTRA_GAME = "nebulos.jak.game"
-    /** Name of the chosen HD texture pack (see [JakTexturePacks]); absent/empty = original textures. */
-    const val EXTRA_TEXPACK = "nebulos.jak.texpack"
     const val STATE_UNAVAILABLE_REASON = "Jak and Daxter (OpenGOAL) uses the game's own saves."
 
     fun isJakSerial(serial: String?): Boolean = serial != null && serial in SERIALS

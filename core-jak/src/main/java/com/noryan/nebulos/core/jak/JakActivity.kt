@@ -68,7 +68,7 @@ class JakActivity : SDLActivity() {
     override fun getArguments(): Array<String> {
         val g = game
         val iso = intent?.getStringExtra(JakCore.EXTRA_ROM_PATH)
-        val err = JakData.ensureReady(this, g, iso, intent?.getStringExtra(JakCore.EXTRA_TEXPACK)) { line -> hooks?.let { h -> runOnUiThread { h.setLoadingText(line) } } }
+        val err = JakData.ensureReady(this, g, iso) { line -> hooks?.let { h -> runOnUiThread { h.setLoadingText(line) } } }
         runOnUiThread { hooks?.setLoadingText("Starting ${JakCore.TITLES[g] ?: "Jak and Daxter"}") }
         if (err != null) {
             Log.e(TAG, "game data not ready: $err")
