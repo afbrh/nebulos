@@ -51,6 +51,14 @@
                 tools:replace="android:resource" />
         </provider>
 
+        <!-- Citra and Eden ship their own launcher activities; only Nebulos' MainActivity should appear as an app icon. -->
+        <activity android:name="org.citra.citra_emu.ui.main.MainActivity" tools:node="merge">
+            <intent-filter tools:node="removeAll" />
+        </activity>
+        <activity android:name="org.yuzu.yuzu_emu.ui.main.MainActivity" tools:node="merge">
+            <intent-filter tools:node="removeAll" />
+        </activity>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
