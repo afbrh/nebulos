@@ -430,18 +430,20 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
                                     }
                                 }
                             }
-                            // HD TEXTURES (Jak 1 only): pick a community texture pack from <_Nebulos>/jak-core/jak1/texture_packs. The game re-imports with it.
+                            // HD TEXTURES (Jak 1 only): switch built-in and user texture packs on/off. A change re-prepares the game on its next start.
                             if (chosenOrAuto?.id == "jak" && vm.jakGame(g) == "jak1") {
                                 val packs = remember(texOpen, tick) { com.noryan.nebulos.core.jak.JakTexturePacks.list(ctx, "jak1") }
-                                val pack = vm.texturePack(g)?.takeIf { it in packs }
-                                val texLabel = "HD TEXTURES: " + (pack?.removeSuffix(".zip")?.uppercase() ?: "OFF")
+                                val on = vm.texturePacks(g).filter { it in packs }
+                                val texLabel = "HD TEXTURES: " + if (on.isEmpty()) "OFF" else "${on.size} ON"
                                 if (texOpen != g.id) {
                                     OptionButton(texLabel) { texOpen = g.id }
                                 } else ExpandBox(header = { OptionButton(texLabel, selected = true, flat = true) { texOpen = null } }) {
-                                    if (pack != null) OptionButton("OFF (ORIGINAL TEXTURES)", small = true, flat = true) { vm.setTexturePack(g, null); texOpen = null }
-                                    packs.filter { it != pack }.forEach { n -> OptionButton(n.removeSuffix(".zip").uppercase(), small = true, flat = true) { vm.setTexturePack(g, n); texOpen = null } }
-                                    Text(if (packs.isEmpty()) "NO PACKS FOUND. PUT A PACK FOLDER OR .ZIP IN _NEBULOS/JAK-CORE/JAK1/TEXTURE_PACKS"
-                                         else "THE GAME IS RE-PREPARED WITH A NEW PACK ON ITS NEXT START (ABOUT A MINUTE)",
+                                    packs.forEach { id ->
+                                        val isOn = id in on
+                                        OptionButton((if (isOn) "[X] " else "[ ] ") + com.noryan.nebulos.core.jak.JakTexturePacks.title(id).uppercase(),
+                                            selected = isOn, small = true, flat = true) { vm.toggleTexturePack(g, id) }
+                                    }
+                                    Text("THE GAME IS RE-PREPARED WITH YOUR CHOICE ON ITS NEXT START (ABOUT A MINUTE). OWN PACKS: _NEBULOS/JAK-CORE/JAK1/TEXTURE_PACKS",
                                         Modifier.padding(8.dp).fillMaxWidth(), style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                                 }

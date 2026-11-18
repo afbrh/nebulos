@@ -456,8 +456,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setGameCore(g: GameEntity, id: String?) { viewModelScope.launch(Dispatchers.IO) { dao.setCore(g.id, id) } }
     /** The OpenGOAL game ("jak1"/"jak2"/"jak3") a PS2 disc belongs to, or null for any other game. */
     fun jakGame(g: GameEntity): String? = g.gameId?.let { com.noryan.nebulos.core.jak.JakCore.SERIALS[it] }
-    fun texturePack(g: GameEntity): String? = prefs.gameOpt(g.id, "texpack")
-    fun setTexturePack(g: GameEntity, name: String?) { prefs.setGameOpt(g.id, "texpack", name); prefsTick.value++ }
+    /** HD texture pack ids switched on for [g] (see JakTexturePacks); stored newline-separated. */
+    fun texturePacks(g: GameEntity): List<String> = prefs.gameOpt(g.id, "texpacks")?.split('\n')?.filter { it.isNotEmpty() }.orEmpty()
+    fun toggleTexturePack(g: GameEntity, id: String) {
+        val cur = texturePacks(g)
+        val next = if (id in cur) cur - id else cur + id
+        prefs.setGameOpt(g.id, "texpacks", next.takeIf { it.isNotEmpty() }?.joinToString("\n")); prefsTick.value++
+    }
 
     fun toggleFavorite(g: GameEntity) { viewModelScope.launch(Dispatchers.IO) { dao.setFavorite(g.id, !g.favorite) } }
 
@@ -503,7 +508,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val gameKey = withContext(Dispatchers.IO) { SaveRoot.gameKey(ctx, g.realPath ?: g.uri) }
                 val intent = SaveRoot.stamp(ctx, NebulosCrashGuard.stamp(core.launchIntent(ctx, req), core.id, g.title), gameKey)
                 if (fresh) intent.putExtra(com.noryan.nebulos.api.EXTRA_FRESH_START, true)
-                if (core.id == "jak") texturePack(g)?.let { intent.putExtra(com.noryan.nebulos.core.jak.JakCore.EXTRA_TEXPACK, it) }
+                if (core.id == "jak") texturePacks(g).takeIf { it.isNotEmpty() }?.let { intent.putExtra(com.noryan.nebulos.core.jak.JakCore.EXTRA_TEXPACKS, it.toTypedArray()) }
                 crashNotice.value = null
                 withContext(Dispatchers.IO) { dao.markPlayed(g.id, java.lang.System.currentTimeMillis()) }
                 if (ctx !is android.app.Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
