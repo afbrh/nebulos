@@ -53,12 +53,12 @@ internal object JakData {
     fun cancel() { running?.let { runCatching { it.destroyForcibly() } }; running = null }
 
     /** Null when the game can start, otherwise a user-facing error. Blocks (call off the UI thread). */
-    fun ensureReady(ctx: Context, game: String, iso: String?, texturePacks: List<String>? = null, progress: (String) -> Unit): String? {
+    fun ensureReady(ctx: Context, game: String, iso: String?, texturePack: String? = null, progress: (String) -> Unit): String? {
         val proj = projDir(ctx)
         runCatching { installSupport(ctx, proj, progress) }.onFailure { return "Could not prepare the game files: ${it.message}" }
         // A different HD texture pack than the one the data was built with means the import has to be redone with it.
         val packMarker = File(proj, "out/$game/$TEXPACK_MARKER")
-        val wantPack = JakTexturePacks.signature(ctx, game, texturePacks)
+        val wantPack = JakTexturePacks.signature(ctx, game, texturePack)
         val havePack = packMarker.takeIf { it.isFile }?.readText()?.trim().orEmpty()
         val ready = gameReady(ctx, game)
         val canRedo = iso != null && File(iso).isFile
@@ -66,13 +66,13 @@ internal object JakData {
         if (ready) File(proj, "out/$game/$GAME_MARKER").delete()
         if (wantPack.isNotEmpty() || havePack.isNotEmpty() || File(proj, "custom_assets/$game").exists()) {
             progress(if (wantPack.isEmpty()) "Removing HD textures" else "Applying HD textures")
-            runCatching { JakTexturePacks.stage(ctx, proj, game, texturePacks) }.onFailure { return "Could not apply the texture pack: ${it.message}" }
+            runCatching { JakTexturePacks.stage(ctx, proj, game, texturePack) }.onFailure { return "Could not apply the texture pack: ${it.message}" }
         }
         if (iso == null || !File(iso).isFile) return "The disc image is not available: ${iso ?: "(no path)"}"
         val need = NEED_BYTES[game] ?: (14L shl 30)
         val free = runCatching { StatFs(proj.path).availableBytes }.getOrDefault(Long.MAX_VALUE)
         if (free < need) return "Not enough free storage to prepare this game: ${need shr 30} GB needed, ${free shr 30} GB free."
-        return extract(ctx, proj, game, iso, texturePacks, progress)
+        return extract(ctx, proj, game, iso, texturePack, progress)
     }
 
     private fun installSupport(ctx: Context, proj: File, progress: (String) -> Unit) {
@@ -101,7 +101,7 @@ internal object JakData {
         "-g", game, "-e", "-d", "-c", "--instruction-set", "arm64", "--proj-path", proj.absolutePath, iso,
     )
 
-    private fun extract(ctx: Context, proj: File, game: String, iso: String, texturePacks: List<String>?, progress: (String) -> Unit): String? {
+    private fun extract(ctx: Context, proj: File, game: String, iso: String, texturePack: String?, progress: (String) -> Unit): String? {
         val exe = File(ctx.applicationInfo.nativeLibraryDir, "libjak_extractor.so")
         if (!exe.isFile) return "The game-data extractor is missing from this build."
         val title = JakCore.TITLES[game] ?: game
@@ -137,7 +137,7 @@ internal object JakData {
         }
         if (!File(out, "fr3").isDirectory || !File(out, "obj").isDirectory) return "Preparing $title finished but the game data is incomplete."
         File(out, GAME_MARKER).writeText(DATA_VERSION)
-        File(out, TEXPACK_MARKER).writeText(JakTexturePacks.signature(ctx, game, texturePacks))
+        File(out, TEXPACK_MARKER).writeText(JakTexturePacks.signature(ctx, game, texturePack))
         // The extractor's working copy of the disc contents is not needed any more.
         for (d in listOf("iso_data", "decompiler_out")) File(proj, d).takeIf { it.isDirectory }?.deleteRecursively()
         return null
