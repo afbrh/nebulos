@@ -27,6 +27,24 @@ internal object JakData {
 
     fun projDir(ctx: Context): File = File(ctx.getExternalFilesDir(null) ?: ctx.filesDir, "jak").apply { mkdirs() }
 
+    /**
+     * Pins the game's aspect ratio to 4:3 by editing its pc-settings.gc (read by the shared GOAL pckernel):
+     * `(aspect-state <game setting> <w> <h> <auto?>)`. Written before every launch; the file is created when absent.
+     */
+    fun forceAspect43(ctx: Context, game: String) {
+        try {
+            val version = when (game) { "jak1" -> "#x1000a00040000"; "jak2" -> "#x200000000"; else -> "#x300000000" }
+            val f = File(projDir(ctx), "user/OpenGOAL/$game/settings/pc-settings.gc")
+            f.parentFile?.mkdirs()
+            val line = "(aspect-state aspect4x3 4 3 #f)"
+            val text = if (f.isFile) f.readText() else "(settings $version\n  )\n"
+            val re = Regex("\\(aspect-state[^)]*\\)")
+            val out = if (re.containsMatchIn(text)) re.replace(text, line)
+                      else text.replaceFirst(Regex("\\(settings[^\\n]*\\n"), "$0  $line\n")
+            if (out != text || !f.isFile) f.writeText(out)
+        } catch (e: Exception) { Log.w(TAG, "could not pin 4:3: $e") }
+    }
+
     fun gameReady(ctx: Context, game: String): Boolean =
         File(projDir(ctx), "out/$game/$GAME_MARKER").let { it.isFile && it.readText().trim() == DATA_VERSION }
 

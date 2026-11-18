@@ -72,6 +72,7 @@ class JakActivity : SDLActivity() {
             runOnUiThread { hooks?.error(JakCore.TITLES[g] ?: "Jak and Daxter", err, fatal = true) }
             while (true) Thread.sleep(60_000)   // the host closes the game (kills the process) when the panel is dismissed
         }
+        JakData.forceAspect43(this, g)
         val proj = JakData.projDir(this).absolutePath
         return arrayOf("gk", "--proj-path", proj, "--config-path", "$proj/user", "--game", g, "--", "-boot", "-fakeiso")
     }
