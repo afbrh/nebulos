@@ -29,6 +29,9 @@ class JakActivity : SDLActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         prepareProcessEnvironment()
         super.onCreate(savedInstanceState)
+        // Edge to edge: otherwise the game surface is shrunk by the (hidden) navigation bar's inset and the picture gets black borders.
+        window.setDecorFitsSystemWindows(false)
+        window.attributes = window.attributes.also { it.layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES }
         session = JakSession(this)
         val title = intent.getStringExtra("nebulos.title") ?: JakCore.TITLES[game] ?: "Jak and Daxter"
         val h = NebulosCoreHost.install(this, session, System.PS2, UiOptions(title = title, loadingTimeoutMs = 45 * 60_000L))
