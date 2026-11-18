@@ -126,4 +126,16 @@ class CoreRouterTest {
         assertEquals("armsx2", CoreRouter.choose(System.PS2, "Jak", "SCUS-97124", "armsx2", null, ps2Cores)!!.id)   // per-game override keeps ARMSX2
         assertEquals("armsx2", CoreRouter.choose(System.PS2, "X", "SLUS-20000", "jak", null, ps2Cores)!!.id)         // OpenGOAL cannot be forced onto other games
     }
+
+    // ---- Shadow of the Colossus -> Celosia (routing by PS2 disc serial) ----
+    private val sotc = Fake("sotc", "Celosia (Shadow of the Colossus)", setOf(System.PS2))
+    private val ps2CoresWithSotc = listOf(ps2, jak, sotc)
+
+    @Test fun sotcUsaSerialAutoRoutesToCelosiaOthersDoNot() {
+        assertEquals("sotc", CoreRouter.autoChoice(System.PS2, "Shadow of the Colossus", CoreRouter.candidates(System.PS2, ps2CoresWithSotc), "SCUS-97472")!!.id)
+        for (id in listOf("SCES-53326", "SLUS-20000", null))
+            assertEquals(id, "armsx2", CoreRouter.autoChoice(System.PS2, "Other", CoreRouter.candidates(System.PS2, ps2CoresWithSotc), id)!!.id)
+        assertEquals("armsx2", CoreRouter.choose(System.PS2, "Shadow of the Colossus", "SCUS-97472", "armsx2", null, ps2CoresWithSotc)!!.id)   // per-game override keeps ARMSX2
+        assertEquals("armsx2", CoreRouter.choose(System.PS2, "X", "SLUS-20000", "sotc", null, ps2CoresWithSotc)!!.id)   // Celosia cannot be forced onto other games
+    }
 }

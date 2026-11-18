@@ -1,0 +1,19 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Celosia's runtime (libps2EntryRunner.so, loaded by NativeActivity itself; raylib's app glue, its own EGL contexts and
+             the audio thread) lives in its own process; it is ended on Close Game. -->
+        <activity
+            android:name="com.noryan.nebulos.core.sotc.SotcActivity"
+            android:process=":sotc"
+            android:taskAffinity="com.noryan.nebulos.sotc"
+            android:launchMode="singleTask"
+            android:exported="false"
+            android:alwaysRetainTaskState="true"
+            android:screenOrientation="sensorLandscape"
+            android:preferMinimalPostProcessing="true"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
+            android:configChanges="layoutDirection|locale|grammaticalGender|fontScale|fontWeightAdjustment|orientation|uiMode|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation|density">
+            <meta-data android:name="android.app.lib_name" android:value="ps2EntryRunner" />
+        </activity>
+    </application>
+</manifest>

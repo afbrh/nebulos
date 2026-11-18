@@ -47,3 +47,4 @@ Retired 2026-11-10: Ship of Harkinian (`:core-shipwright`) and 2 Ship 2 Harkinia
 Not an engine: PPSSPP (`ppsspp-src`) has no Nebulos core module; it was not rebuilt.
 
 Nothing here has been run on a device since the rebuild: test every engine on hardware before releasing.
+| celosia-src | HenryKun55/celosia (GPL-3.0) + local branch `nebulos-android` (never pushed; origin is upstream) | the branch itself (`git log nebulos-android`); `core-sotc/native/build.sh` builds it | Android arm64 port of the Shadow of the Colossus (PS2 USA) static recompilation: GLES 3.2 renderer via its own EGL context, host pause, Nebulos embed layer (`ps2_android_nebulos.cpp`). See `core-sotc/README-sotc.md`. |

@@ -90,6 +90,11 @@ if (want("dusklight")) includeBuild("../dusklight-src/platforms/android") {
 // native libs are produced by core-jak/native/build.sh (NDK 27). See core-jak/README-jak.md.
 if (want("jak")) include(":core-jak")
 
+// :core-sotc (PS2, Shadow of the Colossus USA only). Celosia (GPL-3.0; static recompilation + native runtime with a GLES 3.2 renderer)
+// from ../celosia-src (local branch `nebulos-android`, never pushed: its origin is the upstream project); libps2EntryRunner.so is
+// produced by core-sotc/native/build.sh (NDK 27). See core-sotc/README-sotc.md.
+if (want("sotc")) include(":core-sotc")
+
 // :core-wwhd (Wii U: The Wind Waker HD only). Native runtime from ../wwhd-src (CMake, local branch `nebulos`), no game code in the library;
 // the game is translated on the device from the user's own .wua. See core-wwhd/README-wwhd.md.
 if (want("wwhd")) include(":core-wwhd")
