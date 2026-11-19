@@ -1,0 +1,26 @@
+From d06f7c67c91e994e1ec5d2f5d79c3c1609a8bc40 Mon Sep 17 00:00:00 2001
+From: local <local@localhost>
+Date: Thu, 19 Nov 2026 11:39:31 -0600
+Subject: [PATCH 6/6] Nebulos: skip asset folders other cores put under res/
+ (local only)
+
+---
+ .../java/com/botwrecompandroid/BOTWRecompAndroidActivity.java   | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/android/botwrecompandroid/app/src/main/java/com/botwrecompandroid/BOTWRecompAndroidActivity.java b/android/botwrecompandroid/app/src/main/java/com/botwrecompandroid/BOTWRecompAndroidActivity.java
+index 4fdbf4e..68413ab 100644
+--- a/android/botwrecompandroid/app/src/main/java/com/botwrecompandroid/BOTWRecompAndroidActivity.java
++++ b/android/botwrecompandroid/app/src/main/java/com/botwrecompandroid/BOTWRecompAndroidActivity.java
+@@ -1451,6 +1451,8 @@ public class BOTWRecompAndroidActivity extends SDLActivity {
+         for (String n : names) {
+             try (InputStream in = am.open(from + "/" + n)) {
+                 copy(in, new File(to, n));
++            } catch (java.io.FileNotFoundException dir) {
++                // Nebulos: another core's assets share the "res" folder (res/rml, ...): a folder is not a file of ours - skip it
+             }
+         }
+     }
+-- 
+2.54.0 (Apple Git-157)
+

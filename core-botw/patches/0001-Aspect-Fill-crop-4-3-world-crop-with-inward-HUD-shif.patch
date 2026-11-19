@@ -1,0 +1,114 @@
+From 39a9650fbeead59aa0593894a0f1d86df3f62ffa Mon Sep 17 00:00:00 2001
+From: local <local@localhost>
+Date: Wed, 18 Nov 2026 14:41:29 -0600
+Subject: [PATCH 1/6] Aspect 'Fill (crop)': 4:3 world crop with inward HUD
+ shift (local only)
+
+---
+ runtime/hle/widescreen.c | 17 ++++++++++++++++-
+ runtime/settings.c       |  4 ++--
+ runtime/settings.h       |  2 +-
+ runtime/ui/menu.mm       |  7 ++++---
+ 4 files changed, 23 insertions(+), 7 deletions(-)
+
+diff --git a/runtime/hle/widescreen.c b/runtime/hle/widescreen.c
+index 2eecdd4..96e0bf0 100644
+--- a/runtime/hle/widescreen.c
++++ b/runtime/hle/widescreen.c
+@@ -110,7 +110,10 @@ uint32_t rt_persp_aspect(uint64_t proj) {
+ 
+ // The game's cameras are widened (the 1.8.2 hooks above): its HUD, drawn through one, lands in the centred 16:9 part
+ // of a wide final image (exec.c scissor_rect maps the HUD's scissors there).
+-bool widescreen_ui_centred(void) { return widescreen_allowed() && g_wide != 1.0f && g_widened; }
++// Aspect "Fill (crop)" is on and the world is up: the picture is cropped to the window (widescreen_present_crop), so its HUD
++// panes nearer the sides move IN by the cropped margin (hud_shift)
++static bool crop_active(void) { return g_settings.aspect == ASPECT_CROP && g_shape < 0.999f && g_shape > 0.1f && in_world(); }
++bool widescreen_ui_centred(void) { return (widescreen_allowed() && g_wide != 1.0f && g_widened) || crop_active(); }
+ 
+ // The HUD out to the screen's edges: how far a pane of the game's 1280x720 layouts moves, from its centre x in
+ // layout units (-640..640). The widened layout camera draws the layout in the middle 16:9 part; panes nearer its sides
+@@ -233,6 +236,10 @@ static float hud_shift(float x, float y, float row) {
+     if (t <= 0) return 0;
+     if (t > 1) t = 1;
+     t = t * t * (3 - 2 * t);
++    if (crop_active()) {  // (cropped: the margin 640 * (1 - shape) layout units on each side, panes move in by it)
++        float in = 640.0f * (1.0f - g_shape) * t;
++        return x < 0 ? in : -in;
++    }
+     float d = 640.0f * (g_wide - 1.0f) * t;
+     return x < 0 ? -d : d;
+ }
+@@ -272,6 +279,14 @@ void widescreen_scope_seen(void) {
+ void widescreen_present_crop(uint64_t frame, double shape, float crop[4], double *vx, double *vy, double *vw, double *vh) {
+     (void)frame, (void)vy, (void)vh;
+     crop[0] = crop[1] = 0, crop[2] = crop[3] = 1;
++    // Aspect "Fill (crop)": a window narrower than 16:9 (the Nova's 4:3) shows the world as the 16:9 picture's middle part,
++    // filling the window; menus, the title and the loading screens (not in_world) keep the whole picture with bars
++    if (g_settings.aspect == ASPECT_CROP && g_shape < 0.999f && g_shape > 0.1f && in_world()) {
++        double s = g_shape, nh = *vh / s;  // (the 16:9 box fitted by width is vh high; the window is vh / s)
++        crop[2] = (float)s, crop[0] = (1.0f - crop[2]) * 0.5f;
++        *vy -= (nh - *vh) * 0.5, *vh = nh;
++        return;
++    }
+     extern uint64_t renderer_present_count(void);
+     bool scope = scope_frame && renderer_present_count() - scope_frame <= 3;
+     if (shape <= 1.001 || !widescreen_allowed() || (!scope && (in_world() || !framepace_on_title()))) return;
+diff --git a/runtime/settings.c b/runtime/settings.c
+index 62feef5..00e02cf 100644
+--- a/runtime/settings.c
++++ b/runtime/settings.c
+@@ -267,7 +267,7 @@ void settings_load(void) {
+         char val[128] = "";
+         if (sscanf(line, " %63[^= ] = %127[^\r\n]", key, val) < 1) continue; val[strcspn(val, "\r\n")] = 0;
+ #endif
+-        if (!strcmp(key, "aspect")) g_settings.aspect = !strcmp(val, "original") ? ASPECT_ORIGINAL : ASPECT_UNLOCKED;
++        if (!strcmp(key, "aspect")) g_settings.aspect = !strcmp(val, "original") ? ASPECT_ORIGINAL : !strcmp(val, "crop") ? ASPECT_CROP : ASPECT_UNLOCKED;
+         else if (!strcmp(key, "fullscreen")) g_settings.fullscreen = atoi(val) != 0;
+         else if (!strcmp(key, "volume")) g_settings.volume = (float)atof(val);
+         else if (!strcmp(key, "reverb")) g_settings.reverb = atoi(val) != 0;
+@@ -387,7 +387,7 @@ void settings_save(void) {
+     FILE *f = fopen(SETTINGS_FILE, "w");
+     if (!f) { LOG("[settings] cannot write %s\n", SETTINGS_FILE); return; }
+     fprintf(f, "# BOTWRecompAndroid settings (edited from the in-game menu: F1, Esc, or Minus+Plus on a controller)\n");
+-    fprintf(f, "aspect = %s\n", g_settings.aspect == ASPECT_ORIGINAL ? "original" : "unlocked");
++    fprintf(f, "aspect = %s\n", g_settings.aspect == ASPECT_ORIGINAL ? "original" : g_settings.aspect == ASPECT_CROP ? "crop" : "unlocked");
+     fprintf(f, "fullscreen = %d\n", g_settings.fullscreen);
+     fprintf(f, "volume = %.2f\n", g_settings.volume);
+     fprintf(f, "reverb = %d\n", g_settings.reverb);
+diff --git a/runtime/settings.h b/runtime/settings.h
+index 3d6cb33..6338632 100644
+--- a/runtime/settings.h
++++ b/runtime/settings.h
+@@ -5,7 +5,7 @@ enum { OVERLAY_FPS = 1, OVERLAY_THROTTLE = 2, OVERLAY_GPU = 4, OVERLAY_CPU = 8,
+        OVERLAY_ALL = 63 };
+ #include <stdbool.h>
+ 
+-enum { ASPECT_UNLOCKED = 0, ASPECT_ORIGINAL = 1 };
++enum { ASPECT_UNLOCKED = 0, ASPECT_ORIGINAL = 1, ASPECT_CROP = 2 };  // (CROP: a window narrower than 16:9 is filled by the 16:9 picture's middle, in the world; menus keep 16:9 with bars)
+ enum { RES_MATCH = 0, /* 1..8 = 1x..8x */ RES_DYNAMIC = 9, RES_Q75 = 10, RES_Q25 = 11, RES_Q50 = 12 };
+ // (11 was 67% of the display: larecomp.ini "67%" now loads as RES_Q75)
+ enum { OUT_AUTO = -1 };  // (Settings.out_lines)
+diff --git a/runtime/ui/menu.mm b/runtime/ui/menu.mm
+index 2b77589..93af874 100644
+--- a/runtime/ui/menu.mm
++++ b/runtime/ui/menu.mm
+@@ -539,12 +539,13 @@ static void tab_display(void) {
+     float scale = ImGui::GetFontSize() / 34;
+     opt_begin("##video", scale);
+     opt_section("Display");
+-    const char *aspects[] = {"Unlocked", "Original 16:9"};
+-    opt_choice("Aspect ratio", &g_settings.aspect, aspects, 2, ASPECT_UNLOCKED,
++    const char *aspects[] = {"Unlocked", "Original 16:9", "Fill (crop)"};
++    opt_choice("Aspect ratio", &g_settings.aspect, aspects, 3, ASPECT_UNLOCKED,
+                "Unlocked: the view fills the screen, so wider screens show more of Hyrule, and the HUD moves out to its "
+                "edges (menus stay in the middle). Game versions 1.8.2 and 1.9.0 (1.0.0 and 1.6.0 keep 16:9 with bars); a change applies "
+                "when the game starts again (Quit -> Return to start, then Play). Original 16:9: the game's own framing, "
+-               "with bars.");
++               "with bars. Fill (crop): on a screen narrower than 16:9 (a 4:3 handheld), the world fills it with the picture's middle part "
++               "(its sides are cut); menus, the title and loading screens keep 16:9 with bars.");
+ #ifndef __ANDROID__  // (Android: always the whole screen)
+     bool fs = g_settings.fullscreen;
+     if (opt_toggle("Fullscreen", &fs, false, "Fills the screen. Also: F11, Alt+Enter or Cmd+Ctrl+F.")) {
+-- 
+2.54.0 (Apple Git-157)
+

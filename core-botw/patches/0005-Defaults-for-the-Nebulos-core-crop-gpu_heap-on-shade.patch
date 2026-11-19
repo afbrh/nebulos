@@ -1,0 +1,36 @@
+From 4f2412ef7e21588b7054de8b02997734508ff929 Mon Sep 17 00:00:00 2001
+From: local <local@localhost>
+Date: Thu, 19 Nov 2026 11:38:58 -0600
+Subject: [PATCH 5/6] Defaults for the Nebulos core: crop, gpu_heap on,
+ shader_int32 on (local only)
+
+---
+ runtime/settings.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/runtime/settings.c b/runtime/settings.c
+index 00e02cf..43fd38c 100644
+--- a/runtime/settings.c
++++ b/runtime/settings.c
+@@ -29,7 +29,7 @@ const char *settings_file(void) {
+ }
+ 
+ Settings g_settings = {
+-    .aspect = ASPECT_UNLOCKED,
++    .aspect = ASPECT_CROP,  // (local: Fill (crop) by default - a no-op on 16:9 and wider windows)
+     .fullscreen = false,
+     .volume = 1.0f,
+     .reverb = true,
+@@ -57,7 +57,8 @@ Settings g_settings = {
+     .touch_minimap_top = true,
+     .lsfg_mult = 2,
+     .lsfg_flow = 75,
+-    .gpu_heap = -1,
++    .gpu_heap = 1,  // (local: the guest heap as GPU memory on the Adreno 7xx too; needs a Turnip with VK_KHR_map_memory2)
++    .shader_int32 = true,  // (local: the 32-bit shader path loads reliably on Turnip)
+     .low_ram = -1,
+     .inplace_reads = -1,
+     .turnip_lrz = -1,
+-- 
+2.54.0 (Apple Git-157)
+

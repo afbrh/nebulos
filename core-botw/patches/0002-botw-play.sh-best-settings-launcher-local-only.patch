@@ -1,0 +1,29 @@
+From dd1e059c47b3ce6c4a41cbb3457e2df5f9aa2f52 Mon Sep 17 00:00:00 2001
+From: local <local@localhost>
+Date: Wed, 18 Nov 2026 15:17:05 -0600
+Subject: [PATCH 2/6] botw-play.sh: best settings launcher (local only)
+
+---
+ botw-play.sh | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+ create mode 100755 botw-play.sh
+
+diff --git a/botw-play.sh b/botw-play.sh
+new file mode 100755
+index 0000000..2528991
+--- /dev/null
++++ b/botw-play.sh
+@@ -0,0 +1,10 @@
++#!/bin/bash
++# Launches BOTW (1.6.0 files in files/v160) on the Nova with the best settings found so far:
++# Mesa Turnip (built from source, in files/drivers), 32-bit shader path, 4:3 "Fill (crop)", 30 fps (1.6.0 has no >30 fps support).
++set -e
++A=$HOME/Library/Android/sdk/platform-tools/adb; S=${S:-ced121b5}; P=com.botwrecomp.android
++EXT=/sdcard/Android/data/$P/files/v160
++$A -s $S shell "printf 'frame_rate=30\nshow_fps=1\naspect=crop\nshader_int32=1\n' > $EXT/best.ini"
++$A -s $S shell svc power stayon true; $A -s $S shell input keyevent KEYCODE_WAKEUP; $A -s $S shell am force-stop $P
++$A -s $S shell am start -n $P/com.botwrecompandroid.BOTWRecompAndroidActivity --es env "LARECOMP_NATIVE=1,LARECOMP_DATA_ROOT=$EXT,LARECOMP_SETTINGS=$EXT/best.ini" >/dev/null
++echo "started: press Continue with the controller (first minute is slow: shader compile)"
+-- 
+2.54.0 (Apple Git-157)
+

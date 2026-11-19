@@ -88,7 +88,7 @@ object GameSpecificCores {
     private val matchers: Map<String, (String?) -> Boolean> = mapOf("dusklight" to ::isTwilightPrincess, "jak" to ::isJakAndDaxter, "sotc" to ::isShadowOfTheColossus)
 
     /** Cores that can only run particular games recognised by name, id -> predicate on the game's title. */
-    private val titleMatchers: Map<String, (String?) -> Boolean> = mapOf("wwhd" to ::isWindWakerHd, "totk" to ::isTotk)
+    private val titleMatchers: Map<String, (String?) -> Boolean> = mapOf("wwhd" to ::isWindWakerHd, "botw" to ::isBotw, "totk" to ::isTotk)
 
     fun isTwilightPrincess(gameId: String?): Boolean {
         if (gameId == null) return false
@@ -131,6 +131,8 @@ object GameSpecificCores {
         }.getOrNull()
         return r ?: WWHD_TITLE.containsMatchIn(title)
     }
+
+    fun isBotw(title: String?): Boolean = title != null && Regex("breath\\s*of\\s*the\\s*wild", RegexOption.IGNORE_CASE).containsMatchIn(title)
 
     fun isTotk(title: String?): Boolean = title != null && Regex("tears\\s*of\\s*the\\s*kingdom", RegexOption.IGNORE_CASE).containsMatchIn(title)
 

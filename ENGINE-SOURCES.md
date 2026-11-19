@@ -65,3 +65,12 @@ Game files: the first launch dumps the user's own game through Eden (EdenDumpSer
 `<app external files>/native-dumps/0100F2C0115B6000` on the INTERNAL volume (about 17 GB, ~5 minutes; on an SD card the 300,000 small files take hours).
 The GPU driver is Eden's bundled Turnip R8 (the only build tested with VK_KHR_map_memory2, which the placed-heap path needs). Saves are the
 game's own, in the app's internal files (`files/totk`), not in `_Nebulos`.
+
+## BOTWRecompAndroid (core-botw), rebuilt 2026-11-19
+
+`../botwrecomp-src` = https://github.com/mamcjr/BOTWRecompAndroid at 43c199a (v0.4.6-beta), branch `nebulos-local` (local commits, never pushed; the series is in
+`core-botw/patches`, apply with `git am` on 43c199a). Local changes: Aspect "Fill (crop)" (4:3 world crop with the HUD moved inside; now the default),
+`gpu_heap` and `shader_int32` on by default, the SDL3 Java package renamed (com.noryan.recompsdl, recomp-common), libbotw_main.so, no Zepp watch server,
+macOS build fixes. Same prerequisites and layout as core-totk (FFmpeg is shared from `../totkdroid-src/android/deps/ffmpeg`; the static SDL3 is
+`../botwrecomp-src/android/deps/out-static`). Game version supported: 1.6.0 (Eden's installed update; 1.8.2/1.9.0 would unlock 40/60 fps and the
+true 4:3 camera but are not available). Game files, driver and saves work as for core-totk (dump on the internal volume, ~15 GB, ~4 minutes).

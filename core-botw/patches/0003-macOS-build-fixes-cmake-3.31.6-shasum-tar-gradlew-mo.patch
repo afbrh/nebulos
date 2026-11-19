@@ -1,0 +1,57 @@
+From 8923d952bdbbb4e48c99da37d235202c60dd1ff5 Mon Sep 17 00:00:00 2001
+From: local <local@localhost>
+Date: Thu, 19 Nov 2026 11:38:50 -0600
+Subject: [PATCH 3/6] macOS build fixes: cmake 3.31.6, shasum/tar, gradlew mode
+ (local only)
+
+---
+ android/botwrecompandroid/app/build.gradle.kts | 2 +-
+ android/botwrecompandroid/gradlew              | 0
+ android/deps/build_deps.sh                     | 6 +++---
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+ mode change 100644 => 100755 android/botwrecompandroid/gradlew
+
+diff --git a/android/botwrecompandroid/app/build.gradle.kts b/android/botwrecompandroid/app/build.gradle.kts
+index 416bfe2..c39563a 100644
+--- a/android/botwrecompandroid/app/build.gradle.kts
++++ b/android/botwrecompandroid/app/build.gradle.kts
+@@ -36,7 +36,7 @@ android {
+     externalNativeBuild {
+         cmake {
+             path = file("src/main/cpp/CMakeLists.txt")
+-            version = "3.30.4"
++            version = "3.31.6"
+         }
+     }
+ 
+diff --git a/android/botwrecompandroid/gradlew b/android/botwrecompandroid/gradlew
+old mode 100644
+new mode 100755
+diff --git a/android/deps/build_deps.sh b/android/deps/build_deps.sh
+index 0f6c65a..6984127 100644
+--- a/android/deps/build_deps.sh
++++ b/android/deps/build_deps.sh
+@@ -18,7 +18,7 @@ mkdir -p "$S" "$P/include" "$P/lib" "$W"
+ SDK=${ANDROID_HOME:-${LOCALAPPDATA:-$HOME}/Android/Sdk}
+ SDK=${SDK//\\//}
+ NDK=${ANDROID_NDK:-$SDK/ndk/30.0.16248370}
+-CMAKE_DIR=$SDK/cmake/3.30.4/bin
++CMAKE_DIR=$SDK/cmake/3.31.6/bin
+ API=30
+ JOBS=$(nproc 2>/dev/null || echo 8)
+ case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) EXE=.exe ;; *) EXE= ;; esac
+@@ -28,9 +28,9 @@ ANDROID_CMAKE=(-G Ninja -DCMAKE_MAKE_PROGRAM="$CMAKE_DIR/ninja$EXE" -DCMAKE_TOOL
+ 
+ fetch() {  # url sha256 file
+     [ -f "$S/$3" ] || { curl -fsSL -o "$S/$3.part" "$1" && mv "$S/$3.part" "$S/$3"; }
+-    (cd "$S" && echo "$2  $3" | sha256sum -c --quiet)
++    (cd "$S" && echo "$2  $3" | shasum -a 256 -c -q)
+ }
+-unpack() { rm -rf "$W/$2" && mkdir -p "$W/$2" && (cd "$S" && tar --force-local -xf "$1" -C "$W/$2" --strip-components 1); }
++unpack() { rm -rf "$W/$2" && mkdir -p "$W/$2" && (cd "$S" && tar -xf "$1" -C "$W/$2" --strip-components 1); }
+ 
+ fetch https://github.com/libsdl-org/SDL/releases/download/release-3.4.16/SDL3-3.4.16.tar.gz \
+       7322236cd12090c3eb40b9728be4d49c76f66ad17d04369584d4ecad5cf77c68 SDL3-3.4.16.tar.gz
+-- 
+2.54.0 (Apple Git-157)
+
