@@ -12,6 +12,7 @@ import com.noryan.nebulos.api.NebulosCoreHost
 import com.noryan.nebulos.api.System
 import com.noryan.nebulos.api.ui.UiOptions
 import com.noryan.nebulos.recomp.RecompGameFiles
+import com.noryan.nebulos.recomp.RecompSaveData
 import com.noryan.nebulos.recomp.RecompSession
 import com.noryan.recompsdl.RecompPad
 
@@ -72,6 +73,7 @@ class TotkActivity : TOTKRecompAndroidActivity() {
                 TotkCore.GAME_TITLE,
             ) { f, text -> runOnUiThread { if (f.isNaN()) h?.setLoadingText(text) else h?.setLoadingProgress(f, text) } }
             importStandaloneSave(prepared.dataRoot)
+            RecompSaveData.link(this, "totk", prepared.dataRoot)   // the game's saves live in the _Nebulos folder (symlinked into the data root)
             env("LARECOMP_DATA_ROOT", prepared.dataRoot.absolutePath)
             Log.i(TAG, "game ${prepared.displayVersion}, data root ${prepared.dataRoot}")
         } catch (f: RecompGameFiles.Failure) {
