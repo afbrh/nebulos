@@ -55,4 +55,23 @@ object RecompSaveData {
         if (ok) from.deleteRecursively()
         return ok && !from.exists()
     }
+
+    /**
+     * One-time: the performance overlay (Video > Show FPS) was on by default; a settings file saved while it was still the default keeps it on.
+     * Turns `show_fps = 1` off in any runtime settings file under [dataRoot] or the app's files folder once (marker file), so the new default applies.
+     */
+    @JvmStatic
+    fun hideOverlayOnce(ctx: android.content.Context, dataRoot: java.io.File) {
+        try {
+            val marker = java.io.File(dataRoot, ".overlay-reset")
+            if (marker.exists()) return
+            for (root in listOf(dataRoot, ctx.filesDir)) {
+                root.walkTopDown().maxDepth(3).filter { it.isFile && it.extension == "ini" && it.length() < 65536 }.forEach { f ->
+                    val t = f.readText()
+                    if (t.contains("show_fps = 1")) f.writeText(t.replace("show_fps = 1", "show_fps = 0"))
+                }
+            }
+            marker.writeText("1")
+        } catch (_: Throwable) {}
+    }
 }
