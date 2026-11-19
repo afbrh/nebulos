@@ -1,0 +1,54 @@
+From 1993ea3ea22ad001608d0510c1c96a578bf08959 Mon Sep 17 00:00:00 2001
+From: local <local@localhost>
+Date: Thu, 19 Nov 2026 09:33:45 -0600
+Subject: [PATCH 05/10] Diagnostics for placed heap; totk-play.sh: gpu_heap=1
+ default, env knobs (local only)
+
+---
+ runtime/nvn/vulkan/device.c | 3 +++
+ totk-play.sh                | 4 ++--
+ 2 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/runtime/nvn/vulkan/device.c b/runtime/nvn/vulkan/device.c
+index cfec96f..64c8def 100644
+--- a/runtime/nvn/vulkan/device.c
++++ b/runtime/nvn/vulkan/device.c
+@@ -584,6 +584,7 @@ static void create_device(void) {
+ #endif
+     // the guest heap as GPU memory mapped at its own address (exec.c vk_heap_place; Turnip has it)
+     g_vk.map_placed = has_ext(ep, ne, VK_EXT_MAP_MEMORY_PLACED_EXTENSION_NAME) && has_ext(ep, ne, VK_KHR_MAP_MEMORY_2_EXTENSION_NAME);
++    LOG("[vk] map_memory_placed ext %d, map_memory2 ext %d\n", (int)has_ext(ep, ne, VK_EXT_MAP_MEMORY_PLACED_EXTENSION_NAME), (int)has_ext(ep, ne, VK_KHR_MAP_MEMORY_2_EXTENSION_NAME));
+     if (g_vk.map_placed) {
+         ext[n_ext++] = VK_KHR_MAP_MEMORY_2_EXTENSION_NAME;
+         ext[n_ext++] = VK_EXT_MAP_MEMORY_PLACED_EXTENSION_NAME;
+@@ -850,11 +851,13 @@ static void create_device(void) {
+         VkPhysicalDeviceProperties2 qp = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, .pNext = &pp};
+         vkGetPhysicalDeviceProperties2(g_vk.phys, &qp);
+         g_vk.placed_align = pp.minPlacedMemoryMapAlignment;
++        LOG("[vk] map_memory_placed: feature %d, min alignment %llu\n", (int)pf.memoryMapPlaced, (unsigned long long)pp.minPlacedMemoryMapAlignment);
+         if (pf.memoryMapPlaced) {
+             placed.memoryMapPlaced = VK_TRUE;
+             placed.pNext = f.pNext;
+             f.pNext = &placed;
+         } else {
++            LOG("[vk] VK_EXT_map_memory_placed is listed but its memoryMapPlaced feature is off on this driver: no placed guest heap\n");
+             g_vk.map_placed = false;
+             n_ext -= 2;  // (the two map extensions were the last added)
+         }
+diff --git a/totk-play.sh b/totk-play.sh
+index 2352213..7eff117 100755
+--- a/totk-play.sh
++++ b/totk-play.sh
+@@ -3,7 +3,7 @@
+ set -e
+ A=$HOME/Library/Android/sdk/platform-tools/adb; S=${S:-ced121b5}; P=com.totkrecompandroid
+ EXT=/sdcard/Android/data/$P/files
+-$A -s $S shell "printf 'frame_rate=${FPS:-60}\nshow_fps=1\nshader_int32=1\naspect=${ASPECT:-vert}\n' > $EXT/best.ini; chmod o+r $EXT/best.ini"
++$A -s $S shell "printf 'frame_rate=${FPS:-60}\nshow_fps=1\nshader_int32=${I32:-1}\naspect=${ASPECT:-vert}\n${RES:+resolution=${RES/\%/%%}\n}${AA:+antialias=$AA\n}${LRZ:+turnip_lrz=$LRZ\n}gpu_heap=${GH:-1}\n' > $EXT/best.ini; chmod o+r $EXT/best.ini"
+ $A -s $S shell svc power stayon true; $A -s $S shell input keyevent KEYCODE_WAKEUP; $A -s $S shell am force-stop $P
+-$A -s $S shell am start -n $P/com.totkrecompandroid.TOTKRecompAndroidActivity --es env "LARECOMP_NATIVE=1,LARECOMP_NO_LAUNCHER=1,LARECOMP_DATA_ROOT=$EXT,LARECOMP_SETTINGS=$EXT/best.ini" >/dev/null
++$A -s $S shell am start -n $P/com.totkrecompandroid.TOTKRecompAndroidActivity --es env "LARECOMP_NATIVE=1,LARECOMP_NO_LAUNCHER=1,LARECOMP_DATA_ROOT=$EXT,LARECOMP_SETTINGS=$EXT/best.ini${SYSDRV:+,LARECOMP_VK_DRIVER=}" >/dev/null
+ echo "started: title screen in ~45 s; Continue loads the autosave"
+-- 
+2.54.0 (Apple Git-157)
+

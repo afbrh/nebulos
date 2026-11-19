@@ -1,0 +1,294 @@
+From 876618e6a4bf5b93988e1409050cbe4bcbffca6e Mon Sep 17 00:00:00 2001
+From: local <local@localhost>
+Date: Thu, 19 Nov 2026 08:04:24 -0600
+Subject: [PATCH 01/10] Aspect 'Fill (crop)' for TOTK 1.4.3: 4:3 world crop +
+ inward HUD shift, macOS build fixes, totk-play.sh (local only)
+
+---
+ android/deps/build_deps.sh                    |  6 +--
+ android/deps/build_ffmpeg_mac.sh              | 50 +++++++++++++++++++
+ .../totkrecompandroid/app/build.gradle.kts    |  2 +-
+ android/totkrecompandroid/gradlew             |  0
+ runtime/hle/widescreen.c                      | 29 ++++++++++-
+ runtime/nvn/vulkan/exec.c                     | 14 ++++--
+ runtime/settings.c                            |  4 +-
+ runtime/settings.h                            |  2 +-
+ runtime/ui/menu.mm                            |  8 +--
+ totk-play.sh                                  |  9 ++++
+ 10 files changed, 108 insertions(+), 16 deletions(-)
+ create mode 100644 android/deps/build_ffmpeg_mac.sh
+ mode change 100644 => 100755 android/totkrecompandroid/gradlew
+ create mode 100755 totk-play.sh
+
+diff --git a/android/deps/build_deps.sh b/android/deps/build_deps.sh
+index 0f6c65a..6984127 100644
+--- a/android/deps/build_deps.sh
++++ b/android/deps/build_deps.sh
+@@ -18,7 +18,7 @@ mkdir -p "$S" "$P/include" "$P/lib" "$W"
+ SDK=${ANDROID_HOME:-${LOCALAPPDATA:-$HOME}/Android/Sdk}
+ SDK=${SDK//\\//}
+ NDK=${ANDROID_NDK:-$SDK/ndk/30.0.16248370}
+-CMAKE_DIR=$SDK/cmake/3.30.4/bin
++CMAKE_DIR=$SDK/cmake/3.31.6/bin
+ API=30
+ JOBS=$(nproc 2>/dev/null || echo 8)
+ case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) EXE=.exe ;; *) EXE= ;; esac
+@@ -28,9 +28,9 @@ ANDROID_CMAKE=(-G Ninja -DCMAKE_MAKE_PROGRAM="$CMAKE_DIR/ninja$EXE" -DCMAKE_TOOL
+ 
+ fetch() {  # url sha256 file
+     [ -f "$S/$3" ] || { curl -fsSL -o "$S/$3.part" "$1" && mv "$S/$3.part" "$S/$3"; }
+-    (cd "$S" && echo "$2  $3" | sha256sum -c --quiet)
++    (cd "$S" && echo "$2  $3" | shasum -a 256 -c -q)
+ }
+-unpack() { rm -rf "$W/$2" && mkdir -p "$W/$2" && (cd "$S" && tar --force-local -xf "$1" -C "$W/$2" --strip-components 1); }
++unpack() { rm -rf "$W/$2" && mkdir -p "$W/$2" && (cd "$S" && tar -xf "$1" -C "$W/$2" --strip-components 1); }
+ 
+ fetch https://github.com/libsdl-org/SDL/releases/download/release-3.4.16/SDL3-3.4.16.tar.gz \
+       7322236cd12090c3eb40b9728be4d49c76f66ad17d04369584d4ecad5cf77c68 SDL3-3.4.16.tar.gz
+diff --git a/android/deps/build_ffmpeg_mac.sh b/android/deps/build_ffmpeg_mac.sh
+new file mode 100644
+index 0000000..06f1b43
+--- /dev/null
++++ b/android/deps/build_ffmpeg_mac.sh
+@@ -0,0 +1,50 @@
++#!/bin/bash
++# android/deps/build_ffmpeg.sh: FFmpeg for Android arm64 into android/deps/ffmpeg (the movie player, runtime/hle/movie.c,
++# the start screen's background frame and the characters' voices, runtime/services/hwopus.c) - an LGPL-only
++# configuration: only what the game's movies and voices need (libswresample too: FFmpeg's Opus decoder resamples its
++# SILK frames with it, and isn't built without it - the voices were silent). Its own folder, not android/deps/out:
++# that one can be LASRecompAndroid's (a junction), whose apps don't carry libswresample - a libavcodec needing it there
++# would stop them loading. The app's build takes FFmpeg from here when it's built, else from android/deps/out (no
++# voices). FFmpeg's configure wants a Unix shell: on Windows run it in WSL
++#   wsl -d Ubuntu-26.04 -- bash android/deps/build_ffmpeg.sh
++# It uses the Linux NDK (the same version as the app; downloaded to ~/android-ndk-r30 when missing) and builds in
++# ~/totkrecompandroid-ffmpeg (the Linux file system: much faster than /mnt). Shared libraries without version suffixes
++# (libavcodec.so, not .so.62): the names an APK can carry.
++set -euo pipefail
++cd "$(dirname "$0")"
++P=$PWD/ffmpeg
++NDK=$HOME/Library/Android/sdk/ndk/30.0.16248370
++W=$HOME/totkrecompandroid-ffmpeg
++API=30
++mkdir -p "$W" "$P/include" "$P/lib"
++
++TC=$NDK/toolchains/llvm/prebuilt/darwin-x86_64/bin
++
++if [ ! -f "$W/ffmpeg-9.0.2.tar.xz" ]; then
++    curl -fsSL -o "$W/ffmpeg-9.0.2.tar.xz.part" https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz
++    mv "$W/ffmpeg-9.0.2.tar.xz.part" "$W/ffmpeg-9.0.2.tar.xz"
++fi
++(cd "$W" && echo "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e  ffmpeg-9.0.2.tar.xz" | shasum -a 256 -c -q)
++rm -rf "$W/ffmpeg" "$W/prefix" && mkdir -p "$W/ffmpeg" && tar -xf "$W/ffmpeg-9.0.2.tar.xz" -C "$W/ffmpeg" --strip-components 1
++
++cd "$W/ffmpeg"
++./configure --prefix="$W/prefix" --enable-cross-compile --target-os=android --arch=aarch64 --cpu=armv8-a \
++    --cc="$TC/aarch64-linux-android$API-clang" --cxx="$TC/aarch64-linux-android$API-clang++" \
++    --nm="$TC/llvm-nm" --ar="$TC/llvm-ar" --ranlib="$TC/llvm-ranlib" --strip="$TC/llvm-strip" \
++    --enable-shared --disable-static --enable-pic \
++    --disable-autodetect --disable-programs --disable-doc --disable-network --disable-avdevice --disable-avfilter \
++    --disable-everything \
++    --enable-protocol=file --enable-demuxer=matroska,mov \
++    --enable-decoder=vp9,vp8,vorbis,opus,h264,aac --enable-parser=vp9,vp8,vorbis,opus,h264,aac
++# unversioned shared library names (Android loads what the APK ships by exact file name)
++sed -i '' -e 's/^SLIBNAME_WITH_MAJOR=.*/SLIBNAME_WITH_MAJOR=$(SLIBNAME)/' -e 's/^SLIBNAME_WITH_VERSION=.*/SLIBNAME_WITH_VERSION=$(SLIBNAME)/' \
++       -e 's/^SLIB_INSTALL_NAME=.*/SLIB_INSTALL_NAME=$(SLIBNAME)/' -e 's/^SLIB_INSTALL_LINKS=.*/SLIB_INSTALL_LINKS=/' ffbuild/config.mak
++make -j8
++make install
++
++for l in avcodec avformat avutil swscale swresample; do cp "$W/prefix/lib/lib$l.so" "$P/lib/"; done
++rm -rf "$P/include/libavcodec" "$P/include/libavformat" "$P/include/libavutil" "$P/include/libswscale" \
++       "$P/include/libswresample"
++cp -r "$W/prefix/include/"* "$P/include/"
++echo "ffmpeg: $P"
++ls -la "$P"/lib/libav*.so "$P"/lib/libswscale.so "$P"/lib/libswresample.so
+diff --git a/android/totkrecompandroid/app/build.gradle.kts b/android/totkrecompandroid/app/build.gradle.kts
+index 318169c..78fc148 100644
+--- a/android/totkrecompandroid/app/build.gradle.kts
++++ b/android/totkrecompandroid/app/build.gradle.kts
+@@ -43,7 +43,7 @@ android {
+     externalNativeBuild {
+         cmake {
+             path = file("src/main/cpp/CMakeLists.txt")
+-            version = "3.30.4"
++            version = "3.31.6"
+         }
+     }
+ 
+diff --git a/android/totkrecompandroid/gradlew b/android/totkrecompandroid/gradlew
+old mode 100644
+new mode 100755
+diff --git a/runtime/hle/widescreen.c b/runtime/hle/widescreen.c
+index 140831f..bcf5769 100644
+--- a/runtime/hle/widescreen.c
++++ b/runtime/hle/widescreen.c
+@@ -18,6 +18,7 @@
+ #include <stdint.h>
+ 
+ #include <string.h>
++#include <stdlib.h>
+ 
+ #include "../framepace.h"
+ #include "../hle.h"
+@@ -126,7 +127,15 @@ uint32_t rt_persp_aspect(uint64_t proj) {
+ 
+ // The game's cameras are widened (the 1.8.2 hooks above): its HUD, drawn through one, lands in the centred 16:9 part
+ // of a wide final image (exec.c scissor_rect maps the HUD's scissors there).
+-bool widescreen_ui_centred(void) { return widescreen_allowed() && g_wide != 1.0f && g_widened; }
++// Aspect "Fill (crop)" with the world up (minimap on screen): the picture is cropped to the window (widescreen_present_crop),
++// so the HUD's panes near the sides move IN by the cropped margin (widescreen_hud_shift)
++static bool in_world(void);
++static bool crop_active(void) {  // (the 3D scene up: menus, the title and loading screens keep 16:9 with bars; verified on the pause menu)
++    return g_settings.aspect == ASPECT_CROP && g_shape < 0.999f && g_shape > 0.1f && in_world();
++}
++bool widescreen_crop_on(void) { return crop_active(); }
++float widescreen_layout_half(void) { return crop_active() ? 960.0f : 640.0f; }  // (the layouts' half width: TOTK's are 1920 wide)
++bool widescreen_ui_centred(void) { return (widescreen_allowed() && g_wide != 1.0f && g_widened) || crop_active(); }
+ 
+ // The HUD out to the screen's edges: how far a pane of the game's 1280x720 layouts moves, from its centre x in
+ // layout units (-640..640). The widened layout camera draws the layout in the middle 16:9 part; panes nearer its sides
+@@ -196,6 +205,16 @@ bool widescreen_talk(void) {
+ float widescreen_hud_shift(float x) {
+     // (TOTK: its menus aren't told apart from the world yet - framepace_in_menu is 1.8.2's - so the HUD stays in the
+     // middle 16:9 part there, where the inventory's grids keep together; LARECOMP_TOTK_HUD_EDGES=1 tries the edges)
++    if (crop_active()) {  // (cropped: the margin each side is (1 - shape) / 2 of the layout's width, in the pane's units)
++        static float U;
++        if (U == 0) U = ENV("LARECOMP_CROP_UNITS") ? (float)atof(getenv("LARECOMP_CROP_UNITS")) : 960.0f;
++        float sc = U / 640.0f, ax = x < 0 ? -x : x, t = (ax - 180.0f * sc) / (80.0f * sc);
++        if (t <= 0) return 0;
++        if (t > 1) t = 1;
++        t = t * t * (3 - 2 * t);
++        float in = U * (1.0f - g_shape) * t;
++        return x < 0 ? in : -in;
++    }
+     if (g_game_version == GAME_V_143 && !ENV("LARECOMP_TOTK_HUD_EDGES")) return 0;
+     if (!widescreen_ui_centred() || framepace_in_menu() || !in_world()) return 0;
+     float ax = x < 0 ? -x : x, t = (ax - 180.0f) / (260.0f - 180.0f);
+@@ -221,6 +240,14 @@ void widescreen_scene_ubo(const float *u, uint64_t size) { (void)u, (void)size;
+ void widescreen_present_crop(uint64_t frame, double shape, float crop[4], double *vx, double *vy, double *vw, double *vh) {
+     (void)frame, (void)vy, (void)vh;
+     crop[0] = crop[1] = 0, crop[2] = crop[3] = 1;
++    // Aspect "Fill (crop)": a window narrower than 16:9 (the Nova's 4:3) shows the world as the picture's middle part,
++    // filling the window; menus, the title, loading screens and cutscenes (no minimap) keep the whole picture with bars
++    if (crop_active()) {
++        double s = g_shape, nh = *vh / s;  // (the 16:9 box fitted by width is vh high; the window is vh / s)
++        crop[2] = (float)s, crop[0] = (1.0f - crop[2]) * 0.5f;
++        *vy -= (nh - *vh) * 0.5, *vh = nh;
++        return;
++    }
+     if (shape <= 1.001 || !widescreen_allowed() || in_world()) return;
+     // (TOTK: the whole image - its layouts are kept in their proportions as they're drawn, vulkan/exec.c cbuf_info;
+     // squeezed back here, the save list, the loading screens and the menus had bars)
+diff --git a/runtime/nvn/vulkan/exec.c b/runtime/nvn/vulkan/exec.c
+index 7c5c9be..0afd408 100644
+--- a/runtime/nvn/vulkan/exec.c
++++ b/runtime/nvn/vulkan/exec.c
+@@ -4685,8 +4685,9 @@ static VkDescriptorBufferInfo cbuf_info(int stage, ShaderInfo *si, int k, uint32
+                 return ubo_span(c, size);
+             }
+         }
+-        if (widescreen_ui_centred() && t0 && vk_texture_scale_group(t0) == RS_OUT && f[12] == 0 && f[13] == 0 && f[14] == -1.0f &&
+-            f[1] == 0 && f[2] == 0) {
++        extern bool widescreen_crop_on(void);  // (Fill (crop): TOTK's layout camera has f[14] 0 where 1.8.2's has -1)
++        if (widescreen_ui_centred() && t0 && vk_texture_scale_group(t0) == RS_OUT && f[12] == 0 && f[13] == 0 &&
++            (f[14] == -1.0f || (f[14] == 0.0f && widescreen_crop_on())) && f[1] == 0 && f[2] == 0) {
+             float g = widescreen_factor();
+             extern bool framepace_in_menu(void);
+             if (g_debug_frame && size >= 0x230 && f[15] == 0)
+@@ -4723,7 +4724,8 @@ static VkDescriptorBufferInfo cbuf_info(int stage, ShaderInfo *si, int k, uint32
+                 if (full_width_pane(f))
+                     for (int i = 16; i < 20; i++) m[i] *= g;
+                 return ubo_span(c, size);
+-            } else if (size >= 0x230 && f[15] == 0 && f[0] > 0 && fabsf(f[5] / f[0] - 16.0f / 9.0f * g) < 0.01f) {
++            } else if (size >= 0x230 && (f[15] == 0 || (f[15] == 1.0f && widescreen_crop_on())) && f[0] > 0 &&
++                       fabsf(f[5] / f[0] - 16.0f / 9.0f * g) < 0.01f) {
+                 float d = widescreen_hud_shift(f[19]);
+                 if (d != 0) {
+                     panefix_log("hud-shift", f);
+@@ -4738,10 +4740,12 @@ static VkDescriptorBufferInfo cbuf_info(int stage, ShaderInfo *si, int k, uint32
+                 for (int i = 0; i < 4; i++) ((float *)c.ptr)[i] /= g;
+                 return ubo_span(c, size);
+             } else if (f[15] > 1.0f) {
+-                float d = widescreen_hud_shift(f[3] / f[15] * g * 640.0f);  // (layout x of the origin: 640 g units a side)
++                extern float widescreen_layout_half(void);  // (640 g units a side; TOTK's cropped layouts: 960)
++                float half = widescreen_layout_half();
++                float d = widescreen_hud_shift(f[3] / f[15] * g * half);  // (layout x of the origin)
+                 if (d != 0) {
+                     VkSpan c = vk_transient_copy(f, size, 256);
+-                    float *m = (float *)c.ptr, k = d / (640.0f * g);  // (that many NDC units)
++                    float *m = (float *)c.ptr, k = d / (half * g);  // (that many NDC units)
+                     for (int i = 0; i < 4; i++) m[i] += k * m[12 + i];
+                     return ubo_span(c, size);
+                 }
+diff --git a/runtime/settings.c b/runtime/settings.c
+index 1ad0b4f..a6b3cba 100644
+--- a/runtime/settings.c
++++ b/runtime/settings.c
+@@ -262,7 +262,7 @@ void settings_load(void) {
+         char val[128] = "";
+         if (sscanf(line, " %63[^= ] = %127[^\r\n]", key, val) < 1) continue; val[strcspn(val, "\r\n")] = 0;
+ #endif
+-        if (!strcmp(key, "aspect")) g_settings.aspect = !strcmp(val, "original") ? ASPECT_ORIGINAL : ASPECT_UNLOCKED;
++        if (!strcmp(key, "aspect")) g_settings.aspect = !strcmp(val, "original") ? ASPECT_ORIGINAL : !strcmp(val, "crop") ? ASPECT_CROP : ASPECT_UNLOCKED;
+         else if (!strcmp(key, "fullscreen")) g_settings.fullscreen = atoi(val) != 0;
+         else if (!strcmp(key, "volume")) g_settings.volume = (float)atof(val);
+         else if (!strcmp(key, "reverb")) g_settings.reverb = atoi(val) != 0;
+@@ -382,7 +382,7 @@ void settings_save(void) {
+     FILE *f = fopen(SETTINGS_FILE, "w");
+     if (!f) { LOG("[settings] cannot write %s\n", SETTINGS_FILE); return; }
+     fprintf(f, "# TOTKDroid settings (edited from the in-game menu: F1, Esc, or Minus+Plus on a controller)\n");
+-    fprintf(f, "aspect = %s\n", g_settings.aspect == ASPECT_ORIGINAL ? "original" : "unlocked");
++    fprintf(f, "aspect = %s\n", g_settings.aspect == ASPECT_ORIGINAL ? "original" : g_settings.aspect == ASPECT_CROP ? "crop" : "unlocked");
+     fprintf(f, "fullscreen = %d\n", g_settings.fullscreen);
+     fprintf(f, "volume = %.2f\n", g_settings.volume);
+     fprintf(f, "reverb = %d\n", g_settings.reverb);
+diff --git a/runtime/settings.h b/runtime/settings.h
+index fdd28b4..b91ba17 100644
+--- a/runtime/settings.h
++++ b/runtime/settings.h
+@@ -5,7 +5,7 @@ enum { OVERLAY_FPS = 1, OVERLAY_THROTTLE = 2, OVERLAY_GPU = 4, OVERLAY_CPU = 8,
+        OVERLAY_ALL = 63 };
+ #include <stdbool.h>
+ 
+-enum { ASPECT_UNLOCKED = 0, ASPECT_ORIGINAL = 1 };
++enum { ASPECT_UNLOCKED = 0, ASPECT_ORIGINAL = 1, ASPECT_CROP = 2 };  // (CROP: a window narrower than 16:9 is filled by the picture's middle while playing; menus keep 16:9 with bars)
+ enum { RES_MATCH = 0, /* 1..8 = 1x..8x */ RES_DYNAMIC = 9, RES_Q75 = 10, RES_Q25 = 11, RES_Q50 = 12 };
+ // (11 was 67% of the display: larecomp.ini "67%" now loads as RES_Q75)
+ enum { OUT_AUTO = -1 };  // (Settings.out_lines)
+diff --git a/runtime/ui/menu.mm b/runtime/ui/menu.mm
+index f91dfa4..64a336e 100644
+--- a/runtime/ui/menu.mm
++++ b/runtime/ui/menu.mm
+@@ -540,10 +540,12 @@ static void tab_display(void) {
+     float scale = ImGui::GetFontSize() / 34;
+     opt_begin("##video", scale);
+     opt_section("Display");
+-    const char *aspects[] = {"Unlocked", "Original 16:9"};
+-    opt_choice("Aspect ratio", &g_settings.aspect, aspects, 2, ASPECT_UNLOCKED,
++    const char *aspects[] = {"Unlocked", "Original 16:9", "Fill (crop)"};
++    opt_choice("Aspect ratio", &g_settings.aspect, aspects, 3, ASPECT_UNLOCKED,
+                "Unlocked: the view will fill wider screens once the game's cameras are widened - not done yet for this "
+-               "game, so it stays 16:9 with bars for now. Original 16:9: the game's own framing, with bars.");
++               "game, so it stays 16:9 with bars for now. Original 16:9: the game's own framing, with bars. Fill (crop): on a screen "
++               "narrower than 16:9 (a 4:3 handheld), playing in the world fills it with the picture's middle part (its sides are cut); "
++               "menus, cutscenes and loading screens keep 16:9 with bars.");
+ #ifndef __ANDROID__  // (Android: always the whole screen)
+     bool fs = g_settings.fullscreen;
+     if (opt_toggle("Fullscreen", &fs, false, "Fills the screen. Also: F11, Alt+Enter or Cmd+Ctrl+F.")) {
+diff --git a/totk-play.sh b/totk-play.sh
+new file mode 100755
+index 0000000..2d96e52
+--- /dev/null
++++ b/totk-play.sh
+@@ -0,0 +1,9 @@
++#!/bin/bash
++# Launches TOTK (1.4.3 files in files/extracted) on the Nova: Mesa Turnip (files/drivers), 32-bit shaders, 4:3 "Fill (crop)", 30 fps.
++set -e
++A=$HOME/Library/Android/sdk/platform-tools/adb; S=${S:-ced121b5}; P=com.totkrecompandroid
++EXT=/sdcard/Android/data/$P/files
++$A -s $S shell "printf 'frame_rate=30\nshow_fps=1\nshader_int32=1\naspect=crop\n' > $EXT/best.ini; chmod o+r $EXT/best.ini"
++$A -s $S shell svc power stayon true; $A -s $S shell input keyevent KEYCODE_WAKEUP; $A -s $S shell am force-stop $P
++$A -s $S shell am start -n $P/com.totkrecompandroid.TOTKRecompAndroidActivity --es env "LARECOMP_NATIVE=1,LARECOMP_NO_LAUNCHER=1,LARECOMP_DATA_ROOT=$EXT,LARECOMP_SETTINGS=$EXT/best.ini" >/dev/null
++echo "started: title screen in ~45 s; Continue loads the autosave"
+-- 
+2.54.0 (Apple Git-157)
+

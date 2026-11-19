@@ -1,0 +1,191 @@
+From 0f27baac8a71e972bee567020c3a8843d2d2122b Mon Sep 17 00:00:00 2001
+From: local <local@localhost>
+Date: Thu, 19 Nov 2026 08:35:21 -0600
+Subject: [PATCH 04/10] Aspect 'Taller view' (vert): 4:3 native targets, camera
+ aspect 4:3 + vertical FOV scaled to keep the 16:9 view width (local only)
+
+---
+ runtime/hle/widescreen.c   | 21 ++++++++++++++++++---
+ runtime/native.c           |  9 +++++++++
+ runtime/nvn/output_scale.c |  3 ++-
+ runtime/settings.c         |  4 ++--
+ runtime/settings.h         |  2 +-
+ runtime/ui/menu.mm         |  7 ++++---
+ totk-play.sh               |  4 ++--
+ 7 files changed, 38 insertions(+), 12 deletions(-)
+
+diff --git a/runtime/hle/widescreen.c b/runtime/hle/widescreen.c
+index bcf5769..df70145 100644
+--- a/runtime/hle/widescreen.c
++++ b/runtime/hle/widescreen.c
+@@ -19,6 +19,7 @@
+ 
+ #include <string.h>
+ #include <stdlib.h>
++#include <math.h>
+ 
+ #include "../framepace.h"
+ #include "../hle.h"
+@@ -34,6 +35,7 @@ float widescreen_factor(void) { return g_wide; }
+ void widescreen_set_shape(float f) { g_shape = f; }
+ 
+ static bool g_allowed;  // (widescreen_set_allowed: tests)
++static bool vert_mode(void) { return g_settings.aspect == ASPECT_VERT && g_shape < 0.999f && g_shape > 0.1f; }
+ static volatile bool g_hooked;  // (the game code calls rt_persp_update: built with the hooks)
+ static int g_boot_aspect = -1;  // (the setting this boot of the game started with)
+ bool widescreen_allowed(void) {
+@@ -42,8 +44,8 @@ bool widescreen_allowed(void) {
+     // built on the stack, never rebuilt), so a change applies when the game starts again (a reboot: widescreen_reset)
+     int boot_aspect = g_boot_aspect;
+     if (boot_aspect < 0 && g_hooked) g_boot_aspect = boot_aspect = g_settings.aspect;
+-    bool game = (g_game_version == 182 || g_game_version == GAME_V_143) && g_hooked && boot_aspect == ASPECT_UNLOCKED;
+-    bool test = (g_allowed || ENV("LARECOMP_WIDESCREEN")) && g_settings.aspect == ASPECT_UNLOCKED;
++    bool game = (g_game_version == 182 || g_game_version == GAME_V_143) && g_hooked && (boot_aspect == ASPECT_UNLOCKED || boot_aspect == ASPECT_VERT);
++    bool test = (g_allowed || ENV("LARECOMP_WIDESCREEN")) && (g_settings.aspect == ASPECT_UNLOCKED || g_settings.aspect == ASPECT_VERT);
+     return (game || test) && !ENV("LARECOMP_NO_WIDESCREEN");
+ }
+ void widescreen_set_allowed(bool on) { g_allowed = on; }
+@@ -107,13 +109,26 @@ float rt_widen_aspect(float a) {
+     if (ENV("LARECOMP_LOG_ASPECT") && nlog++ < 20)
+         LOG("[widescreen] a camera's aspect %.4f (allowed %d, shape %.3f, setting %d)\n", a, widescreen_allowed(), g_shape,
+             g_settings.aspect);
+-    if (!widescreen_allowed() || g_shape <= 1.001f || !(a > 1.74f && a < 1.81f)) return a;
++    if (!widescreen_allowed() || (g_shape <= 1.001f && !vert_mode()) || !(a > 1.74f && a < 1.81f)) return a;
+     g_widened = true;
+     static int n;
+     if (ENV("LARECOMP_LOG_ASPECT") && n++ < 40) LOG("[widescreen] camera aspect %.4f -> %.4f\n", a, a * g_shape);
+     return a * g_shape;
+ }
+ 
++// Taller view: the camera's vertical field of view for a 4:3 aspect that keeps the 16:9 view's width: tan(fovy / 2) times
++// 1 / shape (the aspect hook above made the aspect 16:9 times shape). LARECOMP_VERT_FOV=0 leaves the field of view alone
++// (the 4:3 picture is then the middle of the 16:9 one).
++float rt_widen_fovy(float fovy, float aspect) {
++    static int on = -1;
++    if (on < 0) on = !getenv("LARECOMP_VERT_FOV") || atoi(getenv("LARECOMP_VERT_FOV"));
++    if (!on || !vert_mode() || !widescreen_allowed() || !(aspect > 1.74f && aspect < 1.81f) || !(fovy > 0.05f && fovy < 3.0f)) return fovy;
++    static int n;
++    float f = 2.0f * atanf(tanf(fovy * 0.5f) / g_shape);
++    if (n++ < 6) LOG("[widescreen] camera fovy %.4f -> %.4f (aspect %.4f, shape %.3f)\n", fovy, f, aspect, g_shape);
++    return f;
++}
++
+ // sead::PerspectiveProjection::getAspect (1.8.2: 0x7000da13d8, tools/patches.py): the widened aspect for a 16:9 one,
+ // also between the game setting 16:9 again and the next rebuild (rt_persp_update), so what asks the projection for its
+ // aspect agrees with its matrix. The float's bits.
+diff --git a/runtime/native.c b/runtime/native.c
+index 5b9a5bf..b1b67c3 100644
+--- a/runtime/native.c
++++ b/runtime/native.c
+@@ -330,6 +330,14 @@ static int fix_aspect_load(Cpu *c, int rn, uint32_t off) {  // ldr s0, [x<rn>, #
+     return 3;
+ }
+ static int fix_aspect_cam(Cpu *c) { return fix_aspect_load(c, 19, 0x140); }
++float rt_widen_fovy(float fovy, float aspect);  // Taller view: the render camera's field of view (+0x13c) with its aspect (+0x140)
++static int fix_fovy_cam(Cpu *c) {  // ldr s0, [x19, #0x13c]
++    float f, a;
++    memcpy(&f, (const void *)(uintptr_t)(c->x[19] + 0x13c), 4);
++    memcpy(&a, (const void *)(uintptr_t)(c->x[19] + 0x140), 4);
++    vset(c, 0, rt_widen_fovy(f, a));
++    return 3;
++}
+ static int fix_aspect_setup(Cpu *c) { return fix_aspect_load(c, 22, 0x68); }
+ static int fix_aspect_view(Cpu *c) { vset(c, 0, rt_widen_aspect(vget(c, 0) / vget(c, 1))); return 3; }  // fdiv s0, s0, s1
+ // Equipment-switch cooldown: the threshold the player update steps its countdown down to, FLT_EPSILON in the game, 0 on
+@@ -410,6 +418,7 @@ static const Fix fixes[] = {  // (canonical addresses, 0x7000000000 + the offset
+     {143, 0x7000a5a670, 0, 0xb9001a6a, fix_camera_done, "camera animation done"},
+     {143, 0x70002db238, 0, 0x52800788, fix_interval_pick, "the interval picked (2 in cutscenes)"},
+     {143, 0x7000628c74, 0, 0xbd414260, fix_aspect_cam, "camera aspect (update)"},
++    {143, 0x7000628c3c, 0, 0xbd413e60, fix_fovy_cam, "camera field of view (update)"},
+     {143, 0x7000b43460, 0, 0xbd406ac0, fix_aspect_setup, "camera aspect (setup)"},
+     {143, 0x7001ff04f4, 0, 0x1e211800, fix_aspect_view, "camera aspect (viewport)"},
+     {143, 0x700253fbb0, 0, 0x1e211800, fix_aspect_view, "camera aspect (viewport)"},
+diff --git a/runtime/nvn/output_scale.c b/runtime/nvn/output_scale.c
+index e072a1b..08b7277 100644
+--- a/runtime/nvn/output_scale.c
++++ b/runtime/nvn/output_scale.c
+@@ -89,7 +89,8 @@ void output_scale(double dw, double dh, bool reshape_allowed, double now, double
+     // menus move out to the sides. Narrower (4:3, 16:10), nothing narrows them: the 16:9 view went into a narrower
+     // image, squeezed from the sides (an Anbernic RG477M, 4:3). There the 16:9 image fits the window with bars above
+     // and below, as with Original.
+-    bool reshape = reshape_allowed && shape > 1.005;
++    bool narrow = shape < 0.995 && g_settings.aspect == ASPECT_VERT;  // (Taller view: the same targets as for a wider window, taller than 16:9)
++    bool reshape = reshape_allowed && (shape > 1.005 || narrow);
+     if (!reshape) shape = 1.0;
+     // the final image: the window's resolution, in units of the Switch's 1080 lines
+     double h = fmax(reshape ? dh / 1080.0 : fit, 0.1);
+diff --git a/runtime/settings.c b/runtime/settings.c
+index a6b3cba..2569796 100644
+--- a/runtime/settings.c
++++ b/runtime/settings.c
+@@ -262,7 +262,7 @@ void settings_load(void) {
+         char val[128] = "";
+         if (sscanf(line, " %63[^= ] = %127[^\r\n]", key, val) < 1) continue; val[strcspn(val, "\r\n")] = 0;
+ #endif
+-        if (!strcmp(key, "aspect")) g_settings.aspect = !strcmp(val, "original") ? ASPECT_ORIGINAL : !strcmp(val, "crop") ? ASPECT_CROP : ASPECT_UNLOCKED;
++        if (!strcmp(key, "aspect")) g_settings.aspect = !strcmp(val, "original") ? ASPECT_ORIGINAL : !strcmp(val, "crop") ? ASPECT_CROP : !strcmp(val, "vert") ? ASPECT_VERT : ASPECT_UNLOCKED;
+         else if (!strcmp(key, "fullscreen")) g_settings.fullscreen = atoi(val) != 0;
+         else if (!strcmp(key, "volume")) g_settings.volume = (float)atof(val);
+         else if (!strcmp(key, "reverb")) g_settings.reverb = atoi(val) != 0;
+@@ -382,7 +382,7 @@ void settings_save(void) {
+     FILE *f = fopen(SETTINGS_FILE, "w");
+     if (!f) { LOG("[settings] cannot write %s\n", SETTINGS_FILE); return; }
+     fprintf(f, "# TOTKDroid settings (edited from the in-game menu: F1, Esc, or Minus+Plus on a controller)\n");
+-    fprintf(f, "aspect = %s\n", g_settings.aspect == ASPECT_ORIGINAL ? "original" : g_settings.aspect == ASPECT_CROP ? "crop" : "unlocked");
++    fprintf(f, "aspect = %s\n", g_settings.aspect == ASPECT_ORIGINAL ? "original" : g_settings.aspect == ASPECT_CROP ? "crop" : g_settings.aspect == ASPECT_VERT ? "vert" : "unlocked");
+     fprintf(f, "fullscreen = %d\n", g_settings.fullscreen);
+     fprintf(f, "volume = %.2f\n", g_settings.volume);
+     fprintf(f, "reverb = %d\n", g_settings.reverb);
+diff --git a/runtime/settings.h b/runtime/settings.h
+index b91ba17..f61bb5a 100644
+--- a/runtime/settings.h
++++ b/runtime/settings.h
+@@ -5,7 +5,7 @@ enum { OVERLAY_FPS = 1, OVERLAY_THROTTLE = 2, OVERLAY_GPU = 4, OVERLAY_CPU = 8,
+        OVERLAY_ALL = 63 };
+ #include <stdbool.h>
+ 
+-enum { ASPECT_UNLOCKED = 0, ASPECT_ORIGINAL = 1, ASPECT_CROP = 2 };  // (CROP: a window narrower than 16:9 is filled by the picture's middle while playing; menus keep 16:9 with bars)
++enum { ASPECT_UNLOCKED = 0, ASPECT_ORIGINAL = 1, ASPECT_CROP = 2, ASPECT_VERT = 3 };  // (VERT: a window narrower than 16:9 is filled by a taller view: the camera's vertical field of view grows, the width of the view stays)  // (CROP: a window narrower than 16:9 is filled by the picture's middle while playing; menus keep 16:9 with bars)
+ enum { RES_MATCH = 0, /* 1..8 = 1x..8x */ RES_DYNAMIC = 9, RES_Q75 = 10, RES_Q25 = 11, RES_Q50 = 12 };
+ // (11 was 67% of the display: larecomp.ini "67%" now loads as RES_Q75)
+ enum { OUT_AUTO = -1 };  // (Settings.out_lines)
+diff --git a/runtime/ui/menu.mm b/runtime/ui/menu.mm
+index 53f0ee6..e5a9a0e 100644
+--- a/runtime/ui/menu.mm
++++ b/runtime/ui/menu.mm
+@@ -540,12 +540,13 @@ static void tab_display(void) {
+     float scale = ImGui::GetFontSize() / 34;
+     opt_begin("##video", scale);
+     opt_section("Display");
+-    const char *aspects[] = {"Unlocked", "Original 16:9", "Fill (crop)"};
+-    opt_choice("Aspect ratio", &g_settings.aspect, aspects, 3, ASPECT_UNLOCKED,
++    const char *aspects[] = {"Unlocked", "Original 16:9", "Fill (crop)", "Taller view"};
++    opt_choice("Aspect ratio", &g_settings.aspect, aspects, 4, ASPECT_UNLOCKED,
+                "Unlocked: the view will fill wider screens once the game's cameras are widened - not done yet for this "
+                "game, so it stays 16:9 with bars for now. Original 16:9: the game's own framing, with bars. Fill (crop): on a screen "
+                "narrower than 16:9 (a 4:3 handheld), playing in the world fills it with the picture's middle part (its sides are cut); "
+-               "menus, cutscenes and loading screens keep 16:9 with bars.");
++               "menus, cutscenes and loading screens keep 16:9 with bars. Taller view: on a 4:3 screen the game renders a 4:3 picture "
++               "with the same view width, so more of the world shows above and below (native resolution, nothing cut).");
+ #ifndef __ANDROID__  // (Android: always the whole screen)
+     bool fs = g_settings.fullscreen;
+     if (opt_toggle("Fullscreen", &fs, false, "Fills the screen. Also: F11, Alt+Enter or Cmd+Ctrl+F.")) {
+diff --git a/totk-play.sh b/totk-play.sh
+index 7c985b2..2352213 100755
+--- a/totk-play.sh
++++ b/totk-play.sh
+@@ -1,9 +1,9 @@
+ #!/bin/bash
+-# Launches TOTK (1.4.3 files in files/extracted) on the Nova: Mesa Turnip (files/drivers), 32-bit shaders, 4:3 "Fill (crop)", 60 fps by default (FPS=30 for 30).
++# Launches TOTK (1.4.3 files in files/extracted) on the Nova: Mesa Turnip (files/drivers), 32-bit shaders, 4:3 "Taller view" (ASPECT=crop for the old center-crop), 60 fps by default (FPS=30 for 30).
+ set -e
+ A=$HOME/Library/Android/sdk/platform-tools/adb; S=${S:-ced121b5}; P=com.totkrecompandroid
+ EXT=/sdcard/Android/data/$P/files
+-$A -s $S shell "printf 'frame_rate=${FPS:-60}\nshow_fps=1\nshader_int32=1\naspect=crop\n' > $EXT/best.ini; chmod o+r $EXT/best.ini"
++$A -s $S shell "printf 'frame_rate=${FPS:-60}\nshow_fps=1\nshader_int32=1\naspect=${ASPECT:-vert}\n' > $EXT/best.ini; chmod o+r $EXT/best.ini"
+ $A -s $S shell svc power stayon true; $A -s $S shell input keyevent KEYCODE_WAKEUP; $A -s $S shell am force-stop $P
+ $A -s $S shell am start -n $P/com.totkrecompandroid.TOTKRecompAndroidActivity --es env "LARECOMP_NATIVE=1,LARECOMP_NO_LAUNCHER=1,LARECOMP_DATA_ROOT=$EXT,LARECOMP_SETTINGS=$EXT/best.ini" >/dev/null
+ echo "started: title screen in ~45 s; Continue loads the autosave"
+-- 
+2.54.0 (Apple Git-157)
+

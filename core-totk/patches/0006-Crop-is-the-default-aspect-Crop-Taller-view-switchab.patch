@@ -1,0 +1,75 @@
+From 27143f1ea53c7f6aae0514b4243c44f5336aafd2 Mon Sep 17 00:00:00 2001
+From: local <local@localhost>
+Date: Thu, 19 Nov 2026 09:45:18 -0600
+Subject: [PATCH 06/10] Crop is the default aspect; Crop <-> Taller view
+ switchable live (local only)
+
+---
+ runtime/hle/widescreen.c | 5 ++++-
+ runtime/settings.c       | 2 +-
+ runtime/ui/menu.mm       | 3 ++-
+ totk-play.sh             | 4 ++--
+ 4 files changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/runtime/hle/widescreen.c b/runtime/hle/widescreen.c
+index df70145..941ee9c 100644
+--- a/runtime/hle/widescreen.c
++++ b/runtime/hle/widescreen.c
+@@ -44,7 +44,10 @@ bool widescreen_allowed(void) {
+     // built on the stack, never rebuilt), so a change applies when the game starts again (a reboot: widescreen_reset)
+     int boot_aspect = g_boot_aspect;
+     if (boot_aspect < 0 && g_hooked) g_boot_aspect = boot_aspect = g_settings.aspect;
+-    bool game = (g_game_version == 182 || g_game_version == GAME_V_143) && g_hooked && (boot_aspect == ASPECT_UNLOCKED || boot_aspect == ASPECT_VERT);
++    // (TOTK 1.4.3 reads the setting live - its cameras take their aspect from the hooks every update - so Crop <-> Taller
++    // view can be switched in the menu while playing; 1.8.2's layouts take theirs once, at the game's start)
++    bool game = g_game_version == GAME_V_143 ? g_hooked && (g_settings.aspect == ASPECT_UNLOCKED || g_settings.aspect == ASPECT_VERT)
++                                             : g_game_version == 182 && g_hooked && (boot_aspect == ASPECT_UNLOCKED || boot_aspect == ASPECT_VERT);
+     bool test = (g_allowed || ENV("LARECOMP_WIDESCREEN")) && (g_settings.aspect == ASPECT_UNLOCKED || g_settings.aspect == ASPECT_VERT);
+     return (game || test) && !ENV("LARECOMP_NO_WIDESCREEN");
+ }
+diff --git a/runtime/settings.c b/runtime/settings.c
+index 2569796..05a8209 100644
+--- a/runtime/settings.c
++++ b/runtime/settings.c
+@@ -22,7 +22,7 @@ static const char *settings_file(void) {
+ }
+ 
+ Settings g_settings = {
+-    .aspect = ASPECT_UNLOCKED,
++    .aspect = ASPECT_CROP,  // (local: Fill (crop) by default - a no-op on 16:9 and wider windows; Taller view is the other choice)
+     .fullscreen = false,
+     .volume = 1.0f,
+     .reverb = true,
+diff --git a/runtime/ui/menu.mm b/runtime/ui/menu.mm
+index e5a9a0e..a6a3839 100644
+--- a/runtime/ui/menu.mm
++++ b/runtime/ui/menu.mm
+@@ -546,7 +546,8 @@ static void tab_display(void) {
+                "game, so it stays 16:9 with bars for now. Original 16:9: the game's own framing, with bars. Fill (crop): on a screen "
+                "narrower than 16:9 (a 4:3 handheld), playing in the world fills it with the picture's middle part (its sides are cut); "
+                "menus, cutscenes and loading screens keep 16:9 with bars. Taller view: on a 4:3 screen the game renders a 4:3 picture "
+-               "with the same view width, so more of the world shows above and below (native resolution, nothing cut).");
++               "with the same view width, so more of the world shows above and below (native resolution, nothing cut). Fill (crop) and "
++               "Taller view can be switched while playing.");
+ #ifndef __ANDROID__  // (Android: always the whole screen)
+     bool fs = g_settings.fullscreen;
+     if (opt_toggle("Fullscreen", &fs, false, "Fills the screen. Also: F11, Alt+Enter or Cmd+Ctrl+F.")) {
+diff --git a/totk-play.sh b/totk-play.sh
+index 7eff117..d42823a 100755
+--- a/totk-play.sh
++++ b/totk-play.sh
+@@ -1,9 +1,9 @@
+ #!/bin/bash
+-# Launches TOTK (1.4.3 files in files/extracted) on the Nova: Mesa Turnip (files/drivers), 32-bit shaders, 4:3 "Taller view" (ASPECT=crop for the old center-crop), 60 fps by default (FPS=30 for 30).
++# Launches TOTK (1.4.3 files in files/extracted) on the Nova: Mesa Turnip (files/drivers), 32-bit shaders, 4:3 "Fill (crop)" by default (ASPECT=vert for the Taller view), 60 fps by default (FPS=30 for 30).
+ set -e
+ A=$HOME/Library/Android/sdk/platform-tools/adb; S=${S:-ced121b5}; P=com.totkrecompandroid
+ EXT=/sdcard/Android/data/$P/files
+-$A -s $S shell "printf 'frame_rate=${FPS:-60}\nshow_fps=1\nshader_int32=${I32:-1}\naspect=${ASPECT:-vert}\n${RES:+resolution=${RES/\%/%%}\n}${AA:+antialias=$AA\n}${LRZ:+turnip_lrz=$LRZ\n}gpu_heap=${GH:-1}\n' > $EXT/best.ini; chmod o+r $EXT/best.ini"
++$A -s $S shell "printf 'frame_rate=${FPS:-60}\nshow_fps=1\nshader_int32=${I32:-1}\naspect=${ASPECT:-crop}\n${RES:+resolution=${RES/\%/%%}\n}${AA:+antialias=$AA\n}${LRZ:+turnip_lrz=$LRZ\n}gpu_heap=${GH:-1}\n' > $EXT/best.ini; chmod o+r $EXT/best.ini"
+ $A -s $S shell svc power stayon true; $A -s $S shell input keyevent KEYCODE_WAKEUP; $A -s $S shell am force-stop $P
+ $A -s $S shell am start -n $P/com.totkrecompandroid.TOTKRecompAndroidActivity --es env "LARECOMP_NATIVE=1,LARECOMP_NO_LAUNCHER=1,LARECOMP_DATA_ROOT=$EXT,LARECOMP_SETTINGS=$EXT/best.ini${SYSDRV:+,LARECOMP_VK_DRIVER=}" >/dev/null
+ echo "started: title screen in ~45 s; Continue loads the autosave"
+-- 
+2.54.0 (Apple Git-157)
+

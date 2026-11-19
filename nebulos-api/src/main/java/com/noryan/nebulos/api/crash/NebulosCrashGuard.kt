@@ -72,6 +72,9 @@ object NebulosCrashGuard {
 
     @Volatile private var sawLaunch = false
 
+    /** A core process started on purpose for work that is not a game Activity (Eden's game-file dump service): the 5 s "sticky restart" exit must not kill it. */
+    @JvmStatic fun keepProcess() { sawLaunch = true }
+
     /** Stop every Service declared for [proc] (cancels a START_STICKY restart loop; works from any process of the app). */
     @JvmStatic fun stopServices(ctx: Context, proc: String) {
         runCatching {

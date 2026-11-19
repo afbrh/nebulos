@@ -1,0 +1,27 @@
+From 79138e454e9787af6a89c2891a9c9b98168f1d30 Mon Sep 17 00:00:00 2001
+From: local <local@localhost>
+Date: Thu, 19 Nov 2026 10:13:59 -0600
+Subject: [PATCH 09/10] Defaults: gpu_heap on, shader_int32 on (Nebulos core;
+ local only)
+
+---
+ runtime/settings.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/runtime/settings.c b/runtime/settings.c
+index 05a8209..a1d3cf7 100644
+--- a/runtime/settings.c
++++ b/runtime/settings.c
+@@ -52,7 +52,8 @@ Settings g_settings = {
+     .touch_aim_sens = 1.0f,
+     .touch_talk = true,
+     .touch_minimap_top = true,
+-    .gpu_heap = -1,
++    .gpu_heap = 1,  // (local: the guest heap as GPU memory is wanted on the Adreno 7xx too - Automatic keeps it to the 8xx; needs a Turnip with VK_KHR_map_memory2)
++    .shader_int32 = true,  // (local: the 32-bit shader path was the clean one on Turnip)
+     .low_ram = -1,
+     .inplace_reads = -1,
+     .turnip_lrz = -1,
+-- 
+2.54.0 (Apple Git-157)
+

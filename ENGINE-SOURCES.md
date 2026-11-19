@@ -48,3 +48,20 @@ Not an engine: PPSSPP (`ppsspp-src`) has no Nebulos core module; it was not rebu
 
 Nothing here has been run on a device since the rebuild: test every engine on hardware before releasing.
 | celosia-src | HenryKun55/celosia (GPL-3.0) + local branch `nebulos-android` (never pushed; origin is upstream) | the branch itself (`git log nebulos-android`); `core-sotc/native/build.sh` builds it | Android arm64 port of the Shadow of the Colossus (PS2 USA) static recompilation: GLES 3.2 renderer via its own EGL context, host pause, Nebulos embed layer (`ps2_android_nebulos.cpp`). See `core-sotc/README-sotc.md`. |
+
+## TOTKDroid (core-totk), rebuilt 2026-11-19
+
+`../totkdroid-src` = https://github.com/mamcjr/TOTKDroid at 6eb5bac, branch `nebulos-local` (local commits, never pushed; the series is in
+`core-totk/patches`, apply with `git am` on 6eb5bac). Local changes: Aspect "Fill (crop)" (4:3 world crop with the HUD moved inside; the
+default) and "Taller view"; `gpu_heap` and `shader_int32` on by default; the SDL3 Java package renamed (com.noryan.recompsdl, recomp-common)
+and the library named libtotk_main.so; macOS build fixes. The face-button swap (patch 0003) is reverted by 0008: Nebulos's virtual pad assumes
+the Nintendo layout by position.
+
+Prerequisites (macOS host): `android/deps/build_deps.sh` (SDL3, shaderc, headers), `android/deps/build_ffmpeg_mac.sh` (FFmpeg 9.0.2 with the Opus
+decoder), then `recomp-common/build_sdl_static.sh` with `BOTW_SRC=<checkout with android/deps/work/sdl>`, copying its `android/deps/out-static`
+into totkdroid-src. JDK 17, NDK 30.0.16248370, cmake 3.31.6.
+
+Game files: the first launch dumps the user's own game through Eden (EdenDumpService, `:eden` process; needs the Eden update 1.4.3 installed) into
+`<app external files>/native-dumps/0100F2C0115B6000` on the INTERNAL volume (about 17 GB, ~5 minutes; on an SD card the 300,000 small files take hours).
+The GPU driver is Eden's bundled Turnip R8 (the only build tested with VK_KHR_map_memory2, which the placed-heap path needs). Saves are the
+game's own, in the app's internal files (`files/totk`), not in `_Nebulos`.

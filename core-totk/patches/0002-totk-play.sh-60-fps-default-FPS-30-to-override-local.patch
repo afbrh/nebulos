@@ -1,0 +1,29 @@
+From 30a731941b11f58abce921efc43359959989f778 Mon Sep 17 00:00:00 2001
+From: local <local@localhost>
+Date: Thu, 19 Nov 2026 08:07:38 -0600
+Subject: [PATCH 02/10] totk-play.sh: 60 fps default (FPS=30 to override)
+ (local only)
+
+---
+ totk-play.sh | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/totk-play.sh b/totk-play.sh
+index 2d96e52..7c985b2 100755
+--- a/totk-play.sh
++++ b/totk-play.sh
+@@ -1,9 +1,9 @@
+ #!/bin/bash
+-# Launches TOTK (1.4.3 files in files/extracted) on the Nova: Mesa Turnip (files/drivers), 32-bit shaders, 4:3 "Fill (crop)", 30 fps.
++# Launches TOTK (1.4.3 files in files/extracted) on the Nova: Mesa Turnip (files/drivers), 32-bit shaders, 4:3 "Fill (crop)", 60 fps by default (FPS=30 for 30).
+ set -e
+ A=$HOME/Library/Android/sdk/platform-tools/adb; S=${S:-ced121b5}; P=com.totkrecompandroid
+ EXT=/sdcard/Android/data/$P/files
+-$A -s $S shell "printf 'frame_rate=30\nshow_fps=1\nshader_int32=1\naspect=crop\n' > $EXT/best.ini; chmod o+r $EXT/best.ini"
++$A -s $S shell "printf 'frame_rate=${FPS:-60}\nshow_fps=1\nshader_int32=1\naspect=crop\n' > $EXT/best.ini; chmod o+r $EXT/best.ini"
+ $A -s $S shell svc power stayon true; $A -s $S shell input keyevent KEYCODE_WAKEUP; $A -s $S shell am force-stop $P
+ $A -s $S shell am start -n $P/com.totkrecompandroid.TOTKRecompAndroidActivity --es env "LARECOMP_NATIVE=1,LARECOMP_NO_LAUNCHER=1,LARECOMP_DATA_ROOT=$EXT,LARECOMP_SETTINGS=$EXT/best.ini" >/dev/null
+ echo "started: title screen in ~45 s; Continue loads the autosave"
+-- 
+2.54.0 (Apple Git-157)
+
