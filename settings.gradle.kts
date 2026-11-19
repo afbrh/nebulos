@@ -8,7 +8,7 @@ include(":app", ":nebulos-api")
 val wantedCores = providers.gradleProperty("nebulos.cores").orNull?.split(",")?.map { it.trim() }
 fun want(id: String) = wantedCores == null || id in wantedCores
 // Each core agent adds its own line here when its module first builds:
-// include(":core-retroarch", ":core-dolphin", ":core-primehack", ":core-cemu",
+// include(":core-retroarch", ":core-dolphin", ":core-primehack",
 //         ":core-eden", ":core-azahar", ":core-watermelonds", ":core-armsx2")
 
 // :core-eden (Switch). Eden's android project is consumed as a composite build (its :app was converted to a library).
@@ -24,13 +24,6 @@ if (want("lichii")) include(":core-lichii")
 if (want("lichii")) includeBuild("../lichii-android-src/src/android") {
     name = "lichii"
     dependencySubstitution { substitute(module("com.noryan.lichii:app")).using(project(":app")) }
-}
-
-// :core-cemu (Wii U). SSimco's Cemu android project (cemu-src, local library-converted build) as a composite build.
-if (want("cemu")) include(":core-cemu")
-if (want("cemu")) includeBuild("../cemu-src/src/android") {
-    name = "cemu"
-    dependencySubstitution { substitute(module("info.cemu:app")).using(project(":app")) }
 }
 
 // :core-watermelonds (Nintendo DS/DSi). WatermelonDS (melonDS-android fork) consumed as a composite build; its :app is a library.

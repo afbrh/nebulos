@@ -2,7 +2,7 @@
 
 Android multi-emulator front end (GPLv3). One ROM library, one controller mapper, one in-game menu
 (Close Game, Change Controller Mapping, Save State, Load State, Set Hotkeys) across embedded cores:
-RetroArch (libretro cores), PPSSPP, Dolphin, PrimeHack, Cemu, Eden, Azahar, WatermelonDS, ARMSX2.
+RetroArch (libretro cores), PPSSPP, Dolphin, PrimeHack, Eden, Azahar, WatermelonDS, ARMSX2.
 Architecture: see CONTRACT.md and nebulos-api/INTEGRATION.md. Licenses: core-*/LICENSE-NOTES.md, core-retroarch/LICENSES-cores.md.
 
 ## Building

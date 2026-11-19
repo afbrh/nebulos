@@ -47,7 +47,6 @@ class KeepAliveAzahar : KeepAliveService()
 class KeepAliveArmsx2 : KeepAliveService()
 class KeepAliveDusklight : KeepAliveService()
 class KeepAliveWwhd : KeepAliveService()
-class KeepAliveCemu : KeepAliveService()
 class KeepAlivePrimehack : KeepAliveService()
 class KeepAliveMelonds : KeepAliveService()
 
@@ -57,7 +56,7 @@ object KeepAlive {
         "retroarch" -> KeepAliveRetroarch::class.java; "dolphin" -> KeepAliveDolphin::class.java
         "azahar" -> KeepAliveAzahar::class.java
         "armsx2" -> KeepAliveArmsx2::class.java; "dusklight" -> KeepAliveDusklight::class.java
-        "wwhd" -> KeepAliveWwhd::class.java; "cemu" -> KeepAliveCemu::class.java
+        "wwhd" -> KeepAliveWwhd::class.java
         "primehack" -> KeepAlivePrimehack::class.java; "melonds" -> KeepAliveMelonds::class.java
         else -> null
     }
@@ -74,5 +73,5 @@ object KeepAlive {
     }
 
     /** Process names that have a service, for the manifest. */
-    val processes = listOf("retroarch", "dolphin", "azahar", "armsx2", "dusklight", "wwhd", "cemu", "primehack", "melonds")
+    val processes = listOf("retroarch", "dolphin", "azahar", "armsx2", "dusklight", "wwhd", "primehack", "melonds")
 }

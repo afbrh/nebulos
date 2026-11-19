@@ -24,7 +24,6 @@
 -keep class com.noryan.lichii.** { *; }
 -keep class org.libsdl.** { *; }
 -keep class org.dolphinemu.** { *; }
--keep class info.cemu.** { *; }
 -keep class com.armsx2.** { *; }
 -keep class com.retroarch.** { *; }
 -keep class dev.twilitrealm.** { *; }

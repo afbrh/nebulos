@@ -56,7 +56,7 @@ android {
     buildFeatures { compose = true; buildConfig = true }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
-        // Several cores (adrenotools users: azahar, armsx2, eden, cemu, dolphin) load hook libs from nativeLibraryDir.
+        // Several cores (adrenotools users: azahar, armsx2, eden, dolphin) load hook libs from nativeLibraryDir.
         jniLibs.useLegacyPackaging = true
         jniLibs.pickFirsts += listOf(
             "lib/arm64-v8a/libhook_impl.so", "lib/arm64-v8a/libmain_hook.so",
@@ -75,7 +75,7 @@ dependencies {
     // CoreBootstrap.kt finds and registers them reflectively, so nothing here is referenced from code directly.
     // Override with -Pnebulos.cores=none or -Pnebulos.cores=dolphin,eden to link a subset (e.g. while a core is mid-work).
     val wanted = (findProperty("nebulos.cores") as String?)?.split(",")?.map { it.trim() }
-    listOf("retroarch", "dolphin", "primehack", "cemu", "eden", "lichii", "azahar", "watermelonds", "armsx2", "dusklight", "wwhd", "jak", "sotc", "botw", "totk").forEach { id ->
+    listOf("retroarch", "dolphin", "primehack", "eden", "lichii", "azahar", "watermelonds", "armsx2", "dusklight", "wwhd", "jak", "sotc", "botw", "totk").forEach { id ->
         if ((wanted == null || id in wanted) && rootProject.findProject(":core-$id") != null) implementation(project(":core-$id"))
     }
 

@@ -11,7 +11,7 @@ import com.noryan.nebulos.api.CoreRegistry
  */
 object CoreBootstrap {
     private const val TAG = "CoreBootstrap"
-    val CORE_IDS = listOf("retroarch", "dolphin", "primehack", "cemu", "eden", "lichii", "azahar", "watermelonds", "armsx2", "dusklight", "wwhd", "jak", "sotc", "botw", "totk")
+    val CORE_IDS = listOf("retroarch", "dolphin", "primehack", "eden", "lichii", "azahar", "watermelonds", "armsx2", "dusklight", "wwhd", "jak", "sotc", "botw", "totk")
 
     private val DISPLAY_CASE = mapOf(
         "retroarch" to listOf("RetroArch", "Retroarch"), "primehack" to listOf("PrimeHack", "Primehack"),
@@ -81,7 +81,6 @@ object CoreBootstrap {
     private val FALLBACK_VERSION = mapOf(
         "retroarch" to "Libretro cores",
         "primehack" to "PrimeHack 1.0.9-22 (nebulos patches)",
-        "cemu" to "Cemu 0.5-4 (SSimco android port)",
         "azahar" to "Azahar 95db543",
         "armsx2" to "ARMSX2 2.9 (nebulos patches)",
         "dusklight" to "Dusklight b245c6b (nebulos patches)", "wwhd" to "WindWakerHD-Android-Plus 1.11.1 (nebulos)", "botw" to "BOTWRecompAndroid (nebulos patches)", "totk" to "TOTKDroid (nebulos patches)",
