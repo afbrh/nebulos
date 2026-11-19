@@ -71,6 +71,7 @@ class TotkActivity : TOTKRecompAndroidActivity() {
                 this, "totk", TotkCore.TITLE_ID, intent.getStringExtra(TotkCore.EXTRA_ROM_PATH).orEmpty(), RecompGameFiles::totkFolder,
                 TotkCore.GAME_TITLE,
             ) { f, text -> runOnUiThread { if (f.isNaN()) h?.setLoadingText(text) else h?.setLoadingProgress(f, text) } }
+            importStandaloneSave(prepared.dataRoot)
             env("LARECOMP_DATA_ROOT", prepared.dataRoot.absolutePath)
             Log.i(TAG, "game ${prepared.displayVersion}, data root ${prepared.dataRoot}")
         } catch (f: RecompGameFiles.Failure) {
@@ -84,6 +85,22 @@ class TotkActivity : TOTKRecompAndroidActivity() {
         }
         runOnUiThread { h?.setLoadingText("Starting Tears of the Kingdom"); h?.onGameReadyAfterPicture(settleMs = 1500) }
         super.main()
+    }
+
+    /**
+     * One-time import of a save made by the standalone TOTKDroid app: `<external files>/totk-import/save` (copied there with adb or a file
+     * manager) becomes `<data root>/save`; a save the core already has is kept aside as `save.before-import`. The import folder is removed after.
+     */
+    private fun importStandaloneSave(dataRoot: File) {
+        runCatching {
+            val src = File(getExternalFilesDir(null), "totk-import/save")
+            if (!src.isDirectory) return
+            val dst = File(dataRoot, "save")
+            if (dst.exists()) { val old = File(dataRoot, "save.before-import"); old.deleteRecursively(); dst.renameTo(old) }
+            src.copyRecursively(dst, overwrite = true)
+            File(getExternalFilesDir(null), "totk-import").deleteRecursively()
+            Log.i(TAG, "imported the standalone app's save into $dst")
+        }.onFailure { Log.e(TAG, "save import failed: $it") }
     }
 
     private fun env(k: String, v: String) { runCatching { Os.setenv(k, v, true) }.onFailure { Log.e(TAG, "setenv $k failed: $it") } }
