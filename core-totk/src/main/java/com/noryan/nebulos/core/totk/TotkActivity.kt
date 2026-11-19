@@ -99,7 +99,7 @@ class TotkActivity : TOTKRecompAndroidActivity() {
             val dst = File(dataRoot, "save")
             if (dst.exists()) { val old = File(dataRoot, "save.before-import"); old.deleteRecursively(); dst.renameTo(old) }
             src.copyRecursively(dst, overwrite = true)
-            done.writeText(System.currentTimeMillis().toString())
+            done.writeText(java.lang.System.currentTimeMillis().toString())
             File(getExternalFilesDir(null), "totk-import").deleteRecursively()
             Log.i(TAG, "imported the standalone app's save into $dst")
         }.onFailure { Log.e(TAG, "save import failed: $it") }
