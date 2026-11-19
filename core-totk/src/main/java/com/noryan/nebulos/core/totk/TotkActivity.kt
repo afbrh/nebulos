@@ -49,7 +49,6 @@ class TotkActivity : TOTKRecompAndroidActivity() {
         installDriver()
         env("LARECOMP_NO_LAUNCHER", "1")
         env("LARECOMP_NATIVE", "1")
-        env("LARECOMP_CROP_MENUS", "1")
         // Only the Nebulos virtual pad (vendor 0x5243 / product 0x0001) may become a gamepad: real controllers are consumed by
         // Nebulos's InputRouter. HIDAPI and the phone-sensor "joystick" are off so nothing double-triggers.
         env("SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT", "0x5243/0x0001")
