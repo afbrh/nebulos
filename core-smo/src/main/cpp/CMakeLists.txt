@@ -77,3 +77,24 @@ target_link_libraries(smo_main PRIVATE SDL3 shaderc_shared adrenotools android n
 # (runtime/hle.h, ipc.h, main.c: tables in named sections found through __start_ / __stop_ symbols)
 # JNI_OnLoad lives in the statically linked SDL (registers the renamed SDLActivity natives): keep it exported
 target_link_options(smo_main PRIVATE -Wl,-z,nostart-stop-gc -Wl,-u,JNI_OnLoad -Wl,-z,max-page-size=16384)
+
+# ---- libhactool.so: hactool (ISC, (c) SciresM; ../../hactool-src) as an executable the core runs to take the base game's exefs/romfs out of the
+# user's own XCI (SmoGameFiles). Packaged like a library so Android lets the app run it from its native library folder.
+set(HT ${CMAKE_CURRENT_SOURCE_DIR}/../../../../../hactool-src)
+get_filename_component(HT ${HT} ABSOLUTE)
+if(EXISTS ${HT}/main.c AND EXISTS ${HT}/mbedtls/CMakeLists.txt)
+    set(ENABLE_PROGRAMS OFF CACHE BOOL "" FORCE)
+    set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+    set(USE_SHARED_MBEDTLS_LIBRARY OFF CACHE BOOL "" FORCE)
+    set(USE_STATIC_MBEDTLS_LIBRARY ON CACHE BOOL "" FORCE)
+    set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+    add_subdirectory(${HT}/mbedtls ${CMAKE_BINARY_DIR}/mbedtls EXCLUDE_FROM_ALL)
+    file(GLOB HT_SRC ${HT}/*.c)
+    add_executable(hactool ${HT_SRC})
+    target_include_directories(hactool PRIVATE ${HT} ${HT}/mbedtls/include)
+    target_compile_definitions(hactool PRIVATE _BSD_SOURCE _POSIX_SOURCE _POSIX_C_SOURCE=200112L _DEFAULT_SOURCE _FILE_OFFSET_BITS=64)
+    target_compile_options(hactool PRIVATE -O2 -w)
+    target_link_libraries(hactool PRIVATE mbedcrypto m)
+    target_link_options(hactool PRIVATE -pie -Wl,-z,max-page-size=16384)
+    set_target_properties(hactool PROPERTIES PREFIX "lib" OUTPUT_NAME "hactool" SUFFIX ".so")
+endif()

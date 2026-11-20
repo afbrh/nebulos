@@ -70,7 +70,7 @@ class SmoActivity : SMORecompAndroidActivity() {
         try {
             val prepared = RecompGameFiles.ensure(
                 this, "smo", SmoCore.TITLE_ID, intent.getStringExtra(SmoCore.EXTRA_ROM_PATH).orEmpty(), RecompGameFiles::smoFolder,
-                SmoCore.GAME_TITLE,
+                SmoCore.GAME_TITLE, dumper = SmoXciDump,
             ) { f, text -> runOnUiThread { if (f.isNaN()) h?.setLoadingText(text) else h?.setLoadingProgress(f, text) } }
             importStandaloneSave(prepared.dataRoot)
             RecompSaveData.hideOverlayOnce(this, prepared.dataRoot)

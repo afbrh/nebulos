@@ -19,7 +19,7 @@ android {
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild {
             cmake {
-                targets("smo_main")
+                targets("smo_main", "hactool")
                 arguments += "-DSMO_GEN_DIR=${gen.get().asFile.resolve("inc").absolutePath}"
             }
         }

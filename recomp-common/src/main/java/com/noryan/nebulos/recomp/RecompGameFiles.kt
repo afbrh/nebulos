@@ -47,16 +47,19 @@ object RecompGameFiles {
     fun totkFolder(displayVersion: String): String? = if (displayVersion.trim() == "1.4.3") "" else null
 
     /** Blocks (call off the main thread). [progress]: fraction 0..1 (NaN = unknown) and a status line. */
+    /** Takes the game's exefs/romfs out of [gamePath] into [dir] and returns the marker JSON (`displayVersion`, `ok`). Eden's dump by default. */
+    fun interface Dumper { fun dump(ctx: Context, gamePath: String, dir: File, gameName: String, progress: (Float, String) -> Unit): JSONObject }
+
     fun ensure(
         ctx: Context, coreId: String, titleId: String, gamePath: String, folderFor: (String) -> String?,
-        gameName: String, progress: (Float, String) -> Unit,
+        gameName: String, dumper: Dumper? = null, progress: (Float, String) -> Unit,
     ): Prepared {
         val dir = dumpDir(ctx, titleId)
         var info = readMarker(dir)
         if (info == null) {
             if (gamePath.isBlank() || !File(gamePath).exists()) throw Failure(gameName, "The game file is missing:\n$gamePath")
             progress(Float.NaN, "Preparing $gameName game files (first launch only)")
-            info = dump(ctx, gamePath, dir, gameName, progress)
+            info = (dumper ?: Dumper { c, g, d, n, p -> dump(c, g, d, n, p) }).dump(ctx, gamePath, dir, gameName, progress)
         }
         val display = info.optString("displayVersion").ifBlank { info.optString("version") }
         val folder = folderFor(display)
