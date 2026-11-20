@@ -27,7 +27,24 @@ class DarkCloudActivity : SDLActivity() {
 
     override fun getLibraries(): Array<String> = arrayOf("chronicle_main")   // SDL3 is inside it (static)
 
+    /** One time: a config.json saved while the FPS counter was still on by default keeps it on; turn it off once (marker file). */
+    private fun hideFpsOnce() {
+        runCatching {
+            val marker = File(filesDir, "darkcloud/.fps-reset2")
+            if (marker.exists()) return
+            val on = Regex("\"show_fps\"\\s*:\\s*true")
+            for (root in listOfNotNull(SaveRoot.coreSubDir(this, "darkcloud", "save"), filesDir, getExternalFilesDir(null))) {   // config.json lives in the save folder
+                root.walkTopDown().maxDepth(5).filter { it.isFile && it.name == "config.json" && it.length() < 262144 }.forEach { f ->
+                    val t = f.readText()
+                    if (on.containsMatchIn(t)) { f.writeText(on.replace(t, "\"show_fps\": false")); Log.i(TAG, "FPS counter off in ${f.path}") }
+                }
+            }
+            marker.parentFile?.mkdirs(); marker.writeText("1")
+        }.onFailure { Log.e(TAG, "hideFpsOnce failed: $it") }
+    }
+
     override fun getArguments(): Array<String> {
+        hideFpsOnce()
         val data = File(filesDir, "darkcloud/data").also { it.parentFile?.mkdirs() }
         val save = SaveRoot.coreSubDir(this, "darkcloud", "save")
         return arrayOf("--data", data.absolutePath, "--save", save.absolutePath)
