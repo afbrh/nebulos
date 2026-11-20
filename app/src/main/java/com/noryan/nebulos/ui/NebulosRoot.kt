@@ -407,7 +407,7 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
                         if (e.key == Key.ButtonA) { if (e.type == KeyEventType.KeyUp) open(); true } else false
                     },
                     dim = core == null,
-                    tint = if (core != null && com.noryan.nebulos.data.GameSpecificCores.isNativePort(core.core.id)) com.noryan.nebulos.ui.theme.NativePortColor else null,
+                    tint = if (layout != com.noryan.nebulos.data.ListLayout.NATIVE_EMULATED && core != null && com.noryan.nebulos.data.GameSpecificCores.isNativePort(core.core.id)) com.noryan.nebulos.ui.theme.NativePortColor else null,   // the RECOMPILED / EMULATED view already says it
                     onClick = open
                 )
                 if (launchFor == g.id) {
