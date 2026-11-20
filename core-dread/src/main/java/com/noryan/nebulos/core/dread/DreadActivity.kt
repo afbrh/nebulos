@@ -54,6 +54,9 @@ class DreadActivity : SMORecompAndroidActivity() {
         env("SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT", "0x5243/0x0001")
         env("SDL_JOYSTICK_HIDAPI", "0")
         env("SDL_ACCELEROMETER_AS_JOYSTICK", "0")
+        // Dread's movie players tear down assuming a higher-priority thread on the same core runs as soon as it is signalled (the Switch pre-empts; the runtime's core 0 hands over only when a thread blocks):
+        // freed player memory was reused while the player's decoder thread was still inside it (crashes in MultiWait / critical sections). A 4 ms slice makes the hand-over regular enough.
+        env("LARECOMP_C0_SLICE_MS", "4")
         // Debugging aid: KEY=VALUE lines in <external files>/runtime-env.txt become environment variables of the runtime (LARECOMP_WATCHDOG=20, LARECOMP_LOG_FILES=1...)
         runCatching { File(getExternalFilesDir(null), "runtime-env.txt").takeIf { it.isFile }?.readLines()?.forEach { l -> l.split("=", limit = 2).takeIf { it.size == 2 && it[0].isNotBlank() }?.let { env(it[0].trim(), it[1].trim()) } } }
         super.onCreate(savedInstanceState)
@@ -77,6 +80,7 @@ class DreadActivity : SMORecompAndroidActivity() {
                 DreadCore.GAME_TITLE, dumper = DreadXciDump,
             ) { f, text -> runOnUiThread { if (f.isNaN()) h?.setLoadingText(text) else h?.setLoadingProgress(f, text) } }
             RecompSaveData.hideOverlayOnce(this, prepared.dataRoot)
+            aspectOriginalOnce(prepared.dataRoot)
             RecompSaveData.link(this, "dread", prepared.dataRoot)   // the game's saves live in the _Nebulos folder (symlinked into the data root)
             env("LARECOMP_DATA_ROOT", prepared.dataRoot.absolutePath)
             Log.i(TAG, "game ${prepared.displayVersion}, data root ${prepared.dataRoot}")
@@ -92,6 +96,26 @@ class DreadActivity : SMORecompAndroidActivity() {
         // Dread starts on a black screen (its logos, then a title that waits for a button): the picture gate would wait for a lit picture while the loading screen holds the buttons back. So: a fixed time for the runtime to boot.
         runOnUiThread { h?.setLoadingText("Starting Metroid Dread"); android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ h?.onGameReady() }, 14_000L) }
         super.main()
+    }
+
+    /**
+     * One time: Dread's picture is 16:9 and the Nova's screen is 4:3. The runtime's default "Fill (crop)" cuts the picture's sides (Dread's subtitles and HUD run to the edges),
+     * so this core starts with "original" (the whole 16:9 picture with bars). A player who wants another choice changes it in the runtime's settings afterwards.
+     */
+    private fun aspectOriginalOnce(dataRoot: File) {
+        runCatching {
+            val marker = File(dataRoot, ".aspect-original")
+            if (marker.exists()) return
+            val ini = File(dataRoot, "smorecompandroid.ini")
+            val line = "aspect = original"
+            if (ini.isFile) {
+                val t = ini.readText()
+                ini.writeText(if (Regex("(?m)^aspect\\s*=").containsMatchIn(t)) Regex("(?m)^aspect\\s*=.*$").replace(t, line) else "$line\n$t")
+            } else {
+                dataRoot.mkdirs(); ini.writeText("$line\n")
+            }
+            marker.writeText("1")
+        }
     }
 
     private fun env(k: String, v: String) { runCatching { Os.setenv(k, v, true) }.onFailure { Log.e(TAG, "setenv $k failed: $it") } }
