@@ -45,3 +45,4 @@
 -keep class com.noryan.nebulos.core.galaxy.** { *; }
 -keep class dev.chasem.sms.** { *; }
 -keep class com.noryan.nebulos.core.sunshine.** { *; }
+-keep class com.noryan.nebulos.core.dread.** { *; }

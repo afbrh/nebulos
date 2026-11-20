@@ -60,6 +60,8 @@ object RecompGameFiles {
             if (gamePath.isBlank() || !File(gamePath).exists()) throw Failure(gameName, "The game file is missing:\n$gamePath")
             progress(Float.NaN, "Preparing $gameName game files (first launch only)")
             info = (dumper ?: Dumper { c, g, d, n, p -> dump(c, g, d, n, p) }).dump(ctx, gamePath, dir, gameName, progress)
+            // (a custom dumper leaves no marker of its own: without it every launch would extract the game again)
+            runCatching { marker(dir).writeText(info.toString()) }
         }
         val display = info.optString("displayVersion").ifBlank { info.optString("version") }
         val folder = folderFor(display)

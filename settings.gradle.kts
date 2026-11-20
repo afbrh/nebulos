@@ -106,6 +106,9 @@ if (want("smo")) include(":recomp-common", ":core-smo")
 // :core-galaxy (Wii, Super Mario Galaxy revision 0 only): Nebula (GPL-3.0, ../smg-nebula, local commit, never pushed); native libs by ../smg-nebula-hosttools/build_android.sh.
 if (want("galaxy")) include(":recomp-common", ":core-galaxy")
 
+// :core-dread (Switch, Metroid Dread 2.1.0 only): the Odyssey runtime (:core-smo) with Dread as its game.
+if (want("dread")) include(":recomp-common", ":core-smo", ":core-dread")
+
 // :core-sunshine (GameCube, Super Mario Sunshine GMSE01 only): the SMS PC port (../sms-src/sms-android/sms-port, local checkout, never pushed), built by CMake from the module.
 if (want("sunshine")) include(":recomp-common", ":core-sunshine")
 

@@ -54,6 +54,8 @@ class SmoActivity : SMORecompAndroidActivity() {
         env("SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT", "0x5243/0x0001")
         env("SDL_JOYSTICK_HIDAPI", "0")
         env("SDL_ACCELEROMETER_AS_JOYSTICK", "0")
+        // Debugging aid: KEY=VALUE lines in <external files>/runtime-env.txt become environment variables of the runtime (LARECOMP_WATCHDOG=20, LARECOMP_LOG_FILES=1...)
+        runCatching { File(getExternalFilesDir(null), "runtime-env.txt").takeIf { it.isFile }?.readLines()?.forEach { l -> l.split("=", limit = 2).takeIf { it.size == 2 && it[0].isNotBlank() }?.let { env(it[0].trim(), it[1].trim()) } } }
         super.onCreate(savedInstanceState)
         session = RecompSession(this, SmoCore.STATE_UNAVAILABLE_REASON)
         val h = NebulosCoreHost.install(this, session, System.SWITCH, UiOptions(title = intent.getStringExtra("nebulos.title") ?: SmoCore.GAME_TITLE, loadingTimeoutMs = 60 * 60_000L))
@@ -61,6 +63,8 @@ class SmoActivity : SMORecompAndroidActivity() {
         session.onNotice = { h.notice(it) }
         h.setLoadingText("Starting Super Mario Odyssey")
         h.setTargetFps(60)
+        // Debugging aid (runtime-env.txt: NEBULOS_FORCE_READY=<ms>): drop the loading screen after that long whatever the picture looks like
+        runCatching { Os.getenv("NEBULOS_FORCE_READY")?.toLongOrNull()?.let { ms -> android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ hooks?.onGameReady() }, ms) } }
         try { RecompPad.nativeStart() } catch (t: Throwable) { Log.e(TAG, "virtual pad: $t") }
     }
 
