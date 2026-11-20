@@ -39,3 +39,7 @@
 -keep class com.defnf.icopc.** { *; }
 
 -keep class com.smorecompandroid.** { *; }
+
+-keep class dev.nebula.galaxy.** { *; }
+-keep class dev.nebula.sdl.** { *; }
+-keep class com.noryan.nebulos.core.galaxy.** { *; }

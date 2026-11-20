@@ -15,10 +15,10 @@ import java.io.File
 object RecompSaveData {
     private const val TAG = "RecompSaveData"
 
-    /** [coreId] "totk" / "botw"; [sub] the folder inside `<_Nebulos>/<coreId>-core` (`save`, or `save-v160` for a game version of its own). */
-    fun link(ctx: Context, coreId: String, dataRoot: File, sub: String = "save"): File? = try {
+    /** [coreId] "totk" / "botw"; [linkName] the name of the link in the data root (`save` for the recomp runtimes, `saves` for Nebula); [sub] the folder inside `<_Nebulos>/<coreId>-core` (`save`, or `save-v160` for a game version of its own). */
+    fun link(ctx: Context, coreId: String, dataRoot: File, sub: String = "save", linkName: String = "save"): File? = try {
         val target = SaveRoot.coreSubDir(ctx, coreId, sub)
-        val link = File(dataRoot, "save")
+        val link = File(dataRoot, linkName)
         val current = runCatching { Os.readlink(link.absolutePath) }.getOrNull()
         if (current == target.absolutePath) {
             target
