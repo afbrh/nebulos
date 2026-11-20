@@ -60,7 +60,7 @@ class SmoActivity : SMORecompAndroidActivity() {
         hooks = h
         session.onNotice = { h.notice(it) }
         h.setLoadingText("Starting Super Mario Odyssey")
-        h.setTargetFps(30)
+        h.setTargetFps(60)
         try { RecompPad.nativeStart() } catch (t: Throwable) { Log.e(TAG, "virtual pad: $t") }
     }
 
@@ -74,6 +74,7 @@ class SmoActivity : SMORecompAndroidActivity() {
             ) { f, text -> runOnUiThread { if (f.isNaN()) h?.setLoadingText(text) else h?.setLoadingProgress(f, text) } }
             importStandaloneSave(prepared.dataRoot)
             RecompSaveData.hideOverlayOnce(this, prepared.dataRoot)
+            resetFrameRateOnce(prepared.dataRoot)
             RecompSaveData.link(this, "smo", prepared.dataRoot)   // the game's saves live in the _Nebulos folder (symlinked into the data root)
             env("LARECOMP_DATA_ROOT", prepared.dataRoot.absolutePath)
             Log.i(TAG, "game ${prepared.displayVersion}, data root ${prepared.dataRoot}")
@@ -106,6 +107,19 @@ class SmoActivity : SMORecompAndroidActivity() {
             File(getExternalFilesDir(null), "smo-import").deleteRecursively()
             Log.i(TAG, "imported the standalone app's save into $dst")
         }.onFailure { Log.e(TAG, "save import failed: $it") }
+    }
+
+    /** One time: a settings file saved while the default was 30 fps keeps it; Odyssey's logic is tied to 60, so 30 runs the game at half speed. */
+    private fun resetFrameRateOnce(dataRoot: File) {
+        runCatching {
+            val marker = File(dataRoot, ".fps60-reset")
+            if (marker.exists()) return
+            File(dataRoot, "smorecompandroid.ini").takeIf { it.isFile }?.let { f ->
+                val t = f.readText()
+                if (Regex("(?m)^frame_rate\\s*=").containsMatchIn(t)) f.writeText(Regex("(?m)^frame_rate\\s*=.*$").replace(t, "frame_rate = 60"))
+            }
+            marker.writeText("1")
+        }
     }
 
     private fun env(k: String, v: String) { runCatching { Os.setenv(k, v, true) }.onFailure { Log.e(TAG, "setenv $k failed: $it") } }

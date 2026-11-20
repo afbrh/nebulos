@@ -12,4 +12,4 @@ Native-code mode: the game's own ARM64 code runs on the CPU (nothing is compiled
 | Game files | `<externalFilesDir>/native-dumps/0100000000010000/{exefs,romfs}` + `nebulos-dump.json` (displayVersion 1.0.0). Eden's own dump applies the cartridge's update (not 1.0.0), so the base game was extracted on the Mac (hactool) and pushed: `adb push` into Android/data is refused, push to /sdcard/smo-tmp then `adb shell cp -r` |
 | Saves | `<files>/smo/save` -> `<_Nebulos>/smo-core/save` |
 
-Only game version 1.0.0 (main build id 3ca12dfaaf9c82da). Status 2026-11-20: boots, mode select at 30 fps, the opening cutscene plays with a colour tint and 20-30 fps.
+Only game version 1.0.0 (main build id 3ca12dfaaf9c82da). Status 2026-11-20: boots, plays from the title screen into Cap Kingdom at a steady 60 fps (60 is the default: the game logic is tied to the frame rate, 30 ran it at half speed). Untested: later kingdoms, sound quality, the Back menu, performance in heavy scenes.
