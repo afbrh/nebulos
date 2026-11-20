@@ -100,6 +100,9 @@ if (want("darkcloud")) include(":recomp-common", ":core-darkcloud")
 // from this module (needs a source-built DXC under ico-pc/tools/toolchain/deps/dxc, see core-ico/README-ico.md), SDL3 static from recomp-common.
 if (want("ico")) include(":recomp-common", ":core-ico")
 
+// :core-smo (Switch, Super Mario Odyssey 1.0.0 only): the TOTKDroid runtime (../smorecomp-src, local branch `smo`) with Odyssey Recomp's game support.
+if (want("smo")) include(":recomp-common", ":core-smo")
+
 // :recomp-common + :core-totk (Switch, Tears of the Kingdom only). TOTKDroid (MIT, (c) Peiikai / mamcjr) from ../totkdroid-src (local commits, never pushed):
 // its Java glue is compiled into :core-totk, its runtime built with CMake into libtotk_main.so (SDL3 static, Java package com.noryan.recompsdl in
 // :recomp-common). Prerequisites: ../totkdroid-src/android/deps/build_deps.sh (+ build_ffmpeg_mac.sh) and recomp-common/build_sdl_static.sh.

@@ -88,7 +88,7 @@ object GameSpecificCores {
     private val matchers: Map<String, (String?) -> Boolean> = mapOf("dusklight" to ::isTwilightPrincess, "jak" to ::isJakAndDaxter, "sotc" to ::isShadowOfTheColossus, "darkcloud" to ::isDarkCloud, "ico" to ::isIco)
 
     /** Cores that can only run particular games recognised by name, id -> predicate on the game's title. */
-    private val titleMatchers: Map<String, (String?) -> Boolean> = mapOf("wwhd" to ::isWindWakerHd, "botw" to ::isBotw, "totk" to ::isTotk)
+    private val titleMatchers: Map<String, (String?) -> Boolean> = mapOf("wwhd" to ::isWindWakerHd, "botw" to ::isBotw, "totk" to ::isTotk, "smo" to ::isSmo)
 
     fun isTwilightPrincess(gameId: String?): Boolean {
         if (gameId == null) return false
@@ -156,10 +156,12 @@ object GameSpecificCores {
 
     fun isBotw(title: String?): Boolean = title != null && Regex("breath\\s*of\\s*the\\s*wild", RegexOption.IGNORE_CASE).containsMatchIn(title)
 
+    fun isSmo(title: String?): Boolean = title != null && Regex("super\\s*mario\\s*odyssey", RegexOption.IGNORE_CASE).containsMatchIn(title)
+
     fun isTotk(title: String?): Boolean = title != null && Regex("tears\\s*of\\s*the\\s*kingdom", RegexOption.IGNORE_CASE).containsMatchIn(title)
 
     /** Cores that run a game as a native port / recompilation instead of emulating the console (their games are tinted cyan in the list). */
-    private val NATIVE_PORTS = setOf("darkcloud", "ico", "jak", "sotc", "botw", "totk", "wwhd", "dusklight")
+    private val NATIVE_PORTS = setOf("darkcloud", "ico", "smo", "jak", "sotc", "botw", "totk", "wwhd", "dusklight")
     fun isNativePort(coreId: String) = coreId in NATIVE_PORTS
 
     fun isGameSpecific(coreId: String) = coreId in matchers || coreId in titleMatchers

@@ -40,6 +40,9 @@ object RecompGameFiles {
         "1.0.0" -> ""; "1.6.0" -> "v160"; "1.8.2" -> "v182"; "1.9.0" -> "v190"; else -> null
     }
 
+    /** Super Mario Odyssey: only 1.0.0 (the base game; no folder suffix). */
+    fun smoFolder(displayVersion: String): String? = if (displayVersion.trim() == "1.0.0") "" else null
+
     /** TotK: only 1.4.3 (the port's main version, no folder suffix). */
     fun totkFolder(displayVersion: String): String? = if (displayVersion.trim() == "1.4.3") "" else null
 

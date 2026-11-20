@@ -37,3 +37,5 @@
 -keep class androidx.core.util.Pair { *; }
 
 -keep class com.defnf.icopc.** { *; }
+
+-keep class com.smorecompandroid.** { *; }
