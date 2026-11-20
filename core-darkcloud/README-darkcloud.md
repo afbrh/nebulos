@@ -10,7 +10,7 @@ by the disc serial `SCUS-97111` (ARMSX2 stays selectable). Chronicle also reads 
 | Local patches | Kazarov: `vkCmdWriteTimestamp2` shim. Chronicle: static-SDL build option, 60 fps default on Android, never delete the user's own disc image after import |
 | Process | `:darkcloud` (`DarkCloudActivity`, extends the renamed `SDLActivity`) |
 | Data | `filesDir/darkcloud/data` (extracted from the ISO on first launch, read in place from its real path); saves in `<_Nebulos>/darkcloud-core/save` |
-| Input | Nebulos router -> `RecompSession` -> SDL virtual gamepad. Face buttons: A = Cross, B = Circle, X = Square, Y = Triangle (`DarkCloudInput`; the other recomp cores map by position) |
+| Input | Nebulos router -> `RecompSession` -> SDL virtual gamepad. Face buttons by position like the other PS2 cores: B (south) = Cross, A (east) = Circle, Y (west) = Square, X (north) = Triangle (`DarkCloudInput`) |
 
 Build prerequisites: NDK 27.0.12077973, CMake 3.31.6, `~/android-dev/bin/glslangValidator`, and `../botwrecomp-src/android/deps/out-static/lib/libSDL3.a`.
 An existing install is signed with the release key: use `./gradlew :app:assembleRelease` to update in place.
