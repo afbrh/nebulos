@@ -1,0 +1,16 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- The Sunshine port lives in its own process (global heaps, native threads): it must never share an address space with another Nebulos core. -->
+        <activity
+            android:name="com.noryan.nebulos.core.sunshine.SunshineActivity"
+            android:process=":sunshine"
+            android:taskAffinity="com.noryan.nebulos.sunshine"
+            android:launchMode="singleTask"
+            android:exported="false"
+            android:alwaysRetainTaskState="true"
+            android:screenOrientation="sensorLandscape"
+            android:preferMinimalPostProcessing="true"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
+            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection|density|colorMode|grammaticalGender|fontWeightAdjustment" />
+    </application>
+</manifest>

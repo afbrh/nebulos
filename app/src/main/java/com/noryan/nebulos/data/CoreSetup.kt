@@ -85,7 +85,7 @@ object GameSpecificCores {
     /** Cores that can only run particular discs, id -> predicate on the 6-char disc game ID (null = unknown ID). */
     private val JAK_SERIALS = setOf("SCUS-97124", "SCES-50361", "SCPS-15021", "SCPS-56003", "SCUS-97265", "SCES-51608", "SCPS-15057",
         "SCKA-20010", "SCUS-97330", "SCUS-97516", "SCKA-20040", "SCES-52460")
-    private val matchers: Map<String, (String?) -> Boolean> = mapOf("dusklight" to ::isTwilightPrincess, "jak" to ::isJakAndDaxter, "sotc" to ::isShadowOfTheColossus, "darkcloud" to ::isDarkCloud, "ico" to ::isIco, "galaxy" to ::isSuperMarioGalaxy)
+    private val matchers: Map<String, (String?) -> Boolean> = mapOf("dusklight" to ::isTwilightPrincess, "jak" to ::isJakAndDaxter, "sotc" to ::isShadowOfTheColossus, "darkcloud" to ::isDarkCloud, "ico" to ::isIco, "galaxy" to ::isSuperMarioGalaxy, "sunshine" to ::isSuperMarioSunshine)
 
     /** Cores that can only run particular games recognised by name, id -> predicate on the game's title. */
     private val titleMatchers: Map<String, (String?) -> Boolean> = mapOf("wwhd" to ::isWindWakerHd, "botw" to ::isBotw, "totk" to ::isTotk, "smo" to ::isSmo)
@@ -155,6 +155,17 @@ object GameSpecificCores {
         return r ?: (gameId.uppercase() in setOf("RMGE01", "RMGP01", "RMGJ01"))
     }
 
+    /** Super Mario Sunshine (US revision 0: GMSE01; PC port core), recognised by the GameCube disc's game ID. */
+    fun isSuperMarioSunshine(gameId: String?): Boolean {
+        if (gameId == null) return false
+        val r = runCatching {
+            Class.forName("com.noryan.nebulos.core.sunshine.SunshineCore").let { c ->
+                c.getMethod("isSunshineGameId", String::class.java).invoke(c.getField("INSTANCE").get(null), gameId) as? Boolean
+            }
+        }.getOrNull()
+        return r ?: (gameId.uppercase() == "GMSE01")
+    }
+
     fun isWindWakerHd(title: String?): Boolean {
         if (title == null) return false
         val r = runCatching {
@@ -172,7 +183,7 @@ object GameSpecificCores {
     fun isTotk(title: String?): Boolean = title != null && Regex("tears\\s*of\\s*the\\s*kingdom", RegexOption.IGNORE_CASE).containsMatchIn(title)
 
     /** Cores that run a game as a native port / recompilation instead of emulating the console (their games are tinted cyan in the list). */
-    private val NATIVE_PORTS = setOf("darkcloud", "ico", "smo", "jak", "sotc", "botw", "totk", "wwhd", "dusklight", "galaxy")
+    private val NATIVE_PORTS = setOf("darkcloud", "ico", "smo", "jak", "sotc", "botw", "totk", "wwhd", "dusklight", "galaxy", "sunshine")
     fun isNativePort(coreId: String) = coreId in NATIVE_PORTS
 
     fun isGameSpecific(coreId: String) = coreId in matchers || coreId in titleMatchers

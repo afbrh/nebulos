@@ -43,3 +43,5 @@
 -keep class dev.nebula.galaxy.** { *; }
 -keep class dev.nebula.sdl.** { *; }
 -keep class com.noryan.nebulos.core.galaxy.** { *; }
+-keep class dev.chasem.sms.** { *; }
+-keep class com.noryan.nebulos.core.sunshine.** { *; }

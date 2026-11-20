@@ -106,6 +106,9 @@ if (want("smo")) include(":recomp-common", ":core-smo")
 // :core-galaxy (Wii, Super Mario Galaxy revision 0 only): Nebula (GPL-3.0, ../smg-nebula, local commit, never pushed); native libs by ../smg-nebula-hosttools/build_android.sh.
 if (want("galaxy")) include(":recomp-common", ":core-galaxy")
 
+// :core-sunshine (GameCube, Super Mario Sunshine GMSE01 only): the SMS PC port (../sms-src/sms-android/sms-port, local checkout, never pushed), built by CMake from the module.
+if (want("sunshine")) include(":recomp-common", ":core-sunshine")
+
 // :recomp-common + :core-totk (Switch, Tears of the Kingdom only). TOTKDroid (MIT, (c) Peiikai / mamcjr) from ../totkdroid-src (local commits, never pushed):
 // its Java glue is compiled into :core-totk, its runtime built with CMake into libtotk_main.so (SDL3 static, Java package com.noryan.recompsdl in
 // :recomp-common). Prerequisites: ../totkdroid-src/android/deps/build_deps.sh (+ build_ffmpeg_mac.sh) and recomp-common/build_sdl_static.sh.
