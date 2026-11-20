@@ -23,6 +23,8 @@ import com.noryan.recompsdl.RecompPad
 class RecompSession(
     private val activity: Activity,
     override val stateUnavailableReason: String,
+    /** Canonical pad button -> SDL gamepad button; the Nintendo-by-position layout unless a core overrides it. */
+    private val face: (Pad) -> Int? = RecompInput::button,
 ) : CoreSession, StateSlotProvider, StateSupport {
     override fun slotInfo(slot: Int) = SlotInfo(slot, false)
     private val main = Handler(Looper.getMainLooper())
@@ -42,7 +44,7 @@ class RecompSession(
     private val dirs = FloatArray(8) // LS up/down/left/right, RS up/down/left/right
 
     override fun injectButton(pad: Pad, pressed: Boolean) {
-        val b = RecompInput.button(pad) ?: return
+        val b = face(pad) ?: return
         call { RecompPad.nativeButton(b, pressed) }
     }
 
