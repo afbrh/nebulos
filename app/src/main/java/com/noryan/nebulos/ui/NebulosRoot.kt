@@ -293,7 +293,8 @@ private const val OTHER_TAB = "Other"
 private val PINNED_TABS = listOf("The Legend of Zelda", "Metroid", "Super Mario", PS2_HEADING)
 
 /** Tabs: Zelda, Metroid, Mario, PS2 (always in that order), then any other series with the most games first (ties by name), then OTHER with every game that is not part of one. */
-private fun categoriesOf(games: List<com.noryan.nebulos.data.GameEntity>, layout: com.noryan.nebulos.data.ListLayout = com.noryan.nebulos.data.ListLayout.OPTIMIZED): List<Category> {
+private fun categoriesOf(games: List<com.noryan.nebulos.data.GameEntity>, layout: com.noryan.nebulos.data.ListLayout = com.noryan.nebulos.data.ListLayout.OPTIMIZED,
+                         isNative: (com.noryan.nebulos.data.GameEntity) -> Boolean = { false }): List<Category> {
     when (layout) {
         // One A-Z list (a single category draws no tabs).
         com.noryan.nebulos.data.ListLayout.ALPHABETICAL ->
@@ -303,6 +304,14 @@ private fun categoriesOf(games: List<com.noryan.nebulos.data.GameEntity>, layout
             val bySystem = games.groupBy { g -> sysOf(g) ?: System.OTHER }
             return System.entries.filter { it in bySystem }.sortedBy { it == System.OTHER }
                 .map { s -> Category(systemLabel(s), bySystem.getValue(s).sortedBy { it.title.lowercase() }.map { ListRow(it, false) }) }
+        }
+        // Two lists: games on a native port / recomp core, and emulated games (a game with no core counts as emulated), each A-Z.
+        com.noryan.nebulos.data.ListLayout.NATIVE_EMULATED -> {
+            val (nat, emu) = games.sortedBy { it.title.lowercase() }.partition(isNative)
+            return listOfNotNull(
+                nat.takeIf { it.isNotEmpty() }?.let { Category("Recompiled", it.map { g -> ListRow(g, false) }) },
+                emu.takeIf { it.isNotEmpty() }?.let { Category("Emulated", it.map { g -> ListRow(g, false) }) },
+            )
         }
         com.noryan.nebulos.data.ListLayout.OPTIMIZED -> Unit
     }
@@ -341,7 +350,9 @@ private fun GameList(vm: MainViewModel, collectionId: Long?) {
     val cols = collections.orEmpty()
     // Series (see [seriesOf]) are tabs across the top; the selected tab's games are listed under them. Fewer than two tabs = a plain list.
     val layout by vm.listLayout.collectAsStateWithLifecycle()
-    val cats = remember(games, layout) { categoriesOf(games, layout) }
+    val cats = remember(games, layout, tick, all.size) {
+        categoriesOf(games, layout) { g -> vm.coreFor(g)?.core?.id?.let { com.noryan.nebulos.data.GameSpecificCores.isNativePort(it) } == true }
+    }
     var catSel by remember(collectionId, layout) { mutableStateOf<String?>(null) }
     val cat = cats.firstOrNull { it.name == catSel } ?: cats.firstOrNull()
     val rows = cat?.rows.orEmpty()
