@@ -10,7 +10,7 @@ ARMSX2 stays selectable. The user's own disc image is read in place (raw 2352-by
 | Native library | `libico_main.so` (ico-pc's CMake from this module; SDL3 static from `../botwrecomp-src/android/deps/out-static`, renamed Java package `com.noryan.recompsdl`) + adrenotools' hook libraries |
 | Java | ico-pc's `IcoActivity` + `ExitRecords` (package `com.defnf.icopc`, JNI names unchanged), imports the renamed SDLActivity; `sNebulosDisc` answers the first-run picker with the launched disc path |
 | Activity / process | `IcoCoreActivity` (Nebulos host, virtual pad), process `:ico` |
-| First-run settings | `IcoSetup.seedConfig`: resolution 2x, FSR 1 at sharpness 100, 60 fps, Analogue stick fix (only when config.toml does not exist yet) |
+| Defaults | Built into the engine for this build (`ICO_NEBULOS_CORE` in ico-pc: video_options.c, options.c, config.c): resolution 2x, FSR 1 at sharpness 100, 60 fps, Analogue stick fix, preset "custom" (so a missing or reset config.toml still gives them); `IcoSetup.seedConfig` also writes them into a new config.toml |
 | Saves | `<files>/memcard` and `<files>/states` are symlinks to `<_Nebulos>/ico-core/` |
 | Input | Nebulos router -> `RecompSession` -> SDL virtual gamepad, face buttons by position (B/south = Cross) |
 
