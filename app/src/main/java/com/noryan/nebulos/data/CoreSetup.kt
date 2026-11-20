@@ -147,6 +147,10 @@ object GameSpecificCores {
 
     fun isTotk(title: String?): Boolean = title != null && Regex("tears\\s*of\\s*the\\s*kingdom", RegexOption.IGNORE_CASE).containsMatchIn(title)
 
+    /** Cores that run a game as a native port / recompilation instead of emulating the console (their games are tinted cyan in the list). */
+    private val NATIVE_PORTS = setOf("darkcloud", "jak", "sotc", "botw", "totk", "wwhd", "dusklight")
+    fun isNativePort(coreId: String) = coreId in NATIVE_PORTS
+
     fun isGameSpecific(coreId: String) = coreId in matchers || coreId in titleMatchers
 
     /** True when [coreId] may run this game (cores that are not game-specific can run anything). [title] is the game's name. */

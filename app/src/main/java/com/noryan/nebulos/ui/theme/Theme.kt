@@ -18,6 +18,8 @@ val Amber80 = Color(0xFFFFD9A6)
 val BrandOrange = Color(0xFFFF6B4A)
 val BrandNavy = Color(0xFF0E0A22)
 val HighlightColor = BrandOrange
+/** Games that run on a native port / recompilation core instead of an emulation core (home screen list). */
+val NativePortColor = Color(0xFF22D3EE)
 
 val Silkscreen = FontFamily(Font(R.font.silkscreen_regular))
 

@@ -34,6 +34,8 @@ fun FocusLine(
     indent: Dp = 0.dp,
     marked: Boolean = false,
     dim: Boolean = false,
+    /** Replaces the orange of the focus bar and the label colour (cyan = a native port / recomp core). */
+    tint: Color? = null,
     center: Boolean = false,
     style: TextStyle = MaterialTheme.typography.titleMedium,
     onAlt: (() -> Unit)? = null,
@@ -46,12 +48,12 @@ fun FocusLine(
     val base = if (dim) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f) else MaterialTheme.colorScheme.onSurface
     val sub = if (dim) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f) else MaterialTheme.colorScheme.onSurfaceVariant
     val onBar = Color.Black
-    val c1: Color = if (focused) onBar else if (marked) MaterialTheme.colorScheme.secondary else base
+    val c1: Color = if (focused) onBar else if (tint != null) tint else if (marked) MaterialTheme.colorScheme.secondary else base
     val c2: Color = if (focused) onBar.copy(alpha = 0.7f) else sub
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(if (focused) HighlightColor else Color.Transparent)
+            .background(if (focused) (tint ?: HighlightColor) else Color.Transparent)
             .onKeyEvent { e ->
                 if (onAlt != null && e.type == KeyEventType.KeyUp &&
                     (e.key == Key.ButtonX || e.key == Key.ButtonY || e.key == Key.Menu)) { onAlt(); true } else false
