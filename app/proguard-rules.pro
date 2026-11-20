@@ -35,3 +35,5 @@
 # Looked up by name from native code (FindClass), with no Java reference R8 could see: Eden's initJvm asks for kotlin/Pair.
 -keep class kotlin.Pair { *; }
 -keep class androidx.core.util.Pair { *; }
+
+-keep class com.defnf.icopc.** { *; }

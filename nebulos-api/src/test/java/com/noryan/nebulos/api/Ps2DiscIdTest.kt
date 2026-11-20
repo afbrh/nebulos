@@ -32,6 +32,19 @@ class Ps2DiscIdTest {
         assertEquals("SCUS-97265", Ps2DiscId.readSerial(iso("BOOT2 = cdrom0:\\SCUS_972.65;1\nVER = 1.00")))
     }
 
+    /** The same image as raw 2352-byte Mode 2 Form 1 sectors (12 sync + 4 header + 8 sub-header before the 2048 data bytes). */
+    private fun rawCd(cnf: String): File {
+        val plain = iso(cnf).readBytes()
+        val sectors = plain.size / 2048
+        val raw = ByteArray(sectors * 2352)
+        for (i in 0 until sectors) plain.copyInto(raw, i * 2352 + 24, i * 2048, (i + 1) * 2048)
+        return File.createTempFile("ps2raw", ".iso").apply { deleteOnExit(); writeBytes(raw) }
+    }
+
+    @Test fun readsSerialFromRawCdImage() {
+        assertEquals("SCUS-97113", Ps2DiscId.readSerial(rawCd("BOOT2 = cdrom0:\\SCUS_971.13;1\nVER = 1.00")))
+    }
+
     @Test fun notAnIsoIsNull() {
         val f = File.createTempFile("notiso", ".iso").apply { deleteOnExit(); writeBytes(ByteArray(100000)) }
         assertNull(Ps2DiscId.readSerial(f))

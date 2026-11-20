@@ -85,7 +85,7 @@ object GameSpecificCores {
     /** Cores that can only run particular discs, id -> predicate on the 6-char disc game ID (null = unknown ID). */
     private val JAK_SERIALS = setOf("SCUS-97124", "SCES-50361", "SCPS-15021", "SCPS-56003", "SCUS-97265", "SCES-51608", "SCPS-15057",
         "SCKA-20010", "SCUS-97330", "SCUS-97516", "SCKA-20040", "SCES-52460")
-    private val matchers: Map<String, (String?) -> Boolean> = mapOf("dusklight" to ::isTwilightPrincess, "jak" to ::isJakAndDaxter, "sotc" to ::isShadowOfTheColossus, "darkcloud" to ::isDarkCloud)
+    private val matchers: Map<String, (String?) -> Boolean> = mapOf("dusklight" to ::isTwilightPrincess, "jak" to ::isJakAndDaxter, "sotc" to ::isShadowOfTheColossus, "darkcloud" to ::isDarkCloud, "ico" to ::isIco)
 
     /** Cores that can only run particular games recognised by name, id -> predicate on the game's title. */
     private val titleMatchers: Map<String, (String?) -> Boolean> = mapOf("wwhd" to ::isWindWakerHd, "botw" to ::isBotw, "totk" to ::isTotk)
@@ -133,6 +133,17 @@ object GameSpecificCores {
         return r ?: (serial == "SCUS-97111")
     }
 
+    /** ICO (any of the seven discs ico-pc accepts), recognised by the serial the scanner reads from SYSTEM.CNF. */
+    fun isIco(serial: String?): Boolean {
+        if (serial == null) return false
+        val r = runCatching {
+            Class.forName("com.noryan.nebulos.core.ico.IcoCore").let { c ->
+                c.getMethod("isIcoSerial", String::class.java).invoke(c.getField("INSTANCE").get(null), serial) as? Boolean
+            }
+        }.getOrNull()
+        return r ?: (serial == "SCUS-97113")
+    }
+
     fun isWindWakerHd(title: String?): Boolean {
         if (title == null) return false
         val r = runCatching {
@@ -148,7 +159,7 @@ object GameSpecificCores {
     fun isTotk(title: String?): Boolean = title != null && Regex("tears\\s*of\\s*the\\s*kingdom", RegexOption.IGNORE_CASE).containsMatchIn(title)
 
     /** Cores that run a game as a native port / recompilation instead of emulating the console (their games are tinted cyan in the list). */
-    private val NATIVE_PORTS = setOf("darkcloud", "jak", "sotc", "botw", "totk", "wwhd", "dusklight")
+    private val NATIVE_PORTS = setOf("darkcloud", "ico", "jak", "sotc", "botw", "totk", "wwhd", "dusklight")
     fun isNativePort(coreId: String) = coreId in NATIVE_PORTS
 
     fun isGameSpecific(coreId: String) = coreId in matchers || coreId in titleMatchers

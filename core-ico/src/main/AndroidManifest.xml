@@ -1,0 +1,17 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.DETECT_SCREEN_RECORDING" />
+    <application>
+        <!-- ico-pc (SDL3 + Vulkan, libico_main.so) lives in its own process like the other native-port cores; the process is ended on Close Game. -->
+        <activity
+            android:name="com.noryan.nebulos.core.ico.IcoCoreActivity"
+            android:process=":ico"
+            android:taskAffinity="com.noryan.nebulos.ico"
+            android:launchMode="singleTask"
+            android:exported="false"
+            android:alwaysRetainTaskState="true"
+            android:screenOrientation="sensorLandscape"
+            android:preferMinimalPostProcessing="true"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
+            android:configChanges="layoutDirection|locale|grammaticalGender|fontScale|fontWeightAdjustment|orientation|uiMode|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation|density" />
+    </application>
+</manifest>
