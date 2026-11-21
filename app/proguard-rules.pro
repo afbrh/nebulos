@@ -51,3 +51,7 @@
 -keep class dev.echoes.** { *; }
 -keep class dev.encounter.aurora.** { *; }
 -keep class com.noryan.nebulos.core.echoes.** { *; }
+
+-keep class org.metroidprime.port.** { *; }
+-keep class dev.prime1.** { *; }
+-keep class com.noryan.nebulos.core.prime1.** { *; }
