@@ -22,7 +22,7 @@ object Sm3dwCore : CoreDescriptor {
     override val version: String get() = "3D World v65536 on the Odyssey runtime (nebulos patches)"
     override val extensions = setOf("xci")
 
-    const val EXTRA_ROM_PATH = "nebulos.mp4.path"
+    const val EXTRA_ROM_PATH = "nebulos.sm3dw.path"
     const val TITLE_ID = "010028600EBDA000"
     const val GAME_TITLE = "Super Mario 3D World + Bowser's Fury"
     const val STATE_UNAVAILABLE_REASON = "Super Mario 3D World (native port) uses the game's own saves."
