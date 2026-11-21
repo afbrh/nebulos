@@ -100,6 +100,7 @@ class Smg2Activity : SDLActivity() {
             env("PETARI_GAME_DIR", game.absolutePath)
             env("ASTRAL_SUPPORT_DIR", files.support.absolutePath)
             env("PETARI_CACHE_DIR", files.cache.absolutePath)
+            env("PETARI_UBERSHADER", "all")   // Adreno rejects the specialised textured GX pipelines: draw everything through the ubershader
             // debugging aid: KEY=VALUE lines in <external files>/runtime-env-smg2.txt become environment variables of the game (PETARI_* switches)
             runCatching {
                 File(getExternalFilesDir(null), "runtime-env-smg2.txt").takeIf { it.isFile }?.readLines()?.forEach { l ->
