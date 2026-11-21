@@ -75,7 +75,9 @@ object RecompGameFiles {
             exefsSrc.listFiles()?.forEach { it.copyTo(File(exefsDst, it.name), overwrite = true) }
             File(extracted, ".exefs-stamp").writeText(exefsMtime(exefsSrc) ?: "")
         }
-        File(extracted, "romfs.link").writeText(File(dir, "romfs").absolutePath)
+        // A game whose RomFS does not fit the internal volume (Metroid Prime 4: 26 GB) keeps it elsewhere: `romfs.override` holds that folder's path.
+        val romfsHome = File(dir, "romfs.override").takeIf { it.isFile }?.readText()?.trim()?.takeIf { File(it).isDirectory }
+        File(extracted, "romfs.link").writeText(romfsHome ?: File(dir, "romfs").absolutePath)
         return Prepared(root, display)
     }
 
