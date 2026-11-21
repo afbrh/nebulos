@@ -112,6 +112,10 @@ if (want("dread")) include(":recomp-common", ":core-smo", ":core-dread")
 // :core-sunshine (GameCube, Super Mario Sunshine GMSE01 only): the SMS PC port (../sms-src/sms-android/sms-port, local checkout, never pushed), built by CMake from the module.
 if (want("sunshine")) include(":recomp-common", ":core-sunshine")
 
+// :core-echoes (GameCube, Metroid Prime 2 Echoes G2ME01 / G2MP01 + Trilogy R3ME01 / R3MP01): the Echoes native port, work copy ../prime-research/echoes-core-src (never published: personal use only);
+// native libs by ../prime-research/echoes-core-src/build_native.sh (after ./rename_sdl.sh).
+if (want("echoes")) include(":recomp-common", ":core-echoes")
+
 // :recomp-common + :core-totk (Switch, Tears of the Kingdom only). TOTKDroid (MIT, (c) Peiikai / mamcjr) from ../totkdroid-src (local commits, never pushed):
 // its Java glue is compiled into :core-totk, its runtime built with CMake into libtotk_main.so (SDL3 static, Java package com.noryan.recompsdl in
 // :recomp-common). Prerequisites: ../totkdroid-src/android/deps/build_deps.sh (+ build_ffmpeg_mac.sh) and recomp-common/build_sdl_static.sh.

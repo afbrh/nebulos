@@ -46,3 +46,8 @@
 -keep class dev.chasem.sms.** { *; }
 -keep class com.noryan.nebulos.core.sunshine.** { *; }
 -keep class com.noryan.nebulos.core.dread.** { *; }
+
+-keep class org.metroidprime2.port.** { *; }
+-keep class dev.echoes.** { *; }
+-keep class dev.encounter.aurora.** { *; }
+-keep class com.noryan.nebulos.core.echoes.** { *; }

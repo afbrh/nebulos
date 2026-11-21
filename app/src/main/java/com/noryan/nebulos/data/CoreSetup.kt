@@ -85,7 +85,7 @@ object GameSpecificCores {
     /** Cores that can only run particular discs, id -> predicate on the 6-char disc game ID (null = unknown ID). */
     private val JAK_SERIALS = setOf("SCUS-97124", "SCES-50361", "SCPS-15021", "SCPS-56003", "SCUS-97265", "SCES-51608", "SCPS-15057",
         "SCKA-20010", "SCUS-97330", "SCUS-97516", "SCKA-20040", "SCES-52460")
-    private val matchers: Map<String, (String?) -> Boolean> = mapOf("dusklight" to ::isTwilightPrincess, "jak" to ::isJakAndDaxter, "sotc" to ::isShadowOfTheColossus, "darkcloud" to ::isDarkCloud, "ico" to ::isIco, "galaxy" to ::isSuperMarioGalaxy, "sunshine" to ::isSuperMarioSunshine)
+    private val matchers: Map<String, (String?) -> Boolean> = mapOf("dusklight" to ::isTwilightPrincess, "jak" to ::isJakAndDaxter, "sotc" to ::isShadowOfTheColossus, "darkcloud" to ::isDarkCloud, "ico" to ::isIco, "galaxy" to ::isSuperMarioGalaxy, "sunshine" to ::isSuperMarioSunshine, "echoes" to ::isMetroidPrime2Echoes)
 
     /** Cores that can only run particular games recognised by name, id -> predicate on the game's title. */
     private val titleMatchers: Map<String, (String?) -> Boolean> = mapOf("wwhd" to ::isWindWakerHd, "botw" to ::isBotw, "totk" to ::isTotk, "smo" to ::isSmo, "dread" to ::isMetroidDread)
@@ -166,6 +166,17 @@ object GameSpecificCores {
         return r ?: (gameId.uppercase() == "GMSE01")
     }
 
+    /** Metroid Prime 2: Echoes (G2ME01 / G2MP01, and the Trilogy discs R3ME01 / R3MP01 the port plays as Echoes; PC port core), recognised by the disc's game ID. */
+    fun isMetroidPrime2Echoes(gameId: String?): Boolean {
+        if (gameId == null) return false
+        val r = runCatching {
+            Class.forName("com.noryan.nebulos.core.echoes.EchoesCore").let { c ->
+                c.getMethod("isEchoesGameId", String::class.java).invoke(c.getField("INSTANCE").get(null), gameId) as? Boolean
+            }
+        }.getOrNull()
+        return r ?: (gameId.uppercase() in setOf("G2ME01", "G2MP01", "R3ME01", "R3MP01"))
+    }
+
     fun isWindWakerHd(title: String?): Boolean {
         if (title == null) return false
         val r = runCatching {
@@ -185,7 +196,7 @@ object GameSpecificCores {
     fun isTotk(title: String?): Boolean = title != null && Regex("tears\\s*of\\s*the\\s*kingdom", RegexOption.IGNORE_CASE).containsMatchIn(title)
 
     /** Cores that run a game as a native port / recompilation instead of emulating the console (their games are tinted cyan in the list). */
-    private val NATIVE_PORTS = setOf("darkcloud", "ico", "smo", "jak", "sotc", "botw", "totk", "wwhd", "dusklight", "galaxy", "sunshine", "dread")
+    private val NATIVE_PORTS = setOf("darkcloud", "ico", "smo", "jak", "sotc", "botw", "totk", "wwhd", "dusklight", "galaxy", "sunshine", "dread", "echoes")
     fun isNativePort(coreId: String) = coreId in NATIVE_PORTS
 
     fun isGameSpecific(coreId: String) = coreId in matchers || coreId in titleMatchers
@@ -196,5 +207,7 @@ object GameSpecificCores {
 
     /** True when [coreId] is a one-game core and this IS its game: it then wins the automatic choice. */
     fun claims(coreId: String, gameId: String?, title: String?): Boolean =
-        matchers[coreId]?.let { gameId != null && it(gameId) } ?: titleMatchers[coreId]?.invoke(title) ?: false
+        // Echoes can also play the Metroid Prime Trilogy discs (R3ME01 / R3MP01, as Echoes), but only Echoes' own discs are claimed: the Trilogy stays with PrimeHack by default.
+        if (coreId == "echoes") gameId != null && gameId.uppercase() in setOf("G2ME01", "G2MP01")
+        else matchers[coreId]?.let { gameId != null && it(gameId) } ?: titleMatchers[coreId]?.invoke(title) ?: false
 }
