@@ -134,3 +134,6 @@ if (want("prime1")) include(":recomp-common", ":core-prime1")
 // :recomp-common). Prerequisites: ../totkdroid-src/android/deps/build_deps.sh (+ build_ffmpeg_mac.sh) and recomp-common/build_sdl_static.sh.
 if (want("botw")) include(":recomp-common", ":core-botw")   // BOTWRecompAndroid (../botwrecomp-src, branch nebulos-local), same layout as :core-totk
 if (want("totk")) include(":recomp-common", ":core-totk")
+
+// :core-sm3dw (Switch, Super Mario 3D World + Bowser's Fury, update v65536 or the base 1.0.0): the Odyssey runtime (:core-smo) with 3D World as its game, its own process, game files and saves.
+if (want("sm3dw")) include(":recomp-common", ":core-smo", ":core-sm3dw")
