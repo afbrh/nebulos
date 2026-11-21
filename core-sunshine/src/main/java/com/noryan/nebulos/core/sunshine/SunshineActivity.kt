@@ -47,9 +47,11 @@ class SunshineActivity : SDLActivity() {
     /** SDL's thread, before the game starts. */
     override fun getArguments(): Array<String> {
         val h = hooks
-        val files = filesDir
+        // Sunshine's own folder (`files/sunshine`): it used to share `files/game` and `files/saves` with Super Mario Galaxy, whose data root is `files` itself
+        val files = File(filesDir, "sunshine").also { it.mkdirs() }
         val data = File(files, "game").also { it.mkdirs() }
         val saves = File(files, "saves").also { it.mkdirs() }
+        moveOutOfSharedFolders(files, data)
         RecompSaveData.link(this, "sunshine", saves, sub = "card-a", linkName = "card-a")   // the memory card's files live in the _Nebulos folder
         val rom = intent.getStringExtra(SunshineCore.EXTRA_ROM_PATH).orEmpty()
         if (!File(rom).isFile) {
@@ -64,6 +66,29 @@ class SunshineActivity : SDLActivity() {
         a += listOf("--env", "SMS_BINDINGS=" + File(files, "controller-bindings.txt").absolutePath)
         a += listOf("--env", "SMS_ANDROID_STARTUP_POLICY=Nebulos")
         return a.toTypedArray()
+    }
+
+    /**
+     * One time: what Sunshine kept in folders it shared with Galaxy comes to its own. Settings and the controller files are copied from `files/game` / `files` (Galaxy's folders are left
+     * alone); the memory card the port wrote INTO Galaxy's save folder (`<_Nebulos>/galaxy-core/saves/card-a`, because `files/saves` was Galaxy's link) is moved to `<_Nebulos>/sunshine-core/card-a`.
+     */
+    private fun moveOutOfSharedFolders(files: File, data: File) {
+        runCatching {
+            val marker = File(files, ".own-folder")
+            if (marker.exists()) return
+            File(filesDir, "game/settings.txt").takeIf { it.isFile && !File(data, "settings.txt").exists() }?.copyTo(File(data, "settings.txt"))
+            for (n in listOf("controller-mappings.txt", "controller-bindings.txt")) {
+                val old = File(filesDir, n)
+                if (old.isFile && !File(files, n).exists()) { old.copyTo(File(files, n)); old.delete() }
+            }
+            val card = com.noryan.nebulos.api.save.SaveRoot.coreSubDir(this, "sunshine", "card-a")
+            val stray = File(com.noryan.nebulos.api.save.SaveRoot.coreDir(this, "galaxy"), "saves/card-a")
+            if (stray.isDirectory && card.listFiles().isNullOrEmpty() && stray.listFiles().orEmpty().any { it.name.startsWith("super_mario_sunshine") }) {
+                if (RecompSaveData.moveInto(stray, card)) Log.i(TAG, "Sunshine's memory card moved out of Galaxy's save folder to ${card.path}")
+                else Log.e(TAG, "could not move the memory card out of ${stray.path}")
+            }
+            marker.writeText("1")
+        }.onFailure { Log.e(TAG, "moving out of the shared folders failed: $it") }
     }
 
     /** The system bars away (the game uses the whole screen); a swipe from the edge shows them for a moment. */

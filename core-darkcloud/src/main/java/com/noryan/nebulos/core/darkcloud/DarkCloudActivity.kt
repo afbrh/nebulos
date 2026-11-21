@@ -33,7 +33,7 @@ class DarkCloudActivity : SDLActivity() {
             val marker = File(filesDir, "darkcloud/.fps-reset2")
             if (marker.exists()) return
             val on = Regex("\"show_fps\"\\s*:\\s*true")
-            for (root in listOfNotNull(SaveRoot.coreSubDir(this, "darkcloud", "save"), filesDir, getExternalFilesDir(null))) {   // config.json lives in the save folder
+            for (root in listOfNotNull(SaveRoot.coreSubDir(this, "darkcloud", "save"), File(filesDir, "darkcloud"))) {   // config.json lives in the save folder
                 root.walkTopDown().maxDepth(5).filter { it.isFile && it.name == "config.json" && it.length() < 262144 }.forEach { f ->
                     val t = f.readText()
                     if (on.containsMatchIn(t)) { f.writeText(on.replace(t, "\"show_fps\": false")); Log.i(TAG, "FPS counter off in ${f.path}") }

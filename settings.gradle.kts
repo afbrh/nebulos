@@ -109,6 +109,9 @@ if (want("galaxy")) include(":recomp-common", ":core-galaxy")
 // :core-dread (Switch, Metroid Dread 2.1.0 only): the Odyssey runtime (:core-smo) with Dread as its game.
 if (want("dread")) include(":recomp-common", ":core-smo", ":core-dread")
 
+// :core-mp4 (Switch, Metroid Prime 4: Beyond 1.1.0 only): the Odyssey runtime (:core-smo) with Prime 4 as its game, its own process, game files and saves.
+if (want("mp4")) include(":recomp-common", ":core-smo", ":core-mp4")
+
 // :core-sunshine (GameCube, Super Mario Sunshine GMSE01 only): the SMS PC port (../sms-src/sms-android/sms-port, local checkout, never pushed), built by CMake from the module.
 if (want("sunshine")) include(":recomp-common", ":core-sunshine")
 

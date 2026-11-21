@@ -57,8 +57,8 @@ class DreadActivity : SMORecompAndroidActivity() {
         // Dread's movie players tear down assuming a higher-priority thread on the same core runs as soon as it is signalled (the Switch pre-empts; the runtime's core 0 hands over only when a thread blocks):
         // freed player memory was reused while the player's decoder thread was still inside it (crashes in MultiWait / critical sections). A 4 ms slice makes the hand-over regular enough.
         env("LARECOMP_C0_SLICE_MS", "4")
-        // Debugging aid: KEY=VALUE lines in <external files>/runtime-env.txt become environment variables of the runtime (LARECOMP_WATCHDOG=20, LARECOMP_LOG_FILES=1...)
-        runCatching { File(getExternalFilesDir(null), "runtime-env.txt").takeIf { it.isFile }?.readLines()?.forEach { l -> l.split("=", limit = 2).takeIf { it.size == 2 && it[0].isNotBlank() }?.let { env(it[0].trim(), it[1].trim()) } } }
+        // Debugging aid: KEY=VALUE lines in <external files>/runtime-env-dread.txt become environment variables of the runtime (LARECOMP_WATCHDOG=20, LARECOMP_LOG_FILES=1...)
+        runCatching { File(getExternalFilesDir(null), "runtime-env-dread.txt").takeIf { it.isFile }?.readLines()?.forEach { l -> l.split("=", limit = 2).takeIf { it.size == 2 && it[0].isNotBlank() }?.let { env(it[0].trim(), it[1].trim()) } } }
         super.onCreate(savedInstanceState)
         session = RecompSession(this, DreadCore.STATE_UNAVAILABLE_REASON)
         val h = NebulosCoreHost.install(this, session, System.SWITCH, UiOptions(title = intent.getStringExtra("nebulos.title") ?: DreadCore.GAME_TITLE, loadingTimeoutMs = 60 * 60_000L))
@@ -66,7 +66,7 @@ class DreadActivity : SMORecompAndroidActivity() {
         session.onNotice = { h.notice(it) }
         h.setLoadingText("Starting Metroid Dread")
         h.setTargetFps(60)
-        // Debugging aid (runtime-env.txt: NEBULOS_FORCE_READY=<ms>): drop the loading screen after that long whatever the picture looks like
+        // Debugging aid (runtime-env-dread.txt: NEBULOS_FORCE_READY=<ms>): drop the loading screen after that long whatever the picture looks like
         runCatching { Os.getenv("NEBULOS_FORCE_READY")?.toLongOrNull()?.let { ms -> android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ hooks?.onGameReady() }, ms) } }
         try { RecompPad.nativeStart() } catch (t: Throwable) { Log.e(TAG, "virtual pad: $t") }
     }

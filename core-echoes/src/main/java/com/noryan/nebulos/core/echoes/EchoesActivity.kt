@@ -55,6 +55,9 @@ class EchoesActivity : MetroidPrime2Activity() {
         val root = File(files, "echoes").also { it.mkdirs() }
         // the port's user folder (memory card, settings.cfg, controls, touch layout) lives in the _Nebulos folder
         RecompSaveData.link(this, "echoes", root, sub = "user", linkName = "user")
+        // the quick-resume snapshot (user/savestates) is one folder at a fixed name: each disc gets its own
+        com.noryan.nebulos.api.save.SaveRoot.adopt(intent)
+        RecompSaveData.activatePerGameFolder(File(root, "user"), "savestates", com.noryan.nebulos.api.save.SaveRoot.gameKey(this, rom))
         File(root, "cache").mkdirs()
         val text = buildString {
             append("user=").append(File(root, "user").absolutePath).append('\n')
