@@ -28,7 +28,8 @@ object Prime1Core : CoreDescriptor {
     const val GAME_TITLE = "Metroid Prime"
     const val STATE_UNAVAILABLE_REASON = "Metroid Prime (native port) uses the game's own memory card saves."
 
-    private val GAME_IDS = setOf("GM8E01", "GM8P01", "R3ME01", "R3MP01")
+    // The Metroid Prime Trilogy discs (R3ME01 / R3MP01) are deliberately NOT accepted (the user wants the individual games only, for now): the Trilogy stays with PrimeHack.
+    private val GAME_IDS = setOf("GM8E01", "GM8P01")
     fun isPrime1GameId(gameId: String): Boolean = gameId.uppercase() in GAME_IDS
 
     override fun launchIntent(ctx: Context, request: LaunchRequest): Intent =

@@ -174,7 +174,7 @@ object GameSpecificCores {
                 c.getMethod("isEchoesGameId", String::class.java).invoke(c.getField("INSTANCE").get(null), gameId) as? Boolean
             }
         }.getOrNull()
-        return r ?: (gameId.uppercase() in setOf("G2ME01", "G2MP01", "R3ME01", "R3MP01"))
+        return r ?: (gameId.uppercase() in setOf("G2ME01", "G2MP01"))
     }
 
     /** Metroid Prime (GM8E01 USA / GM8P01 PAL, and the Trilogy discs R3ME01 / R3MP01 whose Metroid Prime the port plays; PC port core), recognised by the disc's game ID. The Japanese disc (GM8J01) is not supported by the port. */
@@ -185,7 +185,7 @@ object GameSpecificCores {
                 c.getMethod("isPrime1GameId", String::class.java).invoke(c.getField("INSTANCE").get(null), gameId) as? Boolean
             }
         }.getOrNull()
-        return r ?: (gameId.uppercase() in setOf("GM8E01", "GM8P01", "R3ME01", "R3MP01"))
+        return r ?: (gameId.uppercase() in setOf("GM8E01", "GM8P01"))
     }
 
     fun isWindWakerHd(title: String?): Boolean {

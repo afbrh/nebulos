@@ -27,7 +27,8 @@ object EchoesCore : CoreDescriptor {
     const val GAME_TITLE = "Metroid Prime 2: Echoes"
     const val STATE_UNAVAILABLE_REASON = "Metroid Prime 2: Echoes (native port) uses the game's own memory card saves."
 
-    private val GAME_IDS = setOf("G2ME01", "G2MP01", "R3ME01", "R3MP01")
+    // The Metroid Prime Trilogy discs (R3ME01 / R3MP01) are deliberately NOT accepted (the user wants the individual games only, for now): the Trilogy stays with PrimeHack.
+    private val GAME_IDS = setOf("G2ME01", "G2MP01")
     fun isEchoesGameId(gameId: String): Boolean = gameId.uppercase() in GAME_IDS
 
     override fun launchIntent(ctx: Context, request: LaunchRequest): Intent =
