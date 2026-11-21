@@ -100,6 +100,13 @@ class Smg2Activity : SDLActivity() {
             env("PETARI_GAME_DIR", game.absolutePath)
             env("ASTRAL_SUPPORT_DIR", files.support.absolutePath)
             env("PETARI_CACHE_DIR", files.cache.absolutePath)
+            // debugging aid: KEY=VALUE lines in <external files>/runtime-env-smg2.txt become environment variables of the game (PETARI_* switches)
+            runCatching {
+                File(getExternalFilesDir(null), "runtime-env-smg2.txt").takeIf { it.isFile }?.readLines()?.forEach { l ->
+                    val i = l.indexOf('=')
+                    if (i > 0 && !l.trimStart().startsWith("#")) env(l.substring(0, i).trim(), l.substring(i + 1).trim())
+                }
+            }
             ui.post { h.setLoadingText("Starting Super Mario Galaxy 2") }
             ready.countDown()
             ui.post { h.onGameReadyAfterPicture(settleMs = 1500) }
