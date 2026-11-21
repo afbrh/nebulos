@@ -1,0 +1,49 @@
+core-sm64: Super Mario 64 (Nintendo 64) via Ghostship
+=====================================================
+
+This module is a Nebulos embedding of Ghostship (https://github.com/HarbourMasters/Ghostship, 3.0.0 "Nautilus", commit aefb89b), built from the
+local branch `nebulos-local` of ../sm64-src (never pushed). Nebulos is GPLv3; every component below is MIT / zlib / BSD / public-domain style and is
+GPLv3-compatible. Nothing from the game is shipped: the user's own ROM is converted into `sm64.o2r` on the device by Torch the first time the game
+starts. The module bundles only Torch's extraction recipes (YAML) and the engine archive `ghostship.o2r` (port shaders, fonts, UI resources of the port).
+
+Game code
+---------
+Ghostship's `src/`, `actors/`, `levels/`, `lib/`, `sound/` ... are derived from the SM64 decompilation (n64decomp/sm64). The decompilation is
+reconstructed Nintendo code; the MIT/CC0 labels of the ports do not change that. Same risk class as the other native-port cores of Nebulos (the user
+brings the ROM, no game data ships with the app). Personal use.
+
+Components and licenses (verified against the files in the source trees on 2026-11-21)
+--------------------------------------------------------------------------------------
+Ghostship (port code)            MIT, (c) 2026 Lywx <admin@undervolt.dev>                      ../sm64-src/LICENSE.md
+libultraship (37daaa66)          MIT, (c) 2022 kenix3                                           libultraship/LICENSE
+  Fast3D (libultraship/src/fast) MIT, (c) 2020 Emill, MaikelChan                               libultraship/src/fast/LICENSE.txt
+  prism (shader preprocessor)    MIT, (c) 2025 Lywx & coco875                                  _deps/prism-src/LICENSE
+  Dear ImGui                     MIT, (c) 2014-2025 Omar Cornut                                _deps/imgui-src/LICENSE.txt
+  cimgui                         MIT, (c) 2015 Stephan Dilly                                   _deps/cimgui-src/LICENSE
+  stb_image (pinned commit)      public domain / MIT (dual)                                    nothings/stb
+  monocypher                     BSD-2-Clause or CC0-1.0 (dual)                                _deps/monocypher-src/LICENCE.md
+  thread-pool (bshoshany)        MIT, (c) 2024 Barak Shoshany                                  _deps/threadpool-src/LICENSE.txt
+  StrHash64 (crc64)              MIT / zlib / BSD-3-Clause (per-file notices)                  libultraship/src/ship/utils/StrHash64.cpp
+Torch (f83dfb3)                  MIT, (c) 2023 Lywx <admin@undervolt.dev>                       Torch/LICENSE
+  libgfxd (glankk)               MIT, (c) 2016-2021 glank                                      _deps/libgfxd-src/LICENSE (host build; not in the APK)
+  dr_libs                        Unlicense (public domain) or MIT-0 (choice)                    _deps/dr_libs-src/LICENSE
+  TinySHA1                       ISC-style permissive, (c) 2012-22 Saurav Mohapatra             Torch/lib/TinySHA1.hpp
+  CLI11 2.3.2                    BSD-3-Clause, (c) 2017-2022 University of Cincinnati           Torch/lib/CLI11.hpp (command-line tool; not used on Android)
+  miniz zip_file.hpp             MIT, (c) 2014-2017 Thomas Fussell                              Torch/lib/miniz/zip_file.hpp
+  dirent.h (nposix)              MIT, (c) 1998-2019 Toni Ronkko                                 Torch/lib/nposix/dirent.h
+  n64graphics (+ stb_image/_write) stb: public domain / MIT; n64graphics itself carries no license header (from the n64graphics / n64 asset tools lineage): NOT independently verified
+  libmio0, libyay0, libyaz0, bk_zip, hj/zip.h, binarytools   no license header in the files (common N64 modding utilities, vendored by Torch under Torch's MIT repository license): provenance NOT independently verified
+  StormLib                       MIT (ladislav-zezula); compiled out (BUILD_STORMLIB=OFF)
+SDL2 2.32.10                     zlib, (c) 1997-2025 Sam Lantinga                               SDL LICENSE.txt (Java glue package renamed, nothing else changed)
+yaml-cpp                         MIT, (c) 2008-2015 Jesse Beder                                 _deps/yaml-cpp-src/LICENSE
+nlohmann/json 3.12               MIT, (c) 2013-2025 Niels Lohmann                              _deps/nlohmann_json-src/LICENSE.MIT
+spdlog 1.16                      MIT, (c) 2016 Gabi Melman (bundled fmt: MIT)                   _deps/spdlog-src/LICENSE
+tinyxml2                         zlib                                                           _deps/tinyxml2-src/LICENSE.txt
+libzip 1.11.4                    BSD-3-Clause, (c) 1999-2020 Dieter Baron and Thomas Klausner   _deps/libzip-src/LICENSE
+zlib (NDK sysroot)               zlib
+
+Removed / not built for Nebulos
+-------------------------------
+Satella online relay and the networking stack (ixwebsocket, mbedTLS), mod scripting (tinycc, LGPL-2.1: not built, so no LGPL code is in the APK),
+the mod manager / saves / launcher activities of Ghostship's own Android app, the update checks, the INTERNET permission, armeabi-v7a.
+Third-party licence texts are in the respective upstream repositories listed above; see also the MIT notice of Ghostship reproduced in ../sm64-src/LICENSE.md.

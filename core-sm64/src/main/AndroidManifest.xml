@@ -1,0 +1,18 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Ghostship's (SDL2) game screen. Its own process: libsm64_main.so, its GL context and SDL state never share an address space with another core. -->
+        <activity
+            android:name="com.noryan.nebulos.core.sm64.Sm64Activity"
+            android:process=":sm64"
+            android:taskAffinity="com.noryan.nebulos.sm64"
+            android:launchMode="singleTask"
+            android:exported="false"
+            android:alwaysRetainTaskState="true"
+            android:screenOrientation="sensorLandscape"
+            android:preferMinimalPostProcessing="true"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
+            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection|density|colorMode|grammaticalGender|fontWeightAdjustment" />
+        <!-- The one-time ROM -> sm64.o2r conversion (Torch) runs in a process of its own and ends it afterwards: Torch's decoded asset data is deliberately never freed. -->
+        <service android:name="com.noryan.nebulos.core.sm64.Sm64ExtractService" android:process=":sm64x" android:exported="false" />
+    </application>
+</manifest>

@@ -115,6 +115,9 @@ if (want("mp4")) include(":recomp-common", ":core-smo", ":core-mp4")
 // :core-sunshine (GameCube, Super Mario Sunshine GMSE01 only): the SMS PC port (../sms-src/sms-android/sms-port, local checkout, never pushed), built by CMake from the module.
 if (want("sunshine")) include(":recomp-common", ":core-sunshine")
 
+// :core-sm64 (Nintendo 64, Super Mario 64 US/JP ROM): Ghostship (HarbourMasters, MIT; ../sm64-src, local branch nebulos-local, never pushed); native libs by ../sm64-src/nebulos/build_native.sh.
+if (want("sm64")) include(":recomp-common", ":core-sm64")
+
 // :core-echoes (GameCube, Metroid Prime 2 Echoes G2ME01 / G2MP01 + Trilogy R3ME01 / R3MP01): the Echoes native port, work copy ../prime-research/echoes-core-src (never published: personal use only);
 // native libs by ../prime-research/echoes-core-src/build_native.sh (after ./rename_sdl.sh).
 if (want("echoes")) include(":recomp-common", ":core-echoes")

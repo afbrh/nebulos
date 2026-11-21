@@ -11,16 +11,16 @@ import com.noryan.nebulos.api.CoreRegistry
  */
 object CoreBootstrap {
     private const val TAG = "CoreBootstrap"
-    val CORE_IDS = listOf("retroarch", "dolphin", "primehack", "eden", "lichii", "azahar", "watermelonds", "armsx2", "dusklight", "wwhd", "jak", "sotc", "botw", "totk", "darkcloud", "ico", "smo", "galaxy", "sunshine", "dread", "mp4", "echoes", "prime1")
+    val CORE_IDS = listOf("retroarch", "dolphin", "primehack", "eden", "lichii", "azahar", "watermelonds", "armsx2", "dusklight", "wwhd", "jak", "sotc", "botw", "totk", "darkcloud", "ico", "smo", "galaxy", "sunshine", "dread", "mp4", "echoes", "prime1", "sm64")
 
     private val DISPLAY_CASE = mapOf(
         "retroarch" to listOf("RetroArch", "Retroarch"), "primehack" to listOf("PrimeHack", "Primehack"),
         "watermelonds" to listOf("WatermelonDs", "WatermelonDS", "Watermelonds"), "armsx2" to listOf("ArmSX2", "Armsx2"),
-        "wwhd" to listOf("Wwhd"), "botw" to listOf("Botw"), "totk" to listOf("Totk"), "darkcloud" to listOf("DarkCloud"), "ico" to listOf("Ico"), "smo" to listOf("Smo"), "galaxy" to listOf("Galaxy"), "sunshine" to listOf("Sunshine"), "dread" to listOf("Dread"), "mp4" to listOf("Mp4"), "echoes" to listOf("Echoes"), "prime1" to listOf("Prime1")
+        "wwhd" to listOf("Wwhd"), "botw" to listOf("Botw"), "totk" to listOf("Totk"), "darkcloud" to listOf("DarkCloud"), "ico" to listOf("Ico"), "smo" to listOf("Smo"), "galaxy" to listOf("Galaxy"), "sunshine" to listOf("Sunshine"), "dread" to listOf("Dread"), "mp4" to listOf("Mp4"), "echoes" to listOf("Echoes"), "prime1" to listOf("Prime1"), "sm64" to listOf("Sm64")
     )
 
     /** Name for an engine id when it has no registered descriptor (Settings "NOT INSTALLED" list). */
-    fun friendlyName(id: String): String = if (id == "retroarch") "Libretro cores" else if (id == "wwhd") "Wind Waker HD" else if (id == "botw") "Breath of the Wild (recomp)" else if (id == "totk") "Tears of the Kingdom (recomp)" else if (id == "darkcloud") "Dark Cloud (Chronicle)" else if (id == "ico") "ICO (ico-pc)" else if (id == "smo") "Super Mario Odyssey (recomp)" else if (id == "galaxy") "Super Mario Galaxy (Nebula)" else if (id == "sunshine") "Super Mario Sunshine (PC port)" else if (id == "dread") "Metroid Dread (runtime)" else if (id == "mp4") "Metroid Prime 4 (runtime)" else if (id == "echoes") "Metroid Prime 2 Echoes (PC port)" else if (id == "prime1") "Metroid Prime (PC port)" else DISPLAY_CASE[id]?.first() ?: id.replaceFirstChar { it.uppercase() }
+    fun friendlyName(id: String): String = if (id == "retroarch") "Libretro cores" else if (id == "wwhd") "Wind Waker HD" else if (id == "botw") "Breath of the Wild (recomp)" else if (id == "totk") "Tears of the Kingdom (recomp)" else if (id == "darkcloud") "Dark Cloud (Chronicle)" else if (id == "ico") "ICO (ico-pc)" else if (id == "smo") "Super Mario Odyssey (recomp)" else if (id == "galaxy") "Super Mario Galaxy (Nebula)" else if (id == "sunshine") "Super Mario Sunshine (PC port)" else if (id == "dread") "Metroid Dread (runtime)" else if (id == "mp4") "Metroid Prime 4 (runtime)" else if (id == "echoes") "Metroid Prime 2 Echoes (PC port)" else if (id == "prime1") "Metroid Prime (PC port)" else if (id == "sm64") "Super Mario 64 (Ghostship)" else DISPLAY_CASE[id]?.first() ?: id.replaceFirstChar { it.uppercase() }
 
     /** ids that were found and registered / ids that failed or are missing, for the Settings screen. */
     val registered = mutableListOf<String>()
@@ -83,7 +83,7 @@ object CoreBootstrap {
         "primehack" to "PrimeHack 1.0.9-22 (nebulos patches)",
         "azahar" to "Azahar 95db543",
         "armsx2" to "ARMSX2 2.9 (nebulos patches)",
-        "dusklight" to "Dusklight b245c6b (nebulos patches)", "wwhd" to "WindWakerHD-Android-Plus 1.11.1 (nebulos)", "botw" to "BOTWRecompAndroid (nebulos patches)", "totk" to "TOTKDroid (nebulos patches)", "darkcloud" to "Chronicle (Dark Cloud, nebulos patches)", "ico" to "ico-pc (ICO, nebulos patches)", "smo" to "Odyssey Recomp (nebulos patches)", "galaxy" to "Nebula 2.0.0 (Super Mario Galaxy, nebulos patches)", "sunshine" to "SMS PC port (Super Mario Sunshine, nebulos patches)", "dread" to "Dread 2.1.0 on the Odyssey runtime (nebulos patches)", "mp4" to "Prime 4 1.1.0 on the Odyssey runtime (nebulos patches)", "echoes" to "Metroid Prime 2 Echoes port 0.12.0 (nebulos patches)", "prime1" to "Metroid Prime 1 port 0.36.0 (nebulos patches)",
+        "dusklight" to "Dusklight b245c6b (nebulos patches)", "wwhd" to "WindWakerHD-Android-Plus 1.11.1 (nebulos)", "botw" to "BOTWRecompAndroid (nebulos patches)", "totk" to "TOTKDroid (nebulos patches)", "darkcloud" to "Chronicle (Dark Cloud, nebulos patches)", "ico" to "ico-pc (ICO, nebulos patches)", "smo" to "Odyssey Recomp (nebulos patches)", "galaxy" to "Nebula 2.0.0 (Super Mario Galaxy, nebulos patches)", "sunshine" to "SMS PC port (Super Mario Sunshine, nebulos patches)", "dread" to "Dread 2.1.0 on the Odyssey runtime (nebulos patches)", "mp4" to "Prime 4 1.1.0 on the Odyssey runtime (nebulos patches)", "echoes" to "Metroid Prime 2 Echoes port 0.12.0 (nebulos patches)", "prime1" to "Metroid Prime 1 port 0.36.0 (nebulos patches)", "sm64" to "Ghostship 3.0.0 (Super Mario 64, nebulos patches)",
         "dolphin" to "Dolphin mainline", "eden" to "Eden v0.2.0-371", "watermelonds" to "WatermelonDS 0.8.0.rc2",
     )
 }
