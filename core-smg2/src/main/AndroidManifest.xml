@@ -1,0 +1,17 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-feature android:name="android.hardware.vulkan.version" android:version="0x401000" android:required="false" />
+    <application>
+        <!-- Astral Italian (global game state, Dawn/Vulkan, native threads) lives in its own process: it must never share an address space with another Nebulos core. -->
+        <activity
+            android:name="com.noryan.nebulos.core.smg2.Smg2Activity"
+            android:process=":smg2"
+            android:taskAffinity="com.noryan.nebulos.smg2"
+            android:launchMode="singleTask"
+            android:exported="false"
+            android:alwaysRetainTaskState="true"
+            android:screenOrientation="sensorLandscape"
+            android:preferMinimalPostProcessing="true"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
+            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection|density|colorMode|grammaticalGender|fontWeightAdjustment" />
+    </application>
+</manifest>
