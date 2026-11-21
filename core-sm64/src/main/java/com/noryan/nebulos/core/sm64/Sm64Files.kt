@@ -24,7 +24,10 @@ object Sm64Files {
 
     fun dataDir(ctx: Context): File = File(ctx.filesDir, "sm64").also { it.mkdirs() }
     fun archive(ctx: Context) = File(dataDir(ctx), GAME_ARCHIVE)
-    fun isExtracted(ctx: Context) = archive(ctx).length() > 0
+    private fun stamp(ctx: Context) = File(dataDir(ctx), ".sm64-extracted")
+    /** The archive counts only with the stamp written after Torch exited cleanly (a killed conversion leaves a truncated archive behind). */
+    fun isExtracted(ctx: Context) = archive(ctx).length() > 0 && stamp(ctx).isFile
+    fun markExtracted(ctx: Context) { stamp(ctx).writeText("1") }
 
     fun sha1(f: File): String {
         val md = MessageDigest.getInstance("SHA-1")
@@ -54,7 +57,7 @@ object Sm64Files {
                 }
             }
             // new recipes: the previous archive (and Torch's "inputs unchanged" record) is stale
-            archive(ctx).delete(); File(dir, "torch.hash.yml").delete()
+            archive(ctx).delete(); stamp(ctx).delete(); File(dir, "torch.hash.yml").delete()
             stamp.writeText(expected)
             null
         }

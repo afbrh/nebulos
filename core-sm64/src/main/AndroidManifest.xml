@@ -12,7 +12,5 @@
             android:preferMinimalPostProcessing="true"
             android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
             android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection|density|colorMode|grammaticalGender|fontWeightAdjustment" />
-        <!-- The one-time ROM -> sm64.o2r conversion (Torch) runs in a process of its own and ends it afterwards: Torch's decoded asset data is deliberately never freed. -->
-        <service android:name="com.noryan.nebulos.core.sm64.Sm64ExtractService" android:process=":sm64x" android:exported="false" />
     </application>
 </manifest>

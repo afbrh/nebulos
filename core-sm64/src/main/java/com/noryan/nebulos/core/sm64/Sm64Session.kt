@@ -27,6 +27,7 @@ class Sm64Session(private val activity: Activity, override val stateUnavailableR
     private var zL1 = false; private var zL2 = 0f   // Z comes from the bumper or the trigger
     private var rR1 = false; private var rR2 = 0f
     private val held = HashMap<Int, Int>()          // SDL button -> number of canonical buttons holding it
+    private val downAt = HashMap<Int, Long>()       // SDL button -> uptime of the press that started holding it
 
     override fun pause() { releaseAll() }
     override fun resume() {}
@@ -58,18 +59,32 @@ class Sm64Session(private val activity: Activity, override val stateUnavailableR
     }
 
     override fun injectButton(pad: Pad, pressed: Boolean) {
+        if (pressed) android.util.Log.d("Sm64Session", "pad " + pad + " down")
         when (pad) {
             Pad.L1 -> { synchronized(this) { zL1 = pressed }; z(); return }
             Pad.R1 -> { synchronized(this) { rR1 = pressed }; r(); return }
             else -> {}
         }
         val b = sdlButton(pad) ?: return
+        val now = android.os.SystemClock.uptimeMillis()
+        var releaseIn = 0L
         val send = synchronized(this) {
             val n = (held[b] ?: 0) + if (pressed) 1 else -1
             if (n <= 0) held.remove(b) else held[b] = n
-            if (pressed) n == 1 else n <= 0
+            if (pressed) {
+                if (n == 1) { downAt[b] = now; main.removeCallbacksAndMessages(b) }
+                n == 1
+            } else if (n <= 0) {
+                // the game samples the controller once per 30 fps frame: a tap shorter than that would be missed, so the release waits out the rest of MIN_PRESS_MS
+                releaseIn = (MIN_PRESS_MS - (now - (downAt[b] ?: 0L))).coerceAtLeast(0L)
+                releaseIn == 0L
+            } else false
         }
         if (send) call { Sm64Pad.nativeButton(b, pressed) }
+        else if (!pressed && releaseIn > 0L) main.postAtTime({
+            val still = synchronized(this) { held[b] ?: 0 } > 0
+            if (!still) call { Sm64Pad.nativeButton(b, false) }
+        }, b, now + releaseIn)
     }
 
     override fun injectAxis(pad: Pad, value: Float) {
@@ -96,6 +111,8 @@ class Sm64Session(private val activity: Activity, override val stateUnavailableR
     private fun ry() = call { Sm64Pad.nativeAxis(RecompInput.AXIS_RIGHTY, RecompInput.stick(dirs[4], dirs[5])) }
     private fun z() { val v = synchronized(this) { if (zL1) 1f else zL2 }; call { Sm64Pad.nativeAxis(RecompInput.AXIS_LTRIG, RecompInput.trigger(v)) } }
     private fun r() { val v = synchronized(this) { if (rR1) 1f else rR2 }; call { Sm64Pad.nativeAxis(RecompInput.AXIS_RTRIG, RecompInput.trigger(v)) } }
+
+    private companion object { const val MIN_PRESS_MS = 70L }
 
     private inline fun call(block: () -> Unit) {
         try { block() } catch (_: UnsatisfiedLinkError) { /* native library not loaded yet */ }

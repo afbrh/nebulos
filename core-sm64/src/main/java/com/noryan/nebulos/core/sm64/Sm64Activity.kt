@@ -1,6 +1,5 @@
 package com.noryan.nebulos.core.sm64
 
-import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -80,27 +79,31 @@ class Sm64Activity : SDLActivity() {
                     return fail("That is not a supported Super Mario 64 ROM.\n\nSupported: " + Sm64Files.SUPPORTED_ROMS.values.joinToString(", ") + " (big-endian .z64).\n\nSHA-1 of this file: $sha")
                 }
                 val t0 = android.os.SystemClock.elapsedRealtime()
-                val status = File(Sm64Files.dataDir(this), Sm64ExtractService.STATUS)
-                status.delete()
-                startService(Intent(this, Sm64ExtractService::class.java).putExtra(Sm64ExtractService.EXTRA_ROM, rom))
-                var last = ""
-                while (true) {
-                    Thread.sleep(300)
-                    val line = runCatching { status.readText().trim() }.getOrDefault("")
-                    val secs = (android.os.SystemClock.elapsedRealtime() - t0) / 1000
-                    when {
-                        line == "ok" -> { Log.i(TAG, "extraction finished in ${secs}s"); break }
-                        line.startsWith("error") -> return fail("Converting the ROM failed: ${line.removePrefix("error").trim()}")
-                        line.startsWith("run") && line != last -> {
-                            last = line
-                            val n = line.removePrefix("run").trim().toIntOrNull() ?: 0
+                val exe = File(applicationInfo.nativeLibraryDir, "libtorch_exec.so")
+                if (!exe.isFile) return fail("The ROM converter (libtorch_exec.so) is missing from the app.")
+                // Torch as a child process (own address space: its decoded asset data is never freed, and the OS takes it all back when it exits)
+                val proc = ProcessBuilder(exe.absolutePath, "o2r", rom, "-u", EXTRACT_VERSION).directory(Sm64Files.dataDir(this)).redirectErrorStream(true).start()
+                var lines = 0
+                var lastText = 0L
+                var tail = ""
+                proc.inputStream.bufferedReader().useLines { seq ->
+                    for (line in seq) {
+                        if (line.contains("Processing ")) lines++
+                        tail = line
+                        val now = android.os.SystemClock.elapsedRealtime()
+                        if (now - lastText > 300) {
+                            lastText = now
+                            val n = lines; val secs = (now - t0) / 1000
                             ui.post { h.setLoadingProgress((n / EXTRACT_TOTAL).coerceIn(0f, 0.98f), "First launch: converting the ROM (one time only), ${secs}s") }
                         }
-                        secs > 20 * 60 -> return fail("Converting the ROM did not finish.")
                     }
-                    if (line.isEmpty() && secs > 60) return fail("The ROM converter did not start.")
                 }
-                if (!Sm64Files.isExtracted(this)) return fail("The ROM conversion produced no asset archive.")
+                val code = proc.waitFor()
+                val secs = (android.os.SystemClock.elapsedRealtime() - t0) / 1000
+                Log.i(TAG, "extraction: exit $code after ${secs}s, $lines processing lines")
+                if (code != 0) return fail("Converting the ROM failed (exit $code): $tail")
+                if (Sm64Files.archive(this).length() == 0L) return fail("The ROM conversion produced no asset archive.")
+                Sm64Files.markExtracted(this)
             }
             ui.post { h.setLoadingText("Starting Super Mario 64") }
             ready.countDown()
@@ -167,7 +170,9 @@ class Sm64Activity : SDLActivity() {
 
     private companion object {
         const val TAG = "Sm64Activity"
-        /** Torch's asset counter at the end of an extraction is ~this (calibrated on the Nova); only drives the progress bar. */
-        const val EXTRACT_TOTAL = 3800f
+        /** Torch logs about this many "Processing" lines for the whole ROM (counted on a full run); only drives the progress bar. */
+        const val EXTRACT_TOTAL = 27700f
+        /** Torch's `-u` argument: the port version the archive is stamped with (the CMake project version of Ghostship). */
+        const val EXTRACT_VERSION = "3.0.0"
     }
 }
