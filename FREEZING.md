@@ -13,8 +13,22 @@ How it works
 - Still shared, NOT frozen: the Java glue (`SMORecompAndroidActivity`, compiled from the live tree), `recomp-common` (SDL, vpad) and the core modules.
   A change there can still affect a frozen game; keep such changes backward compatible.
 
-Current state: smo=frozen-smo-v1 (036a7fc), dread=frozen-dread-v1 (82ba855), wonder=frozen-wonder-v1 and sm3dw=frozen-sm3dw-v1 (both f9cb8da).
+Current state (verified on the Nova 2026-11-22 with a release APK built with `-Pnebulos.cores=smo,dread,wonder,sm3dw,eden`; eden is only needed because the
+app manifest's FileProvider uses Eden's `xml/file_paths`):
+
+| game | tag | commit | verified | result |
+|---|---|---|---|---|
+| smo | frozen-smo-v1 | 036a7fc | yes | title -> Resume -> gameplay, 60 fps (also while running) |
+| dread | frozen-dread-v1 | 82ba855 | yes | title, Samus files, New Game opening scene; 60 fps UI, cutscenes 30 fps |
+| sm3dw | frozen-sm3dw-v1 | f9cb8da (reconstructed) | yes | mode select, title, character select, World 1 map, 60 fps (idle and moving) |
+| wonder | frozen-wonder-v2 | c7eb84a | yes | title, user select, world map, course 1, 60 fps (idle and moving) |
+
+Each frozen .so references only its own `smorecomp-frozen/<tag>` sources (plus the documented live `smorecomp-src/android` and `third_party` build deps).
 Live: eow, las, sshd, mp4.
+
+frozen-wonder-v1 (f9cb8da) is BAD, do not use: it lacks the TEX.B (bindless texture) translation, which was still uncommitted when Wonder was verified and only
+landed inside c7eb84a (the EoW HSETP2 commit). With v1 every Wonder 3D model is skipped (world map = sky + black silhouette). v2 = c7eb84a fixes it.
+The v1 tag and worktree are kept for reference. sm3dw does not need TEX.B and runs correctly at f9cb8da.
 
 ## Freeze a game
 1. Pick the commit where the game was verified; tag it: `git -C ../smorecomp-src tag -a frozen-<game>-v1 <commit> -m "what was verified"`.
