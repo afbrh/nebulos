@@ -41,7 +41,7 @@ app/build.gradle.kts read the same property; `app/src/noWatermelon` supplies a s
 - On-device test harness: scripts in the session scratchpad drove the Nova with controller key events (R1 switches tab, D-pad down +
   A opens the launch panel). The Nova must be kept awake (`adb shell svc power stayon true`).
 
-Retired 2026-11-10: Ship of Harkinian (`:core-shipwright`) and 2 Ship 2 Harkinian (`:core-twoship`) were removed from the app to shrink it; N64 Ocarina of Time / Majora's Mask run on Mupen64Plus-Next (RetroArch) like every other N64 game. Their source trees (`../shipwright-src`, `../twoship-src`, `../shipwright-hostdeps`) are no longer needed, and the modules are in git history.
+Retired 2026-11-10 and RESTORED 2026-11-21: Ship of Harkinian (`:core-shipwright`, Ocarina of Time; source `../shipwright-src`, host deps `../shipwright-hostdeps`; core-shipwright/README-shipwright.md) and 2 Ship 2 Harkinian (`:core-twoship`, Majora's Mask; source `../twoship-src`; core-twoship/README-twoship.md).
 
 Not an engine: PPSSPP (`ppsspp-src`) has no Nebulos core module; it was not rebuilt.
 

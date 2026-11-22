@@ -1,3 +1,0 @@
-core-smg2 wraps Astral Italian (github.com/classicrob/Astral-Italian): project code CC0-1.0, built on Garigari (SMGCommunity, CC0) and Petari (SMGCommunity, CC0). Third-party code it uses keeps its own
-licences: Aurora (encounter/aurora, MIT), Dawn (BSD-3-Clause), SDL3 (zlib), nod (MIT/Apache-2.0), Dear ImGui (MIT), SQLite (public domain), fmt (MIT), abseil (Apache-2.0), libpng (libpng licence),
-FreeType (FTL/GPLv2), zstd (BSD), xxHash (BSD). No game data is included: the player's own disc supplies it. The game itself is Nintendo's; this core is personal-use only.

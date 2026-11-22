@@ -88,6 +88,28 @@ if (want("jak")) include(":core-jak")
 // produced by core-sotc/native/build.sh (NDK 27). See core-sotc/README-sotc.md.
 if (want("sotc")) include(":core-sotc")
 
+// :core-shipwright (N64, The Legend of Zelda: Ocarina of Time ONLY). Ship of Harkinian (decomp-based native port) through the community
+// Android fork please-be-nice/Shipwright-android, cloned to ../shipwright-src (local branch `nebulos-local`, never pushed): its Android
+// project is a library consumed as a composite build; native libs libsoh.so + libSDL2.so, SDL2 Java package org.libsdl.appsoh.
+// Build notes: core-shipwright/README-shipwright.md (soh.o2r must exist in shipwright-src/Android/app/src/main/assets).
+if (want("shipwright")) include(":core-shipwright")
+if (want("shipwright")) includeBuild("../shipwright-src/Android") {
+    name = "shipwright"
+    dependencySubstitution { substitute(module("com.dishii:app")).using(project(":app")) }
+}
+
+// :core-twoship (N64, The Legend of Zelda: Majora's Mask ONLY). 2 Ship 2 Harkinian (decomp-based native port) through the community
+// Android fork linkzenic/2ship2harkinian-Android (v5.0.1-android.3), cloned to ../twoship-src (local branch `nebulos-local`, never
+// pushed): its Android project is a library consumed as a composite build; native libs lib2ship.so + libSDL2twoship.so, SDL2 Java
+// package org.libsdl.apptwoship (all distinct from :core-shipwright's, so both live in one APK).
+// Build notes: core-twoship/README-twoship.md (2ship.o2r must exist in twoship-src/Android/app/src/main/assets, vcpkg deps in
+// twoship-src/build/vcpkg).
+if (want("twoship")) include(":core-twoship")
+if (want("twoship")) includeBuild("../twoship-src/Android") {
+    name = "twoship"
+    dependencySubstitution { substitute(module("com.twoshipfork:app")).using(project(":app")) }
+}
+
 // :core-wwhd (Wii U: The Wind Waker HD only). Native runtime from ../wwhd-src (CMake, local branch `nebulos`), no game code in the library;
 // the game is translated on the device from the user's own .wua. See core-wwhd/README-wwhd.md.
 if (want("wwhd")) include(":core-wwhd")
@@ -95,6 +117,10 @@ if (want("wwhd")) include(":core-wwhd")
 // :core-darkcloud (PS2, Dark Cloud (the first game) only). Chronicle (the decomp + native SDL3/Vulkan port) from ../Chronicle (local branch
 // `nebulos-local`, never pushed); its CMake build runs from this module, SDL3 static from recomp-common/build_sdl_static.sh. See core-darkcloud/README-darkcloud.md.
 if (want("darkcloud")) include(":recomp-common", ":core-darkcloud")
+
+// :core-darkchronicle (PS2, Dark Cloud 2 / Dark Chronicle, PAL SCES-51190 only). ChronicleTwo (the PAL decomp + native SDL3/Vulkan port) from ../ChronicleTwo (local
+// branch `nebulos-local`, never pushed). Its native library is built outside Gradle by core-darkchronicle/build_native.sh (CMake + Cargo). See core-darkchronicle/README-darkchronicle.md.
+if (want("darkchronicle")) include(":recomp-common", ":core-darkchronicle")
 
 // :core-ico (PS2, ICO). ico-pc (the ICO decomp + native SDL3/Vulkan port, MIT) from ../ico-pc (local branch `nebulos-local`, never pushed); its CMake build runs
 // from this module (needs a source-built DXC under ico-pc/tools/toolchain/deps/dxc, see core-ico/README-ico.md), SDL3 static from recomp-common.
@@ -114,6 +140,9 @@ if (want("mp4")) include(":recomp-common", ":core-smo", ":core-mp4")
 
 // :core-sshd (Switch, The Legend of Zelda: Skyward Sword HD 1.0.1 only): the Odyssey runtime (:core-smo) with Skyward Sword HD as its game, its own process, game files and saves.
 if (want("sshd")) include(":recomp-common", ":core-smo", ":core-sshd")
+
+// :core-wonder (Switch, Super Mario Bros. Wonder 1.0.0 only): the Odyssey runtime (:core-smo) with Wonder as its game, its own process, game files and saves.
+if (want("wonder")) include(":recomp-common", ":core-smo", ":core-wonder")
 
 // :core-sunshine (GameCube, Super Mario Sunshine GMSE01 only): the SMS PC port (../sms-src/sms-android/sms-port, local checkout, never pushed), built by CMake from the module.
 if (want("sunshine")) include(":recomp-common", ":core-sunshine")

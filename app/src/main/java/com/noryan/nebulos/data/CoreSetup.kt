@@ -80,15 +80,17 @@ object CoreSetup {
  */
 object GameSpecificCores {
     private val TP_GC_IDS = setOf("GZ2E01", "GZ2P01", "GZ2J01")
+    private val MM_TITLE = Regex("majora", RegexOption.IGNORE_CASE)
+    private val OOT_TITLE = Regex("ocarina\\s*of\\s*time", RegexOption.IGNORE_CASE)
     private val WWHD_TITLE = Regex("wind\\s*waker", RegexOption.IGNORE_CASE)   // only reached for Wii U games (candidates are per system), where it is always the HD version
 
     /** Cores that can only run particular discs, id -> predicate on the 6-char disc game ID (null = unknown ID). */
     private val JAK_SERIALS = setOf("SCUS-97124", "SCES-50361", "SCPS-15021", "SCPS-56003", "SCUS-97265", "SCES-51608", "SCPS-15057",
         "SCKA-20010", "SCUS-97330", "SCUS-97516", "SCKA-20040", "SCES-52460")
-    private val matchers: Map<String, (String?) -> Boolean> = mapOf("dusklight" to ::isTwilightPrincess, "jak" to ::isJakAndDaxter, "sotc" to ::isShadowOfTheColossus, "darkcloud" to ::isDarkCloud, "ico" to ::isIco, "galaxy" to ::isSuperMarioGalaxy, "sunshine" to ::isSuperMarioSunshine, "echoes" to ::isMetroidPrime2Echoes, "prime1" to ::isMetroidPrime1)
+    private val matchers: Map<String, (String?) -> Boolean> = mapOf("dusklight" to ::isTwilightPrincess, "jak" to ::isJakAndDaxter, "sotc" to ::isShadowOfTheColossus, "darkcloud" to ::isDarkCloud, "darkchronicle" to ::isDarkChronicle, "ico" to ::isIco, "galaxy" to ::isSuperMarioGalaxy, "sunshine" to ::isSuperMarioSunshine, "echoes" to ::isMetroidPrime2Echoes, "prime1" to ::isMetroidPrime1)
 
     /** Cores that can only run particular games recognised by name, id -> predicate on the game's title. */
-    private val titleMatchers: Map<String, (String?) -> Boolean> = mapOf("wwhd" to ::isWindWakerHd, "botw" to ::isBotw, "totk" to ::isTotk, "smo" to ::isSmo, "dread" to ::isMetroidDread, "mp4" to ::isMetroidPrime4, "sm3dw" to ::isSuperMario3dWorld, "las" to ::isLinksAwakening, "sshd" to ::isSkywardSwordHd, "sm64" to ::isSuperMario64, "eow" to ::isEchoesOfWisdom)
+    private val titleMatchers: Map<String, (String?) -> Boolean> = mapOf("wwhd" to ::isWindWakerHd, "shipwright" to ::isOcarinaOfTime, "twoship" to ::isMajorasMask, "botw" to ::isBotw, "totk" to ::isTotk, "smo" to ::isSmo, "dread" to ::isMetroidDread, "mp4" to ::isMetroidPrime4, "sm3dw" to ::isSuperMario3dWorld, "las" to ::isLinksAwakening, "sshd" to ::isSkywardSwordHd, "wonder" to ::isSuperMarioWonder, "eow" to ::isEchoesOfWisdom, "sm64" to ::isSuperMario64)
 
     fun isTwilightPrincess(gameId: String?): Boolean {
         if (gameId == null) return false
@@ -131,6 +133,17 @@ object GameSpecificCores {
             }
         }.getOrNull()
         return r ?: (serial == "SCUS-97111")
+    }
+
+    /** Dark Cloud 2 / Dark Chronicle, PAL PS2 disc only (ChronicleTwo core), recognised by the serial the scanner reads from SYSTEM.CNF. */
+    fun isDarkChronicle(serial: String?): Boolean {
+        if (serial == null) return false
+        val r = runCatching {
+            Class.forName("com.noryan.nebulos.core.darkchronicle.DarkChronicleCore").let { c ->
+                c.getMethod("isDarkChronicleSerial", String::class.java).invoke(c.getField("INSTANCE").get(null), serial) as? Boolean
+            }
+        }.getOrNull()
+        return r ?: (serial == "SCES-51190")
     }
 
     /** ICO (any of the seven discs ico-pc accepts), recognised by the serial the scanner reads from SYSTEM.CNF. */
@@ -188,6 +201,28 @@ object GameSpecificCores {
         return r ?: (gameId.uppercase() in setOf("GM8E01", "GM8P01"))
     }
 
+    /** Ship of Harkinian runs only the N64 Ocarina of Time ROMs (recognised by title: an N64 ROM has no disc ID the scanner stores). */
+    fun isOcarinaOfTime(title: String?): Boolean {
+        if (title == null) return false
+        val r = runCatching {
+            Class.forName("com.noryan.nebulos.core.shipwright.ShipwrightCore").let { c ->
+                c.getMethod("isOcarinaOfTimeTitle", String::class.java).invoke(c.getField("INSTANCE").get(null), title) as? Boolean
+            }
+        }.getOrNull()
+        return r ?: OOT_TITLE.containsMatchIn(title)
+    }
+
+    /** 2 Ship 2 Harkinian runs only the N64 Majora's Mask ROMs (recognised by title, like Ocarina of Time). */
+    fun isMajorasMask(title: String?): Boolean {
+        if (title == null) return false
+        val r = runCatching {
+            Class.forName("com.noryan.nebulos.core.twoship.TwoshipCore").let { c ->
+                c.getMethod("isMajorasMaskTitle", String::class.java).invoke(c.getField("INSTANCE").get(null), title) as? Boolean
+            }
+        }.getOrNull()
+        return r ?: MM_TITLE.containsMatchIn(title)
+    }
+
     fun isWindWakerHd(title: String?): Boolean {
         if (title == null) return false
         val r = runCatching {
@@ -227,11 +262,13 @@ object GameSpecificCores {
 
     fun isSuperMario3dWorld(title: String?): Boolean = title != null && Regex("3d\\W*world|bowser", RegexOption.IGNORE_CASE).containsMatchIn(title)
     fun isMetroidPrime4(title: String?): Boolean = title != null && Regex("metroid\\W*prime\\W*4", RegexOption.IGNORE_CASE).containsMatchIn(title)
+    /** Super Mario Bros. Wonder (Switch; its own core, the Odyssey runtime), recognised by title. */
+    fun isSuperMarioWonder(title: String?): Boolean = title != null && Regex("mario\\W*bros\\W*wonder", RegexOption.IGNORE_CASE).containsMatchIn(title)
 
     fun isTotk(title: String?): Boolean = title != null && Regex("tears\\s*of\\s*the\\s*kingdom", RegexOption.IGNORE_CASE).containsMatchIn(title)
 
     /** Cores that run a game as a native port / recompilation instead of emulating the console (their games are tinted cyan in the list). */
-    private val NATIVE_PORTS = setOf("darkcloud", "ico", "smo", "jak", "sotc", "botw", "totk", "wwhd", "dusklight", "galaxy", "sunshine", "dread", "mp4", "sshd", "echoes", "prime1", "sm64", "sm3dw", "las", "eow")
+    private val NATIVE_PORTS = setOf("darkcloud", "darkchronicle", "ico", "smo", "jak", "sotc", "botw", "totk", "wwhd", "dusklight", "shipwright", "twoship", "galaxy", "sunshine", "dread", "mp4", "sshd", "echoes", "prime1", "sm64", "wonder", "sm3dw", "las", "eow")
     fun isNativePort(coreId: String) = coreId in NATIVE_PORTS
 
     fun isGameSpecific(coreId: String) = coreId in matchers || coreId in titleMatchers

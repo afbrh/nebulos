@@ -28,6 +28,18 @@ class NebulosApp : NebulosHiltApplication() {
             // Only the pre-migration v1 schema may still be rebuilt from scratch (the library is re-scanned); 2+ always migrate.
             .fallbackToDestructiveMigrationFrom(true, 1).build()
         prefs = Prefs(this)
+        removeGalaxy2Leftovers()
+    }
+
+    /** Super Mario Galaxy 2 was dropped: delete the files its core left behind (extracted disc, data folder). Cheap and idempotent. */
+    private fun removeGalaxy2Leftovers() {
+        Thread {
+            runCatching {
+                val ext = getExternalFilesDir(null)
+                listOf(java.io.File(ext, "native-dumps/SB4E01"), java.io.File(ext, "smg2"), java.io.File(ext, "runtime-env-smg2.txt"), java.io.File(filesDir, "smg2"))
+                    .filter { it.exists() }.forEach { it.deleteRecursively() }
+            }
+        }.start()
     }
 
     private fun isMainProcess(): Boolean =

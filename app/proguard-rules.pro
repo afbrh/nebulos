@@ -28,6 +28,8 @@
 -keep class com.retroarch.** { *; }
 -keep class dev.twilitrealm.** { *; }
 -keep class dev.encounter.** { *; }
+-keep class com.dishii.** { *; }   # Ship of Harkinian (core-shipwright): JNI looks these up by name
+-keep class com.twoshipfork.** { *; }   # 2 Ship 2 Harkinian (core-twoship)
 -keep class org.wwhdrecomp.** { *; }
 -keep class com.botwrecompandroid.** { *; }
 -keep class com.totkrecompandroid.** { *; }
@@ -50,6 +52,7 @@
 -keep class com.noryan.nebulos.core.sm3dw.** { *; }
 -keep class com.noryan.nebulos.core.las.** { *; }
 -keep class com.noryan.nebulos.core.eow.** { *; }
+-keep class com.noryan.nebulos.core.wonder.** { *; }
 -keep class com.noryan.nebulos.core.sshd.** { *; }
 
 -keep class org.metroidprime2.port.** { *; }
@@ -61,3 +64,5 @@
 -keep class dev.prime1.** { *; }
 -keep class com.noryan.nebulos.core.prime1.** { *; }
 -keep class com.noryan.nebulos.core.sm64.** { *; }   # incl. the renamed SDL2 Java glue (JNI looks these classes up by name)
+
+-keep class com.noryan.nebulos.core.darkchronicle.** { *; }
