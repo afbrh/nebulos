@@ -48,6 +48,7 @@
 -keep class com.noryan.nebulos.core.dread.** { *; }
 -keep class com.noryan.nebulos.core.mp4.** { *; }
 -keep class com.noryan.nebulos.core.sm3dw.** { *; }
+-keep class com.noryan.nebulos.core.eow.** { *; }
 -keep class com.noryan.nebulos.core.sshd.** { *; }
 
 -keep class org.metroidprime2.port.** { *; }
