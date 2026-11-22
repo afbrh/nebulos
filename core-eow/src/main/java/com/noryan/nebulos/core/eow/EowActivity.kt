@@ -9,6 +9,8 @@ import android.view.MotionEvent
 import java.io.File
 import com.smorecompandroid.SMORecompAndroidActivity
 import com.noryan.nebulos.api.NebulosCoreHost
+import com.noryan.nebulos.api.CoreSession
+import com.noryan.nebulos.api.ToggleOptionSupport
 import com.noryan.nebulos.api.System
 import com.noryan.nebulos.api.ui.UiOptions
 import com.noryan.nebulos.recomp.RecompGameFiles
@@ -25,6 +27,8 @@ import com.noryan.recompsdl.RecompPad
 class EowActivity : SMORecompAndroidActivity() {
     private lateinit var session: RecompSession
     private var hooks: NebulosCoreHost.Hooks? = null
+    /** The 60 fps option's flag file (`<data root>/fps60`, read live by the runtime); known once the game files are prepared. */
+    @Volatile private var fpsFlag: File? = null
 
     /**
      * The GPU driver: SMO recomp loads the first driver in `<external files>/drivers` (a .so or an adrenotools zip) through adrenotools.
@@ -61,7 +65,7 @@ class EowActivity : SMORecompAndroidActivity() {
         runCatching { File(getExternalFilesDir(null), "runtime-env-eow.txt").takeIf { it.isFile }?.readLines()?.forEach { l -> l.split("=", limit = 2).takeIf { it.size == 2 && it[0].isNotBlank() }?.let { env(it[0].trim(), it[1].trim()) } } }
         super.onCreate(savedInstanceState)
         session = RecompSession(this, EowCore.STATE_UNAVAILABLE_REASON)
-        val h = NebulosCoreHost.install(this, session, System.SWITCH, UiOptions(title = intent.getStringExtra("nebulos.title") ?: EowCore.GAME_TITLE, loadingTimeoutMs = 60 * 60_000L))
+        val h = NebulosCoreHost.install(this, EowSession(session) { fpsFlag }, System.SWITCH, UiOptions(title = intent.getStringExtra("nebulos.title") ?: EowCore.GAME_TITLE, loadingTimeoutMs = 60 * 60_000L))
         hooks = h
         session.onNotice = { h.notice(it) }
         h.setLoadingText("Starting Echoes of Wisdom")
@@ -83,6 +87,7 @@ class EowActivity : SMORecompAndroidActivity() {
             aspectOriginalOnce(prepared.dataRoot)
             RecompSaveData.link(this, "eow", prepared.dataRoot)   // the game's saves live in the _Nebulos folder (symlinked into the data root)
             env("LARECOMP_DATA_ROOT", prepared.dataRoot.absolutePath)
+            fpsFlag = File(prepared.dataRoot, "fps60")
             Log.i(TAG, "game ${prepared.displayVersion}, data root ${prepared.dataRoot}")
         } catch (f: RecompGameFiles.Failure) {
             Log.e(TAG, "prepare failed: ${f.message}")
