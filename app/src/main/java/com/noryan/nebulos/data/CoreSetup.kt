@@ -88,7 +88,7 @@ object GameSpecificCores {
     private val matchers: Map<String, (String?) -> Boolean> = mapOf("dusklight" to ::isTwilightPrincess, "jak" to ::isJakAndDaxter, "sotc" to ::isShadowOfTheColossus, "darkcloud" to ::isDarkCloud, "ico" to ::isIco, "galaxy" to ::isSuperMarioGalaxy, "sunshine" to ::isSuperMarioSunshine, "echoes" to ::isMetroidPrime2Echoes, "prime1" to ::isMetroidPrime1)
 
     /** Cores that can only run particular games recognised by name, id -> predicate on the game's title. */
-    private val titleMatchers: Map<String, (String?) -> Boolean> = mapOf("wwhd" to ::isWindWakerHd, "botw" to ::isBotw, "totk" to ::isTotk, "smo" to ::isSmo, "dread" to ::isMetroidDread, "mp4" to ::isMetroidPrime4, "sm3dw" to ::isSuperMario3dWorld, "sshd" to ::isSkywardSwordHd, "sm64" to ::isSuperMario64, "eow" to ::isEchoesOfWisdom)
+    private val titleMatchers: Map<String, (String?) -> Boolean> = mapOf("wwhd" to ::isWindWakerHd, "botw" to ::isBotw, "totk" to ::isTotk, "smo" to ::isSmo, "dread" to ::isMetroidDread, "mp4" to ::isMetroidPrime4, "sm3dw" to ::isSuperMario3dWorld, "las" to ::isLinksAwakening, "sshd" to ::isSkywardSwordHd, "sm64" to ::isSuperMario64, "eow" to ::isEchoesOfWisdom)
 
     fun isTwilightPrincess(gameId: String?): Boolean {
         if (gameId == null) return false
@@ -222,13 +222,16 @@ object GameSpecificCores {
     /** The Legend of Zelda: Skyward Sword HD (Switch; its own core, the Odyssey runtime), recognised by title (the Wii game is another system). */
     fun isSkywardSwordHd(title: String?): Boolean = title != null && Regex("skyward\\W*sword", RegexOption.IGNORE_CASE).containsMatchIn(title)
 
+    /** The Legend of Zelda: Link's Awakening (Switch remake; the native runtime core claims it by title, Eden stays selectable). */
+    fun isLinksAwakening(title: String?): Boolean = title != null && Regex("link.?s\\W*awakening", RegexOption.IGNORE_CASE).containsMatchIn(title)
+
     fun isSuperMario3dWorld(title: String?): Boolean = title != null && Regex("3d\\W*world|bowser", RegexOption.IGNORE_CASE).containsMatchIn(title)
     fun isMetroidPrime4(title: String?): Boolean = title != null && Regex("metroid\\W*prime\\W*4", RegexOption.IGNORE_CASE).containsMatchIn(title)
 
     fun isTotk(title: String?): Boolean = title != null && Regex("tears\\s*of\\s*the\\s*kingdom", RegexOption.IGNORE_CASE).containsMatchIn(title)
 
     /** Cores that run a game as a native port / recompilation instead of emulating the console (their games are tinted cyan in the list). */
-    private val NATIVE_PORTS = setOf("darkcloud", "ico", "smo", "jak", "sotc", "botw", "totk", "wwhd", "dusklight", "galaxy", "sunshine", "dread", "mp4", "sshd", "echoes", "prime1", "sm64", "sm3dw", "eow")
+    private val NATIVE_PORTS = setOf("darkcloud", "ico", "smo", "jak", "sotc", "botw", "totk", "wwhd", "dusklight", "galaxy", "sunshine", "dread", "mp4", "sshd", "echoes", "prime1", "sm64", "sm3dw", "las", "eow")
     fun isNativePort(coreId: String) = coreId in NATIVE_PORTS
 
     fun isGameSpecific(coreId: String) = coreId in matchers || coreId in titleMatchers

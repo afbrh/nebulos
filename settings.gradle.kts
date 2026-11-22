@@ -138,5 +138,8 @@ if (want("totk")) include(":recomp-common", ":core-totk")
 // :core-sm3dw (Switch, Super Mario 3D World + Bowser's Fury, update v65536 or the base 1.0.0): the Odyssey runtime (:core-smo) with 3D World as its game, its own process, game files and saves.
 if (want("sm3dw")) include(":recomp-common", ":core-smo", ":core-sm3dw")
 
+// :core-las (Switch, The Legend of Zelda: Link's Awakening, base 1.0.0 or the 1.0.1/1.1.0 update): the Odyssey runtime (:core-smo) with Link's Awakening as its game, its own process, game files and saves.
+if (want("las")) include(":recomp-common", ":core-smo", ":core-las")
+
 // :core-eow (Switch, The Legend of Zelda: Echoes of Wisdom 1.0.0): the Odyssey runtime (:core-smo) with Echoes of Wisdom as its game, its own process, game files and saves.
 if (want("eow")) include(":recomp-common", ":core-smo", ":core-eow")
