@@ -102,18 +102,20 @@ class CoreRouterTest {
         assertEquals("cemu", CoreRouter.choose(System.WIIU, "Mario Kart 8", null, "wwhd", null, wiiu)!!.id)
     }
 
-    // ---- N64: Ocarina of Time -> shipwright (Ship of Harkinian), everything else (incl. Majora's Mask) stays on Mupen64Plus-Next ----
+    // ---- N64: Ocarina of Time -> shipwright (Ship of Harkinian), Majora's Mask -> twoship (2 Ship 2 Harkinian), everything else stays on Mupen64Plus-Next ----
     private val n64Libretro = Fake("retroarch", "Libretro cores", setOf(System.N64), listOf(sub("mupen64plus_next", "Mupen64Plus-Next", System.N64)))
     private val shipwright = Fake("shipwright", "Ship of Harkinian (Ocarina of Time)", setOf(System.N64))
-    private val n64 = listOf(n64Libretro, shipwright)
+    private val twoship = Fake("twoship", "2 Ship 2 Harkinian (Majora's Mask)", setOf(System.N64))
+    private val n64 = listOf(n64Libretro, shipwright, twoship)
 
     @Test fun n64OcarinaOfTimeRoutesToShipwright() {
         val c = CoreRouter.candidates(System.N64, n64)
-        assertEquals("retroarch:mupen64plus_next", CoreRouter.autoChoice(System.N64, "The Legend of Zelda - Majora's Mask", c)!!.id)
+        assertEquals("twoship", CoreRouter.autoChoice(System.N64, "The Legend of Zelda - Majora's Mask", c)!!.id)
         assertEquals("shipwright", CoreRouter.autoChoice(System.N64, "The Legend of Zelda - Ocarina of Time", c)!!.id)
         assertEquals("retroarch:mupen64plus_next", CoreRouter.autoChoice(System.N64, "Super Mario 64", c)!!.id)
         // the native port only offers its own game; Mupen64Plus-Next stays selectable for it
         assertEquals(listOf("retroarch:mupen64plus_next", "shipwright"), CoreRouter.candidatesFor(System.N64, null, n64, "Ocarina of Time").map { it.id })
+        assertEquals(listOf("retroarch:mupen64plus_next", "twoship"), CoreRouter.candidatesFor(System.N64, null, n64, "Majora's Mask").map { it.id })
         assertEquals(listOf("retroarch:mupen64plus_next"), CoreRouter.candidatesFor(System.N64, null, n64, "GoldenEye 007").map { it.id })
         assertEquals("retroarch:mupen64plus_next", CoreRouter.choose(System.N64, "Ocarina of Time", null, "retroarch:mupen64plus_next", null, n64)!!.id)
     }
