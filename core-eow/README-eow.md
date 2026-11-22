@@ -11,3 +11,6 @@ This module only adds the game, apart from every other game:
   (BucketTree + LZ4), which hactool-src's `nca_comp.c` reads. Version 1.0.0 only (a cartridge's update is ignored). Needs ~15 GB free during the extraction.
 
 See `../../eow-research/PROGRESS.md` for the state and measurements.
+
+## Frame rate
+The game asks for a 30 fps present interval (its Switch 1 design target; cutscenes run 60). In the Suthorn Ruins room the GPU needs ~14 ms a frame (LARECOMP_GPUPROF_AT: the 14.6 ms "copy texture" row at 30 fps is the idle wait for the next present, not copy work), so `LARECOMP_FORCE_INTERVAL=1` in `runtime-env-eow.txt` gives a steady 60 fps (max frame 18 ms) there, and walking speed stays the same (the game's world step is time-based). Heavier scenes (Hyrule Castle Town, ~21 ms on the Thor) were not tested at interval 1, so the default stays the game's own choice.
