@@ -22,6 +22,8 @@ the row applies after closing and reopening the game. The choice is the flag fil
 Town road: ~39.8 fps at 4:3 vs 41.3 at 16:9.
 How it works (smorecomp-src loader.c / native.c, details and addresses in eow-research/NOTES-ghidra.md): the game's render-size constants and the docked size pair are patched, the 1080 height compares that pick the viewport object
 are moved, and every load of a camera's aspect / vertical field of view sees a 4:3 camera with the original 16:9 horizontal view. The old 4:3 FILL crop (cut the HUD edges) is gone.
-Known: the HUD sits in the 16:9 band (hearts 30 px below the band's top, ~150 px below the frame's top), not in the frame's corners: the Ui2d panes are placed in a fixed 1920x1080 canvas and changing the layout size does not
-move them (tried: lyt1 layout size 1920x1440, no effect). Corner anchoring would need a per-pane shift (pane centre beyond +-420 of the canvas moved 180 px outward) in the pane transform code or the UI vertex shader.
+HUD placement: the Ui2d canvas is a fixed 1920x1080 inside the 1920x1440 frame, so the runtime moves each HUD pane rigidly outward by 180 units when its y (the pane's translation in its vertex constants, nvn/vulkan/exec.c
+`draw_`, game 106 only) is 330..560 from the canvas middle: the hearts go to the frame's top-left corner, the item buttons (and their Y/X/A labels) to the top-right; panes in the middle stay. A frame that has a full-screen pane
+(title, menus, load screens) or a talk's box is left as the game made it, and shifted panes are put back (the dialogue box and its arrow stay one piece). Changing the Ui2d layout size (lyt1) had no effect.
+Known: the blurred backdrop behind the load / save lists is upside down (pre-existing); an element drawn by panes both inside and outside 330..560 would come apart (none seen).
 Not checked: Suthorn Ruins rooms in 4:3, the map screen, a cutscene with letterboxing.
