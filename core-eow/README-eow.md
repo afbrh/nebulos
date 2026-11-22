@@ -15,10 +15,13 @@ See `../../eow-research/PROGRESS.md` for the state and measurements.
 ## Frame rate
 The game asks for a 30 fps present interval (its Switch 1 design target; cutscenes run 60). The runtime holds the interval at **1 by default: 60 fps** (smorecomp-src nvn/objects.c, `eow_apply_interval`; no menu row, no setting). In the Suthorn Ruins room the GPU needs ~14 ms a frame (the 14.6 ms "copy texture" row seen at 30 fps in LARECOMP_GPUPROF_AT is the idle wait for the next present, not copy work), so it holds 60.0 fps (max frame 18 ms), and the world's step is time-based: walking a fixed time covers the same distance at 30 and 60. Heavier scenes (Hyrule Castle Town, ~21 ms on the Thor) are still to be measured. `LARECOMP_FORCE_INTERVAL=2` in `runtime-env-eow.txt` brings back 30.
 
-## 4:3 (menu row "4:3 (NEXT LAUNCH)", default off)
-The Nova's screen is 4:3, the picture 16:9 (bars above and below by default). On: the NEXT launch renders the game at 1920x1440 - a real 4:3 frame: the same width, more world above and below (nothing cropped, no stretch),
-the HUD (hearts, rupees, prompts, dialogue) and the pause menus at their normal proportions in a 16:9 band in the middle of the frame. The render size is read once when the game starts, so the row (flag file `aspect43`
-in the data root) applies after closing and reopening the game. Town road: ~39.8 fps vs 41.3 at 16:9.
+## 4:3 (menu row "4:3 (NEXT LAUNCH)", ON by default)
+The Nova's screen is 4:3. Default (and fresh installs): the game renders a real 4:3 frame at 1920x1440 - the same width as 16:9, more world above and below (nothing cropped, no stretch), the HUD (hearts, rupees, prompts,
+dialogue) and the pause menus at their normal proportions in a 16:9 band in the middle of the frame. Off (Back menu row): the plain 16:9 picture with bars above and below. The render size is read once when the game starts, so
+the row applies after closing and reopening the game. The choice is the flag file `<data root>/aspect169`: present = 16:9 (off), absent = 4:3 (on) - so existing and fresh installs get 4:3 (the old `aspect43` crop flag is ignored).
+Town road: ~39.8 fps at 4:3 vs 41.3 at 16:9.
 How it works (smorecomp-src loader.c / native.c, details and addresses in eow-research/NOTES-ghidra.md): the game's render-size constants and the docked size pair are patched, the 1080 height compares that pick the viewport object
 are moved, and every load of a camera's aspect / vertical field of view sees a 4:3 camera with the original 16:9 horizontal view. The old 4:3 FILL crop (cut the HUD edges) is gone.
+Known: the HUD sits in the 16:9 band (hearts 30 px below the band's top, ~150 px below the frame's top), not in the frame's corners: the Ui2d panes are placed in a fixed 1920x1080 canvas and changing the layout size does not
+move them (tried: lyt1 layout size 1920x1440, no effect). Corner anchoring would need a per-pane shift (pane centre beyond +-420 of the canvas moved 180 px outward) in the pane transform code or the UI vertex shader.
 Not checked: Suthorn Ruins rooms in 4:3, the map screen, a cutscene with letterboxing.
