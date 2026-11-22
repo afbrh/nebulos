@@ -45,6 +45,9 @@ class WonderActivity : SMORecompAndroidActivity() {
         }.onFailure { Log.e(TAG, "driver setup failed: $it") }
     }
 
+    /** The native runtime: libsmo_main.so (live tree) or this game's frozen tag (frozen-runtimes.properties, FREEZING.md). */
+    override fun getLibraries(): Array<String> = com.noryan.nebulos.core.smo.RuntimeLib.forGame("wonder")
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installDriver()
         env("LARECOMP_NO_LAUNCHER", "1")

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.library")
 }
@@ -10,6 +12,21 @@ val src = file("../../smorecomp-src")
 val deps = src.resolve("android/deps/out")                    // android/deps/build_deps.sh
 val gen = layout.buildDirectory.dir("generated/smo")
 
+// ---- frozen runtimes (FREEZING.md): frozen-runtimes.properties maps a game (the core name: smo, dread, wonder, sm3dw ...) to a git tag of
+// smorecomp-src whose worktree lives in ../smorecomp-frozen/<tag>. A frozen game's activity loads libsmo_main_<tag>.so (built from that
+// worktree), every other game loads libsmo_main.so (built from the live working tree). -Pnebulos.thaw=wonder,dread builds those games live.
+val frozenRoot = file("../../smorecomp-frozen")
+val allSwitch = listOf("smo", "dread", "mp4", "sshd", "wonder", "sm3dw", "las", "eow")
+val wantedCores = providers.gradleProperty("nebulos.cores").orNull?.split(",")?.map { it.trim() }
+val thawed = providers.gradleProperty("nebulos.thaw").orNull?.split(",")?.map { it.trim() } ?: emptyList()
+val frozenMap: Map<String, String> = Properties().also { p ->
+    file("../frozen-runtimes.properties").takeIf { it.isFile }?.reader()?.use { p.load(it) }
+}.entries.associate { it.key.toString().trim() to it.value.toString().trim() }.filter { it.value.isNotEmpty() && it.key !in thawed }
+fun libId(tag: String) = "smo_main_" + tag.replace(Regex("[^A-Za-z0-9_]"), "_")
+val buildFrozen = frozenMap.filter { wantedCores == null || it.key in wantedCores }          // games this build needs from a frozen tree
+val needLive = wantedCores == null || allSwitch.any { it in wantedCores && it !in frozenMap }
+val frozenTags = buildFrozen.values.toSortedSet()
+
 android {
     namespace = "com.smorecompandroid"       // the upstream Java glue's R (driver dialog strings)
     compileSdk = 37
@@ -19,7 +36,10 @@ android {
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild {
             cmake {
-                targets("smo_main", "hactool")
+                targets(*(listOfNotNull("smo_main".takeIf { needLive }) + frozenTags.map { libId(it) } + "hactool").toTypedArray())
+                arguments += "-DSMO_FROZEN_ROOT=${frozenRoot.absolutePath}"
+                arguments += "-DSMO_FROZEN_TAGS=${frozenTags.joinToString(";")}"
+                if (!needLive) arguments += "-DSMO_SKIP_LIVE=1"
                 arguments += "-DSMO_GEN_DIR=${gen.get().asFile.resolve("inc").absolutePath}"
             }
         }
@@ -34,6 +54,8 @@ android {
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     buildFeatures { buildConfig = true }
+    // game=library name, e.g. "wonder=smo_main_frozen_wonder_v1;sm3dw=..." (read by RuntimeLib.forGame)
+    defaultConfig { buildConfigField("String", "FROZEN_LIBS", "\"" + frozenMap.entries.joinToString(";") { "${it.key}=${libId(it.value)}" } + "\"") }
     buildTypes {
         // the runtime is far too slow at -O0: the CMake file forces -O2 -g whatever the build type
         release { externalNativeBuild { cmake { arguments("-DCMAKE_BUILD_TYPE=Release") } } }
