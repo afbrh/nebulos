@@ -16,4 +16,9 @@ See `../../eow-research/PROGRESS.md` for the state and measurements.
 The game asks for a 30 fps present interval (its Switch 1 design target; cutscenes run 60). The runtime holds the interval at **1 by default: 60 fps** (smorecomp-src nvn/objects.c, `eow_apply_interval`; no menu row, no setting). In the Suthorn Ruins room the GPU needs ~14 ms a frame (the 14.6 ms "copy texture" row seen at 30 fps in LARECOMP_GPUPROF_AT is the idle wait for the next present, not copy work), so it holds 60.0 fps (max frame 18 ms), and the world's step is time-based: walking a fixed time covers the same distance at 30 and 60. Heavier scenes (Hyrule Castle Town, ~21 ms on the Thor) are still to be measured. `LARECOMP_FORCE_INTERVAL=2` in `runtime-env-eow.txt` brings back 30.
 
 ## 4:3 FILL (menu row, default off)
-The Nova's screen is 4:3, the picture 16:9 (bars above and below by default). The row crops the middle of the picture to fill the screen (flag file `aspect43`, polled live). A real taller view (more vertical field of view, nothing cropped) needs camera/frustum/HUD hooks the game does not offer yet; see eow-research/PROGRESS.md.
+The Nova's screen is 4:3, the picture 16:9 (bars above and below by default). The row crops the middle of the picture to fill the screen (flag file `aspect43`, polled live).
+**Known cost: the crop cuts the outer quarter of the width, so the hearts, rupee counter, A/B prompts and the side columns of the pause menus (Save/Load/Difficulty labels, controls panel) are cut off.** Leave it off when you need the HUD.
+
+A real 4:3 render (more view above and below, HUD native) is NOT done. Findings (eow-research/PROGRESS.md, rounds 5-7): the game's render size is patchable (12 `movz` sites, smorecomp-src 677f935, env `LARECOMP_EOW_RES`, off) and its cameras follow
+it, but the final image's height and the 3D scene's size (1408x792 and its chain) come from other constants, so the picture lands cropped/zoomed or in a 960 px column. Finishing it needs those constants found in the main NSO (a disassembler) or per-pass
+viewport/target scaling in the runtime.
