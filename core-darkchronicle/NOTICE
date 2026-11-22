@@ -1,0 +1,12 @@
+:core-darkchronicle bundles a build of ChronicleTwo (https://github.com/TheMoonPeople/ChronicleTwo), the Dark Cloud 2 / Dark Chronicle (PAL) decompilation and native port.
+
+- ChronicleTwo itself declares no repository-level license (the GitHub license API reports none). The game code it contains is a decompilation of Level-5's
+  game, so it is Level-5/Sony intellectual property in the same grey zone as the other native-port cores here (Chronicle/Dark Cloud, ico-pc, Ship of Harkinian):
+  personal use with the user's own disc only. No game assets are included; the disc's files are converted on the device from the user's own disc image.
+- tools/kazarov (the shared PC-port libraries and Rust extractor): MIT.
+- Fonts in port/assets/fonts: see port/assets/fonts/LICENSE in the ChronicleTwo tree (not changed here).
+- SDL3 (zlib), Quill (MIT), fastgltf (MIT), nlohmann/json (MIT), cpptrace (MIT), simdjson (Apache-2.0/MIT), Luau 0.740 (MIT), stb and dr_libs (public domain/MIT),
+  FFmpeg 9.0.2 built LGPL-2.1+ only (kz-ffmpeg: no GPL, no nonfree, no version3), and the Rust crates in tools/kazarov/Cargo.lock (MIT/Apache-2.0 family).
+  Tracy is NOT built into this core (CT_ENABLE_TRACY=OFF).
+- Nebulos-local changes (ChronicleTwo branch `nebulos-local`, never pushed): an ANDROID platform in the CMake build, Android shims (Linux-only calls, the ARM64
+  fiber switch for the PS2 threads, vkCmdWriteTimestamp2 forwarding), a JNI extraction entry point, and a KZ_ANDROID_EXECUTABLE path override.

@@ -1,0 +1,17 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- ChronicleTwo (SDL3 + Vulkan) lives in its own process, like the other native-port cores: its Vulkan device and SDL state never share
+             an address space with another core, and the process is ended on Close Game. -->
+        <activity
+            android:name="com.noryan.nebulos.core.darkchronicle.DarkChronicleActivity"
+            android:process=":darkchronicle"
+            android:taskAffinity="com.noryan.nebulos.darkchronicle"
+            android:launchMode="singleTask"
+            android:exported="false"
+            android:alwaysRetainTaskState="true"
+            android:screenOrientation="sensorLandscape"
+            android:preferMinimalPostProcessing="true"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
+            android:configChanges="layoutDirection|locale|grammaticalGender|fontScale|fontWeightAdjustment|orientation|uiMode|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation|density" />
+    </application>
+</manifest>
