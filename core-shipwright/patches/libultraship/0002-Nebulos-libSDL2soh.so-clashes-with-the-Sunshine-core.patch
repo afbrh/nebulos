@@ -1,0 +1,26 @@
+From 867990c0651aeb97c349cb4ec8cbe60fc6ed3d98 Mon Sep 17 00:00:00 2001
+From: Ry <ry@localhost>
+Date: Sat, 21 Nov 2026 19:29:59 -0600
+Subject: [PATCH 2/2] Nebulos: libSDL2soh.so (clashes with the Sunshine core's
+ libSDL2.so)
+
+---
+ cmake/dependencies/android.cmake | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/cmake/dependencies/android.cmake b/cmake/dependencies/android.cmake
+index d1c70655..b5c94c3a 100644
+--- a/cmake/dependencies/android.cmake
++++ b/cmake/dependencies/android.cmake
+@@ -11,6 +11,8 @@ if (NOT ${SDL2_FOUND})
+     )
+     message("SDL2 not found. Downloading now...")
+     FetchContent_MakeAvailable(SDL2)
++    # Nebulos: the shared library is libSDL2soh.so (the Sunshine core ships a libSDL2.so in the same APK).
++    set_target_properties(SDL2 PROPERTIES OUTPUT_NAME SDL2soh)
+     message("SDL2 downloaded to " ${FETCHCONTENT_BASE_DIR}/sdl2-src)
+ endif()
+ 
+-- 
+2.54.0 (Apple Git-157)
+

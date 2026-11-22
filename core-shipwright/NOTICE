@@ -1,0 +1,3 @@
+core-shipwright bundles Ship of Harkinian (HarbourMasters; Android fork please-be-nice/Shipwright-android) and libultraship. Source-available engines built from
+decompilation work; no game data is included, the user's own Ocarina of Time ROM supplies every asset. Third parties: SDL2 (zlib), Dear ImGui (MIT), spdlog (MIT),
+StormLib (MIT), libopus (BSD-3-Clause), nlohmann/json (MIT), tinyxml2 (zlib), libzip (BSD-3-Clause), stb (public domain). Nebulos itself is GPLv3.

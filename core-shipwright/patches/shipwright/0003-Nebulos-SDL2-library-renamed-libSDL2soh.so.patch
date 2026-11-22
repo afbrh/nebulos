@@ -1,0 +1,33 @@
+From 911cd5ec5541932b8886de82f5e66196f4891b0b Mon Sep 17 00:00:00 2001
+From: Ry <ry@localhost>
+Date: Sat, 21 Nov 2026 19:29:59 -0600
+Subject: [PATCH 3/3] Nebulos: SDL2 library renamed libSDL2soh.so
+
+---
+ Android/app/src/main/java/org/libsdl/appsoh/SDLActivity.java | 2 +-
+ libultraship                                                 | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/Android/app/src/main/java/org/libsdl/appsoh/SDLActivity.java b/Android/app/src/main/java/org/libsdl/appsoh/SDLActivity.java
+index e912c1f65..0e76f0c82 100644
+--- a/Android/app/src/main/java/org/libsdl/appsoh/SDLActivity.java
++++ b/Android/app/src/main/java/org/libsdl/appsoh/SDLActivity.java
+@@ -269,7 +269,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
+      */
+     protected String[] getLibraries() {
+         return new String[] {
+-            "SDL2",
++            "SDL2soh", // Nebulos: renamed from "SDL2" (the Sunshine core ships libSDL2.so in the same APK)
+             // "SDL2_image",
+             // "SDL2_mixer",
+             // "SDL2_net",
+diff --git a/libultraship b/libultraship
+index a629df0da..867990c06 160000
+--- a/libultraship
++++ b/libultraship
+@@ -1 +1 @@
+-Subproject commit a629df0da46bf5b7f2e44ee58e26e4f41fcd6508
++Subproject commit 867990c0651aeb97c349cb4ec8cbe60fc6ed3d98
+-- 
+2.54.0 (Apple Git-157)
+

@@ -1,0 +1,19 @@
+From 09454f414f1b02c3c37320f3a51de54efcb6fc8d Mon Sep 17 00:00:00 2001
+From: Ry <ry@localhost>
+Date: Sat, 21 Nov 2026 19:09:14 -0600
+Subject: [PATCH 2/3] libultraship: nebulos embedding patch
+
+---
+ libultraship | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libultraship b/libultraship
+index c4bea4753..a629df0da 160000
+--- a/libultraship
++++ b/libultraship
+@@ -1 +1 @@
+-Subproject commit c4bea4753d8cf354f41bc2ec556745337598335b
++Subproject commit a629df0da46bf5b7f2e44ee58e26e4f41fcd6508
+-- 
+2.54.0 (Apple Git-157)
+
