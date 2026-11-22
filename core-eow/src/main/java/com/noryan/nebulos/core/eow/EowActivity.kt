@@ -49,6 +49,9 @@ class EowActivity : SMORecompAndroidActivity() {
         installDriver()
         env("LARECOMP_NO_LAUNCHER", "1")
         env("LARECOMP_NATIVE", "1")
+        // Echoes of Wisdom's main thread spin-waits (a hot `ldar` loop in the job system's latch wait) for jobs that its workers run on the same core: with the runtime's core-0 turn-taking
+        // (kernel.c) the workers never get to run and the game stalls at its first frames. Off, every thread is truly parallel and the game runs.
+        env("LARECOMP_NO_CORE0", "1")
         // Only the Nebulos virtual pad (vendor 0x5243 / product 0x0001) may become a gamepad: real controllers are consumed by
         // Nebulos's InputRouter. HIDAPI and the phone-sensor "joystick" are off so nothing double-triggers.
         env("SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT", "0x5243/0x0001")
