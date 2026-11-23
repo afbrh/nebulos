@@ -13,22 +13,31 @@ How it works
 - Still shared, NOT frozen: the Java glue (`SMORecompAndroidActivity`, compiled from the live tree), `recomp-common` (SDL, vpad) and the core modules.
   A change there can still affect a frozen game; keep such changes backward compatible.
 
-Current state (verified on the Nova 2026-11-22 with a release APK built with `-Pnebulos.cores=smo,dread,wonder,sm3dw,eden`; eden is only needed because the
-app manifest's FileProvider uses Eden's `xml/file_paths`):
+## Current state: ONE shared frozen runtime (2026-11-23)
 
-| game | tag | commit | verified | result |
-|---|---|---|---|---|
-| smo | frozen-smo-v1 | 036a7fc | yes | title -> Resume -> gameplay, 60 fps (also while running) |
-| dread | frozen-dread-v1 | 82ba855 | yes | title, Samus files, New Game opening scene; 60 fps UI, cutscenes 30 fps |
-| sm3dw | frozen-sm3dw-v1 | f9cb8da (reconstructed) | yes | mode select, title, character select, World 1 map, 60 fps (idle and moving) |
-| wonder | frozen-wonder-v2 | c7eb84a | yes | title, user select, world map, course 1, 60 fps (idle and moving) |
+Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v1`** (smorecomp-src 68a29dd), worktree
+`../smorecomp-frozen/shared-v1`, one library `libsmo_main_shared_v1.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
+The older per-game tags (frozen-smo-v1, frozen-dread-v1, frozen-sm3dw-v1, frozen-wonder-v1/v2) stay in git for reference but are no longer used or built.
 
-Each frozen .so references only its own `smorecomp-frozen/<tag>` sources (plus the documented live `smorecomp-src/android` and `third_party` build deps).
-Live: eow, las, sshd, mp4.
+**Rule:** the runtime is changed only by thawing (`-Pnebulos.thaw=<games>` or removing lines), testing, then retagging a new shared version
+(`shared-v2`): every Switch game must be retested before the new tag is mapped (smoke test = boots to gameplay, same look, similar fps).
+A game-specific fix must be gated by game id so it cannot change another game.
 
-frozen-wonder-v1 (f9cb8da) is BAD, do not use: it lacks the TEX.B (bindless texture) translation, which was still uncommitted when Wonder was verified and only
-landed inside c7eb84a (the EoW HSETP2 commit). With v1 every Wonder 3D model is skipped (world map = sky + black silhouette). v2 = c7eb84a fixes it.
-The v1 tag and worktree are kept for reference. sm3dw does not need TEX.B and runs correctly at f9cb8da.
+Verified on the Nova 2026-11-23 on the live tree at 68a29dd (= shared-v1), baseline = the old per-game frozen builds:
+
+| game | baseline (old frozen build) | on shared runtime | result |
+|---|---|---|---|
+| smo | title, 60 fps, ~14.7k draws | title identical, Resume -> Cap Kingdom gameplay, 60 fps (152k draws) | pass |
+| dread | title, 60 fps, 840 draws | title identical, Samus files, New Game opening text; 60 fps UI, 30 fps cutscene | pass |
+| sm3dw | title, 60 fps | chooser -> Bowser's Fury loading -> gameplay (Mario in the rain), 60 fps (83k draws) | pass |
+| wonder | title, 60 fps | title identical, character select, world map with 3D models (TEX.B ok), 60 fps | pass |
+| las | live (unchanged) | title, file select, Autosave -> Mabe Village, 60 fps | pass |
+| sshd | live (unchanged) | boots to the opening-movie parchment, 30 fps; the known opening-movie stall (paused) | same as before |
+| eow | live (unchanged) | title; the castle/town work was verified in the previous round | pass |
+
+Screenshots/logs: `../eow-research/shared/` (`base-*` = old frozen build, `live-*` = shared runtime; scripts `go.sh`, `seq.sh`).
+
+Each game's Activity returns `RuntimeLib.forGame("<core>")`; `frozen-runtimes.properties` maps every core to `shared-v1`.
 
 ## Freeze a game
 1. Pick the commit where the game was verified; tag it: `git -C ../smorecomp-src tag -a frozen-<game>-v1 <commit> -m "what was verified"`.

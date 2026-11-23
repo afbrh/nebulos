@@ -24,7 +24,7 @@ val frozenMap: Map<String, String> = Properties().also { p ->
 }.entries.associate { it.key.toString().trim() to it.value.toString().trim() }.filter { it.value.isNotEmpty() && it.key !in thawed }
 fun libId(tag: String) = "smo_main_" + tag.replace(Regex("[^A-Za-z0-9_]"), "_")
 val buildFrozen = frozenMap.filter { wantedCores == null || it.key in wantedCores }          // games this build needs from a frozen tree
-val needLive = wantedCores == null || allSwitch.any { it in wantedCores && it !in frozenMap }
+val needLive = allSwitch.any { (wantedCores == null || it in wantedCores) && it !in frozenMap }   // the live lib is only built when some wanted game is not frozen (or thawed)
 val frozenTags = buildFrozen.values.toSortedSet()
 
 android {

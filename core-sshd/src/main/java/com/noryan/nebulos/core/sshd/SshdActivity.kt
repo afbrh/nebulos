@@ -23,6 +23,9 @@ import com.noryan.recompsdl.RecompPad
  * natively on the CPU (LARECOMP_NATIVE=1): no game-code build on the device.
  */
 class SshdActivity : SMORecompAndroidActivity() {
+    /** The native runtime: the one shared frozen runtime (frozen-runtimes.properties, FREEZING.md). */
+    override fun getLibraries(): Array<String> = com.noryan.nebulos.core.smo.RuntimeLib.forGame("sshd")
+
     private lateinit var session: RecompSession
     private var hooks: NebulosCoreHost.Hooks? = null
 

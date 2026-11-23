@@ -25,6 +25,9 @@ import com.noryan.recompsdl.RecompPad
  * natively on the CPU (LARECOMP_NATIVE=1): no game-code build on the device.
  */
 class EowActivity : SMORecompAndroidActivity() {
+    /** The native runtime: the one shared frozen runtime (frozen-runtimes.properties, FREEZING.md). */
+    override fun getLibraries(): Array<String> = com.noryan.nebulos.core.smo.RuntimeLib.forGame("eow")
+
     private lateinit var session: RecompSession
     private var hooks: NebulosCoreHost.Hooks? = null
     /** The option flag files' folder (`<data root>`: `fps60`, `aspect43`, read live by the runtime); known once the game files are prepared. */
