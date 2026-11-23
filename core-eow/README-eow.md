@@ -25,5 +25,11 @@ are moved, and every load of a camera's aspect / vertical field of view sees a 4
 HUD placement: the Ui2d canvas is a fixed 1920x1080 inside the 1920x1440 frame, so the runtime moves each HUD pane rigidly outward by 180 units when its y (the pane's translation in its vertex constants, nvn/vulkan/exec.c
 `draw_`, game 106 only) is 330..560 from the canvas middle: the hearts go to the frame's top-left corner, the item buttons (and their Y/X/A labels) to the top-right; panes in the middle stay. A frame that has a full-screen pane
 (title, menus, load screens) or a talk's box is left as the game made it, and shifted panes are put back (the dialogue box and its arrow stay one piece). Changing the Ui2d layout size (lyt1) had no effect.
-Known: the blurred backdrop behind the load / save lists is upside down (pre-existing); an element drawn by panes both inside and outside 330..560 would come apart (none seen).
+Full-frame panes: a pane that fills the whole 16:9 band (the pause menu's blurred world and darkening, a loading screen's black, a fade) is made 4/3 as tall about the frame's middle, so the pause menu shows the (blurred)
+live world over the whole frame and a loading screen is black over the whole frame; the title's 16:9 picture (fs 28129be4) is left alone. A loading screen's corner pieces and strips (fs 248be7e1 / a0a885df, anchored at the
+band's top and bottom edges) go out to the frame's edges, so the loading icon sits at the frame's bottom-left corner.
+Camera hooks cover the projection object and the camera controller's own fov / aspect copies (+0x640 / +0x644, culling and framing).
+Known: the blurred backdrop behind the load / save lists is upside down (pre-existing); the ground shimmer reported in 4:3 town (walking) was treated by hooking the camera controller's fov/aspect copies (a culling that
+used the 16:9 vertical field) - not confirmed gone; the title's picture was black with garbage under it in some builds (a 1920x1440 movie texture over the decoder's 1920x1080 one): movie frames now also go into a taller alias
+texture over the same memory when there is one (none was found; the title works in the final build, cause not pinned down).
 Not checked: Suthorn Ruins rooms in 4:3, the map screen, a cutscene with letterboxing.
