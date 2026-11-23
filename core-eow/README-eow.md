@@ -33,3 +33,7 @@ Known: the blurred backdrop behind the load / save lists is upside down (pre-exi
 used the 16:9 vertical field) - not confirmed gone; the title's picture was black with garbage under it in some builds (a 1920x1440 movie texture over the decoder's 1920x1080 one): movie frames now also go into a taller alias
 texture over the same memory when there is one (none was found; the title works in the final build, cause not pinned down).
 Not checked: Suthorn Ruins rooms in 4:3, the map screen, a cutscene with letterboxing.
+
+
+## Known: speckles on lit stone / carpet (Hyrule Castle)
+Bright 2-3 px dots on lit surfaces; identical in 16:9 and 4:3, so not from the 4:3 work. Not fixed yet - it comes from the world lit shader (reflection cubemaps + fp16 emulation); see eow-research/NOTES-ghidra.md "Hyrule Castle speckle" for what was ruled out. The reflection cubemap filter compute now really writes its images (it wrote into a dummy before).
