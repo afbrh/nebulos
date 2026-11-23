@@ -19,7 +19,7 @@ The game asks for a 30 fps present interval (its Switch 1 design target; cutscen
 The Nova's screen is 4:3. Default (and fresh installs): the game renders a real 4:3 frame at 1920x1440 - the same width as 16:9, more world above and below (nothing cropped, no stretch), the HUD (hearts, rupees, prompts,
 dialogue) and the pause menus at their normal proportions in a 16:9 band in the middle of the frame. Off (Back menu row): the plain 16:9 picture with bars above and below. The render size is read once when the game starts, so
 the row applies after closing and reopening the game. The choice is the flag file `<data root>/aspect169`: present = 16:9 (off), absent = 4:3 (on) - so existing and fresh installs get 4:3 (the old `aspect43` crop flag is ignored).
-Town road: ~39.8 fps at 4:3 vs 41.3 at 16:9.
+Town road: ~39.8 fps at 4:3 vs 41.3 at 16:9. The camera is punched in 1.2x (constant `eow_zoom`, env LARECOMP_EOW_ZOOM for tests): plaza 40.6 fps vs 37 at 16:9 (30.8k draws), 4:3 unzoomed 32 fps (43k draws). 1600x1200 gives the same fps as 1920x1440 and a broken UI, so it is not used. Loading spinner sits in the old 16:9 band corner.
 How it works (smorecomp-src loader.c / native.c, details and addresses in eow-research/NOTES-ghidra.md): the game's render-size constants and the docked size pair are patched, the 1080 height compares that pick the viewport object
 are moved, and every load of a camera's aspect / vertical field of view sees a 4:3 camera with the original 16:9 horizontal view. The old 4:3 FILL crop (cut the HUD edges) is gone.
 HUD placement: the Ui2d canvas is a fixed 1920x1080 inside the 1920x1440 frame, so the runtime moves each HUD pane rigidly outward by 180 units when its y (the pane's translation in its vertex constants, nvn/vulkan/exec.c
