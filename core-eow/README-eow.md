@@ -35,5 +35,5 @@ texture over the same memory when there is one (none was found; the title works 
 Not checked: Suthorn Ruins rooms in 4:3, the map screen, a cutscene with letterboxing.
 
 
-## Known: speckles on lit stone / carpet (Hyrule Castle)
-Bright 2-3 px dots on lit surfaces; identical in 16:9 and 4:3, so not from the 4:3 work. Not fixed yet - it comes from the world lit shader (reflection cubemaps + fp16 emulation); see eow-research/NOTES-ghidra.md "Hyrule Castle speckle" for what was ruled out. The reflection cubemap filter compute now really writes its images (it wrote into a dummy before).
+## Fixed: speckles on lit stone / carpet (Hyrule Castle)
+Bright 2-3 px dots (also in 16:9) came from half-precision instructions whose F32 result was in the fp16 denormal range: the GPU flushes those to zero, our fp32 emulation kept them and the lit shader's divisions blew them up. Now flushed (translate.c `hpackf`, EoW only). The reflection cubemap filter compute also really writes its images now. Details: eow-research/NOTES-ghidra.md.
