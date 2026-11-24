@@ -13,33 +13,32 @@ How it works
 - Still shared, NOT frozen: the Java glue (`SMORecompAndroidActivity`, compiled from the live tree), `recomp-common` (SDL, vpad) and the core modules.
   A change there can still affect a frozen game; keep such changes backward compatible.
 
-## Current state: ONE shared frozen runtime (2026-11-23, shared-v4)
+## Current state: ONE shared frozen runtime (2026-11-23, shared-v5)
 
-Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v4`**, worktree
-`../smorecomp-frozen/shared-v4`, one library `libsmo_main_shared_v4.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
-Previous versions stay in git with their worktrees: `shared-v1` (68a29dd), `shared-v2` (3cb26de), `shared-v3`; the older per-game tags are no longer used.
+Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v5`**, worktree
+`../smorecomp-frozen/shared-v5`, one library `libsmo_main_shared_v5.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
+Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v4`; the older per-game tags are no longer used.
 
 - v2 = v1 + EoW: loading spinner in the 4:3 corner, held incomplete frames, pipeline cache saved while it grows.
 - v3 = v2 + EoW: indirect draws (Castle Town's trees).
-- v4 = v3 + EoW only (all gated by game id 106): shadows (constant buffers read in place from the guest heap, `ubo_direct`, so the light data a compute shader
-  writes the same frame is seen), the held frame is now a real copy of the last whole frame (device.c; the game's own images can't hold more than one frame).
-  The shadow-compare reference rounding to 16 bits stays (removing it made white speckle everywhere).
+- v4 = v3 + EoW: shadows (constant buffers read in place), the frame hold as a real copy of the last whole frame.
+- v5 = v4 + EoW 4:3 only (game id 106): the scene's render targets are 4/3 taller (device.c, `LARECOMP_EOW_SCENE_SY`, default 4/3; 1 = as before).
 
 **Rule:** the runtime is changed only by thawing (`-Pnebulos.thaw=<games>` or removing lines), testing, then retagging a new shared version
-(`shared-v5`): every Switch game must be retested before the new tag is mapped (smoke test = boots to gameplay, same look, similar fps).
+(`shared-v6`): every Switch game must be retested before the new tag is mapped (smoke test = boots to gameplay, same look, similar fps).
 A game-specific fix must be gated by game id so it cannot change another game.
 
-Smoke test of shared-v4 on the Nova, 2026-11-23 (go.sh in `../eow-research/shared/`, `v4-*.png`, `v4-grid.png`, `v4-*.log`):
+Smoke test of shared-v5 on the Nova, 2026-11-23 (go.sh in `../eow-research/shared/`, `v5-*.png`, `v5-grid.png`, `v5-*.log`):
 
-| game | result on shared-v4 |
+| game | result on shared-v5 |
 |---|---|
 | smo | Resume menu identical, 60 fps (14.7k draws) - pass |
-| dread | title identical, 60 fps (847 draws) - pass |
+| dread | title identical, 60 fps - pass |
 | sm3dw | chooser identical, 60 fps - pass |
-| wonder | title identical, 60 fps (7.4k draws) - pass |
-| las | beach intro, 30 fps in the cutscene (as in v2) - pass |
-| sshd | opening-movie card (dark), 30 fps; the known opening-movie stall (paused) - same as before |
-| eow | saved Castle Town spot: trees + shadows, no speckle, no black frames in 50 s walks, castle hall fine - pass |
+| wonder | title identical, 60 fps - pass |
+| las | beach intro, 30 fps in the cutscene - pass |
+| sshd | opening-movie card (dark), 30 fps; the known stall (paused) - same as before |
+| eow | saved spot loads in 4:3, trees + shadows, no black frames in a 50 s walk, ~30 fps in town (about 5% below v4) - pass |
 | mp4 | not installed in the Nova's library - not run (EoW-gated changes only) |
 
 ## Freeze a game
