@@ -13,36 +13,34 @@ How it works
 - Still shared, NOT frozen: the Java glue (`SMORecompAndroidActivity`, compiled from the live tree), `recomp-common` (SDL, vpad) and the core modules.
   A change there can still affect a frozen game; keep such changes backward compatible.
 
-## Current state: ONE shared frozen runtime (2026-11-23, shared-v3)
+## Current state: ONE shared frozen runtime (2026-11-23, shared-v4)
 
-Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v3`**, worktree
-`../smorecomp-frozen/shared-v3`, one library `libsmo_main_shared_v3.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
-Previous versions stay in git with their worktrees: `shared-v1` (68a29dd), `shared-v2` (3cb26de); the older per-game tags (frozen-smo-v1,
-frozen-dread-v1, frozen-sm3dw-v1, frozen-wonder-v1/v2) are no longer used or built.
+Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v4`**, worktree
+`../smorecomp-frozen/shared-v4`, one library `libsmo_main_shared_v4.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
+Previous versions stay in git with their worktrees: `shared-v1` (68a29dd), `shared-v2` (3cb26de), `shared-v3`; the older per-game tags are no longer used.
 
-- shared-v2 = v1 + Echoes of Wisdom only: loading spinner in the 4:3 corner, held incomplete frames (no black flashes), pipeline cache saved while it grows.
-- shared-v3 = v2 + Echoes of Wisdom only: indirect draws (DrawElementsIndirect / DrawArraysIndirect) are executed - Castle Town's trees (GPU-culled
-  foliage) were never drawn; DispatchComputeIndirect reads its counts from guest memory. All of it gated by game id 106 (exec.c CMD_*_INDIRECT; the other
-  games still log "not done" as before).
+- v2 = v1 + EoW: loading spinner in the 4:3 corner, held incomplete frames, pipeline cache saved while it grows.
+- v3 = v2 + EoW: indirect draws (Castle Town's trees).
+- v4 = v3 + EoW only (all gated by game id 106): shadows (constant buffers read in place from the guest heap, `ubo_direct`, so the light data a compute shader
+  writes the same frame is seen), the held frame is now a real copy of the last whole frame (device.c; the game's own images can't hold more than one frame).
+  The shadow-compare reference rounding to 16 bits stays (removing it made white speckle everywhere).
 
 **Rule:** the runtime is changed only by thawing (`-Pnebulos.thaw=<games>` or removing lines), testing, then retagging a new shared version
-(`shared-v4`): every Switch game must be retested before the new tag is mapped (smoke test = boots to gameplay, same look, similar fps).
+(`shared-v5`): every Switch game must be retested before the new tag is mapped (smoke test = boots to gameplay, same look, similar fps).
 A game-specific fix must be gated by game id so it cannot change another game.
 
-Smoke test of shared-v3 on the Nova, 2026-11-23 (go.sh in `../eow-research/shared/`, screenshots `v3-*.png` and `v3-grid.png`, logs `v3-*.log`):
+Smoke test of shared-v4 on the Nova, 2026-11-23 (go.sh in `../eow-research/shared/`, `v4-*.png`, `v4-grid.png`, `v4-*.log`):
 
-| game | result on shared-v3 |
+| game | result on shared-v4 |
 |---|---|
-| smo | Resume menu identical to v1/v2, 60 fps (14.7k draws) - pass |
+| smo | Resume menu identical, 60 fps (14.7k draws) - pass |
 | dread | title identical, 60 fps (847 draws) - pass |
-| sm3dw | chooser (Bowser's Fury) identical, 60 fps - pass |
+| sm3dw | chooser identical, 60 fps - pass |
 | wonder | title identical, 60 fps (7.4k draws) - pass |
-| las | "Load this file?" (Mabe Village) screen, 60 fps (15k draws) - pass |
-| sshd | opening-movie card (dark), 30 fps; the known opening-movie stall (paused) - same as v1/v2 |
-| eow | saved Castle Town spot loads in 4:3 with the two trees, ~33 fps (34.6k draws), no error in the log - pass |
+| las | beach intro, 30 fps in the cutscene (as in v2) - pass |
+| sshd | opening-movie card (dark), 30 fps; the known opening-movie stall (paused) - same as before |
+| eow | saved Castle Town spot: trees + shadows, no speckle, no black frames in 50 s walks, castle hall fine - pass |
 | mp4 | not installed in the Nova's library - not run (EoW-gated changes only) |
-
-(shared-v2's table, for reference: same results, EoW with 0 black flashes in a 50 s walk.)
 
 ## Freeze a game
 1. Pick the commit where the game was verified; tag it: `git -C ../smorecomp-src tag -a frozen-<game>-v1 <commit> -m "what was verified"`.
