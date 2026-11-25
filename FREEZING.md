@@ -37,7 +37,9 @@ Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v16`; 
 - v17 = v16 + SM3DW/Fury HUD pieces anchored to the bottom keep 0 units inside the frame (the top ones 14): `LARECOMP_SM3DW_BOTTOM_INSET=<units>`.
 
 **Rule:** the runtime is changed only by thawing (`-Pnebulos.thaw=<games>` or removing lines), testing, then retagging a new shared version
-(`shared-v18`): every Switch game must be retested before the new tag is mapped (smoke test = boots to gameplay, same look, similar fps).
+(`shared-v18`), then the full-APK install. Testing depends on what changed (policy since 2026-11-25):
+- A change confined to a **game-id-gated, off-switchable code path** (it only runs for that game): smoke-test the touched game (look + fps) plus a quick **boot check of the others** (each launches and renders a frame, no crash).
+- A change to **ungated / shared code** (anything that runs for every game): a FULL smoke test of all Switch games (boots to gameplay, same look, similar fps) before the new tag is mapped.
 A game-specific fix must be gated by game id so it cannot change another game.
 
 Smoke test of shared-v17 on the Nova, 2026-11-24 (full release build, no thaw): smo 60 fps/14.8k draws, dread 60, sm3dw 60, wonder 60 (title in 4:3; gameplay, map, menus, pause 60 fps in the dev build), las 30, sshd 30; eow not re-run (only game 104 changed); mp4 not installed. (v11-*.png/log.)
