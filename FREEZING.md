@@ -13,11 +13,11 @@ How it works
 - Still shared, NOT frozen: the Java glue (`SMORecompAndroidActivity`, compiled from the live tree), `recomp-common` (SDL, vpad) and the core modules.
   A change there can still affect a frozen game; keep such changes backward compatible.
 
-## Current state: ONE shared frozen runtime (2026-11-24, shared-v19)
+## Current state: ONE shared frozen runtime (2026-11-24, shared-v20)
 
-Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v19`**, worktree
-`../smorecomp-frozen/shared-v19`, one library `libsmo_main_shared_v10.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
-Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v18`; the older per-game tags are no longer used.
+Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v20`**, worktree
+`../smorecomp-frozen/shared-v20`, one library `libsmo_main_shared_v10.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
+Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v19`; the older per-game tags are no longer used.
 
 - v2 = v1 + EoW: loading spinner in the 4:3 corner, held incomplete frames, pipeline cache saved while it grows.
 - v3 = v2 + EoW: indirect draws (Castle Town's trees).
@@ -37,14 +37,15 @@ Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v18`; 
 - v17 = v16 + SM3DW/Fury HUD pieces anchored to the bottom keep 0 units inside the frame (the top ones 14): `LARECOMP_SM3DW_BOTTOM_INSET=<units>`.
 - v18 = v17 + 3D World's (not Fury's: told apart by Fury's 16:9-aspect world camera, native.c `g_3dw_fury`) bottom-anchored HUD pieces go 60 units further down (`LARECOMP_SM3DW_BOTTOM_EXTRA`), and no shifted layout piece can leave the frame (clamp in ndc, exec.c).
 - v19 = v18 + SM3DW start-screen fixes (game 105): HUD shifts only in frames with >= 1500 depth draws (the Resume/New Game screen's 3D backdrop has ~500 and was being HUD-shifted: Fury's logo toggled, 3D World's New Game dropped under the footer); in other frames only the footer (white band, red line, hatching, Back) goes flush to the bottom edge and a loading screen's corner icon moves (8 quiet frames, corner pane, no scene).
+- v20 = v19 fix (game 105): the >=1500 depth-draw HUD threshold was wrong (real per-frame depth draws: start-screen backdrop ~500, map ~170, 3D World course ~270, Fury ~595; no threshold separates them) - back to >=40; Resume/New Game stay put because only edge pieces (|x| > 450 of 640) are HUD-shifted; the start screens' footer (white band, red line, hatching, Back) is not drawn (`LARECOMP_SM3DW_KEEP_FOOTER=1` draws it); loading-screen corner icon (pane, |x|>450, no scene) shifted again.
 
 **Rule:** the runtime is changed only by thawing (`-Pnebulos.thaw=<games>` or removing lines), testing, then retagging a new shared version
-(`shared-v20`), then the full-APK install. Testing depends on what changed (policy since 2026-11-25):
+(`shared-v21`), then the full-APK install. Testing depends on what changed (policy since 2026-11-25):
 - A change confined to a **game-id-gated, off-switchable code path** (it only runs for that game): smoke-test the touched game (look + fps) plus a quick **boot check of the others** (each launches and renders a frame, no crash).
 - A change to **ungated / shared code** (anything that runs for every game): a FULL smoke test of all Switch games (boots to gameplay, same look, similar fps) before the new tag is mapped.
 A game-specific fix must be gated by game id so it cannot change another game.
 
-Smoke test of shared-v19 on the Nova, 2026-11-24 (full release build, no thaw): smo 60 fps/14.8k draws, dread 60, sm3dw 60, wonder 60 (title in 4:3; gameplay, map, menus, pause 60 fps in the dev build), las 30, sshd 30; eow not re-run (only game 104 changed); mp4 not installed. (v11-*.png/log.)
+Smoke test of shared-v20 on the Nova, 2026-11-24 (full release build, no thaw): smo 60 fps/14.8k draws, dread 60, sm3dw 60, wonder 60 (title in 4:3; gameplay, map, menus, pause 60 fps in the dev build), las 30, sshd 30; eow not re-run (only game 104 changed); mp4 not installed. (v11-*.png/log.)
 
 Smoke test of shared-v8 on the Nova, 2026-11-24: smo 60 fps/14.7k draws, dread 60, sm3dw 60, wonder 60, las 30, sshd 30 (old stall again; timing-dependent), eow start screen fills 4:3, file select unchanged; mp4 not installed. (v8-*.png/log.)
 
