@@ -13,11 +13,11 @@ How it works
 - Still shared, NOT frozen: the Java glue (`SMORecompAndroidActivity`, compiled from the live tree), `recomp-common` (SDL, vpad) and the core modules.
   A change there can still affect a frozen game; keep such changes backward compatible.
 
-## Current state: ONE shared frozen runtime (2026-11-24, shared-v14)
+## Current state: ONE shared frozen runtime (2026-11-24, shared-v15)
 
-Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v14`**, worktree
-`../smorecomp-frozen/shared-v14`, one library `libsmo_main_shared_v10.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
-Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v13`; the older per-game tags are no longer used.
+Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v15`**, worktree
+`../smorecomp-frozen/shared-v15`, one library `libsmo_main_shared_v10.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
+Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v14`; the older per-game tags are no longer used.
 
 - v2 = v1 + EoW: loading spinner in the 4:3 corner, held incomplete frames, pipeline cache saved while it grows.
 - v3 = v2 + EoW: indirect draws (Castle Town's trees).
@@ -32,12 +32,13 @@ Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v13`; 
 - v12 = v11 + Wonder UI laid out per pane (game 104, exec.c `wonder_*`): the nn::ui2d pane (560-byte vertex cb0) and text (128-byte) matrices are rewritten to a 3/4 scale (x about the middle, y about the middle in menus / about the top or bottom edge for HUD panes in a frame that has world draws; panes in a world frame between |y| 330 stay as the game placed them). Panes as large as the canvas (backgrounds, fades, the blurred snapshots menus use) are left alone, cropped like the world. This replaces v11's per-draw viewport band, which flipped for some transition draws (flashing 16:9/4:3). The text-shadow blur blits (vs 2424c9300 + fs 2424d5300) are not drawn. `LARECOMP_WONDER_NO_UIBAND=1` = no UI change, `LARECOMP_WONDER_KEEP_SHADOWS=1`, `LARECOMP_WONDER_LOG/LOGC=1` diagnostics.
 - v13 = v12 + Wonder start screens fitted (game 104, exec.c): a frame whose 1920x1080 target got 1-39 depth draws (the title / user select / players / characters 3D backdrop; a course or the map has ~280) is composited as the whole 16:9 frame scaled 3/4 into the 4:3 image, bars cleared black, with no UI changes (as the 7c91d40 band iteration). Courses / the map (>= 40 depth draws) and frames with none (Plus menu, in-course pause, Welcome card, transitions) keep v12's per-pane handling. `LARECOMP_WONDER_NO_MENUFIT=1` = v12.
 - v14 = v13 without the letterboxed start screens (user: switching between fitted and full frames is jarring). Every Wonder frame is now the same 1440x1080 image. Start screens (1-39 depth draws) use the per-pane menu handling with full-canvas panes scaled 3/4 too (the game's own backdrop draws fill the sides). `LARECOMP_WONDER_MENUFIT=1` = v13's fitted start screens.
+- v15 = v14 + Super Mario 3D World + Bowser's Fury native 4:3 (game 105; the same for both games): loader.c patches the render set-up's 1920x1080 immediates/floats (main+40b818/40b81c/40b884/40b890), the handheld pair, the display-mode getters (8a8690..8a8700) and the screen-size object's floats (8a8730..8a8774) to 1920x1440 (g_eow_res); native.c hooks the readers of sead::PerspectiveProjection tan(fovy/2) / fovy (7386fc/7387d8/738808/7386b0) so the camera keeps its 16:9 horizontal view and shows 4/3 more vertically (the 15-degree layout camera near 1 / far 10000 is excluded); device.c: scene targets 4/3 taller; exec.c: nn::ui2d HUD panes/text near the 720-unit canvas's top/bottom are moved out by the free 120 units (ramp 100..300 units from the middle) in frames with >= 40 depth draws (menus untouched). `LARECOMP_SM3DW_NO_43=1` or the file `aspect169` = 16:9; `LARECOMP_SM3DW_RES=<w>x<h>`, `LARECOMP_SM3DW_ZOOM=f`, `LARECOMP_SM3DW_SCENE_SY`, `LARECOMP_SM3DW_NO_UISHIFT`, `LARECOMP_SM3DW_LOG`/`LOGP` for tests.
 
 **Rule:** the runtime is changed only by thawing (`-Pnebulos.thaw=<games>` or removing lines), testing, then retagging a new shared version
-(`shared-v15`): every Switch game must be retested before the new tag is mapped (smoke test = boots to gameplay, same look, similar fps).
+(`shared-v16`): every Switch game must be retested before the new tag is mapped (smoke test = boots to gameplay, same look, similar fps).
 A game-specific fix must be gated by game id so it cannot change another game.
 
-Smoke test of shared-v14 on the Nova, 2026-11-24 (full release build, no thaw): smo 60 fps/14.8k draws, dread 60, sm3dw 60, wonder 60 (title in 4:3; gameplay, map, menus, pause 60 fps in the dev build), las 30, sshd 30; eow not re-run (only game 104 changed); mp4 not installed. (v11-*.png/log.)
+Smoke test of shared-v15 on the Nova, 2026-11-24 (full release build, no thaw): smo 60 fps/14.8k draws, dread 60, sm3dw 60, wonder 60 (title in 4:3; gameplay, map, menus, pause 60 fps in the dev build), las 30, sshd 30; eow not re-run (only game 104 changed); mp4 not installed. (v11-*.png/log.)
 
 Smoke test of shared-v8 on the Nova, 2026-11-24: smo 60 fps/14.7k draws, dread 60, sm3dw 60, wonder 60, las 30, sshd 30 (old stall again; timing-dependent), eow start screen fills 4:3, file select unchanged; mp4 not installed. (v8-*.png/log.)
 
