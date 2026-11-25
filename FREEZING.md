@@ -13,11 +13,11 @@ How it works
 - Still shared, NOT frozen: the Java glue (`SMORecompAndroidActivity`, compiled from the live tree), `recomp-common` (SDL, vpad) and the core modules.
   A change there can still affect a frozen game; keep such changes backward compatible.
 
-## Current state: ONE shared frozen runtime (2026-11-24, shared-v17)
+## Current state: ONE shared frozen runtime (2026-11-24, shared-v18)
 
-Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v17`**, worktree
-`../smorecomp-frozen/shared-v17`, one library `libsmo_main_shared_v10.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
-Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v16`; the older per-game tags are no longer used.
+Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v18`**, worktree
+`../smorecomp-frozen/shared-v18`, one library `libsmo_main_shared_v10.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
+Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v17`; the older per-game tags are no longer used.
 
 - v2 = v1 + EoW: loading spinner in the 4:3 corner, held incomplete frames, pipeline cache saved while it grows.
 - v3 = v2 + EoW: indirect draws (Castle Town's trees).
@@ -35,14 +35,15 @@ Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v16`; 
 - v15 = v14 + Super Mario 3D World + Bowser's Fury native 4:3 (game 105; the same for both games): loader.c patches the render set-up's 1920x1080 immediates/floats (main+40b818/40b81c/40b884/40b890), the handheld pair, the display-mode getters (8a8690..8a8700) and the screen-size object's floats (8a8730..8a8774) to 1920x1440 (g_eow_res); native.c hooks the readers of sead::PerspectiveProjection tan(fovy/2) / fovy (7386fc/7387d8/738808/7386b0) so the camera keeps its 16:9 horizontal view and shows 4/3 more vertically (the 15-degree layout camera near 1 / far 10000 is excluded); device.c: scene targets 4/3 taller; exec.c: nn::ui2d HUD panes/text near the 720-unit canvas's top/bottom are moved out by the free 120 units (ramp 100..300 units from the middle) in frames with >= 40 depth draws (menus untouched). `LARECOMP_SM3DW_NO_43=1` or the file `aspect169` = 16:9; `LARECOMP_SM3DW_RES=<w>x<h>`, `LARECOMP_SM3DW_ZOOM=f`, `LARECOMP_SM3DW_SCENE_SY`, `LARECOMP_SM3DW_NO_UISHIFT`, `LARECOMP_SM3DW_LOG`/`LOGP` for tests.
 - v16 = v15 + SM3DW/Fury fixes (game 105): Bowser's Fury's world camera has a fixed 16:9 aspect (3D World's cameras take the frame's) - near 10 / far 150000, fovy 30/45 deg: native.c `tdw_cam` gives it the frame's aspect (also at getAspect 7386c0) and tan * (16/9)/(4/3), so Fury is no longer a stretched 16:9 picture. HUD: the layout panes' projection row is -1.0003 (v15 compared with -1: no pane was moved, only text); positions/shifts are now in ndc (Fury's HUD layouts go through a 0.8 camera), the shift keeps 14 units inside the frame, edge columns (|x| > 450) move as one block, and a loading screen (<= 6 layout draws, no world) moves its corner icon down.
 - v17 = v16 + SM3DW/Fury HUD pieces anchored to the bottom keep 0 units inside the frame (the top ones 14): `LARECOMP_SM3DW_BOTTOM_INSET=<units>`.
+- v18 = v17 + 3D World's (not Fury's: told apart by Fury's 16:9-aspect world camera, native.c `g_3dw_fury`) bottom-anchored HUD pieces go 60 units further down (`LARECOMP_SM3DW_BOTTOM_EXTRA`), and no shifted layout piece can leave the frame (clamp in ndc, exec.c).
 
 **Rule:** the runtime is changed only by thawing (`-Pnebulos.thaw=<games>` or removing lines), testing, then retagging a new shared version
-(`shared-v18`), then the full-APK install. Testing depends on what changed (policy since 2026-11-25):
+(`shared-v19`), then the full-APK install. Testing depends on what changed (policy since 2026-11-25):
 - A change confined to a **game-id-gated, off-switchable code path** (it only runs for that game): smoke-test the touched game (look + fps) plus a quick **boot check of the others** (each launches and renders a frame, no crash).
 - A change to **ungated / shared code** (anything that runs for every game): a FULL smoke test of all Switch games (boots to gameplay, same look, similar fps) before the new tag is mapped.
 A game-specific fix must be gated by game id so it cannot change another game.
 
-Smoke test of shared-v17 on the Nova, 2026-11-24 (full release build, no thaw): smo 60 fps/14.8k draws, dread 60, sm3dw 60, wonder 60 (title in 4:3; gameplay, map, menus, pause 60 fps in the dev build), las 30, sshd 30; eow not re-run (only game 104 changed); mp4 not installed. (v11-*.png/log.)
+Smoke test of shared-v18 on the Nova, 2026-11-24 (full release build, no thaw): smo 60 fps/14.8k draws, dread 60, sm3dw 60, wonder 60 (title in 4:3; gameplay, map, menus, pause 60 fps in the dev build), las 30, sshd 30; eow not re-run (only game 104 changed); mp4 not installed. (v11-*.png/log.)
 
 Smoke test of shared-v8 on the Nova, 2026-11-24: smo 60 fps/14.7k draws, dread 60, sm3dw 60, wonder 60, las 30, sshd 30 (old stall again; timing-dependent), eow start screen fills 4:3, file select unchanged; mp4 not installed. (v8-*.png/log.)
 
