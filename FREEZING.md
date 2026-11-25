@@ -13,20 +13,34 @@ How it works
 - Still shared, NOT frozen: the Java glue (`SMORecompAndroidActivity`, compiled from the live tree), `recomp-common` (SDL, vpad) and the core modules.
   A change there can still affect a frozen game; keep such changes backward compatible.
 
-## Current state: ONE shared frozen runtime (2026-11-23, shared-v5)
+## Current state: ONE shared frozen runtime (2026-11-24, shared-v11)
 
-Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v5`**, worktree
-`../smorecomp-frozen/shared-v5`, one library `libsmo_main_shared_v5.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
-Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v4`; the older per-game tags are no longer used.
+Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v11`**, worktree
+`../smorecomp-frozen/shared-v11`, one library `libsmo_main_shared_v10.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
+Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v10`; the older per-game tags are no longer used.
 
 - v2 = v1 + EoW: loading spinner in the 4:3 corner, held incomplete frames, pipeline cache saved while it grows.
 - v3 = v2 + EoW: indirect draws (Castle Town's trees).
 - v4 = v3 + EoW: shadows (constant buffers read in place), the frame hold as a real copy of the last whole frame.
 - v5 = v4 + EoW 4:3 only (game id 106): the scene's render targets are 4/3 taller (device.c, `LARECOMP_EOW_SCENE_SY`, default 4/3; 1 = as before).
+- v6 = v5 + EoW only (game id 106): SHFL lane indices (idx/up/down) are taken inside the lane's own 32 lanes (translate.c `shfl_idx/_up/_down`; Adreno subgroups are 64/128 wide). Removes the lit shaders' light-loop sparkle (green blocks in shadows, white dots on stone). `LARECOMP_EOW_NO_SHFL_FIX=1` = as v5.
+- v7 = v6 + EoW only (game id 106): a texture entry whose depth/stencil mode is STENCIL samples the stencil plane (exec.c `stencil_mirror_*`: R8_UINT copy of the D24S8 stencil, refreshed when a draw binds it). The rift decal reads its object flag bits there; the depth plane was read before (mantissa noise: stripes + pixelated purple outline). `LARECOMP_EOW_NO_STENCIL=1` = as v6.
+- v8 = v7 + EoW only (game id 106): the "Press Any Button" screen (the only one with exactly 1920x1080 scene targets) is cropped at the sides and zoomed to fill the 4:3 frame: exec.c `vk_eow_title_screen` (latched off for good when those passes stop for 12 frames or a world scene is drawn), widescreen.c `widescreen_present_crop` (uv 0.125,0.125 size 0.75). `LARECOMP_EOW_NO_TITLE_CROP=1` = off.
+- v9 = v8 + Metroid Dread only (game 101): BindProgram(NULL, FRAGMENT_BIT) = depth-only draws through the bound vertex stage with an empty fragment shader (exec.c CMD_BIND_PROGRAM, ShaderKey.no_fs). ~140 draws a frame (shadow maps, depth pre-pass) were skipped before: the lit world came out black. `LARECOMP_DREAD_NO_FSLESS=1` = as v8; `LARECOMP_LOG_SKIPWHY=1` logs skip sites.
+- v10 = v9 + Dread 4:3 view (loader.c): the docked render size at main+1a1be18 (1600x900) patched to 1200x900, nominal final image 1440x1080 (g_eow_res). `LARECOMP_DREAD_NO_43=1` or the file `aspect169` in the data root = 16:9; `LARECOMP_DREAD_RES=<w>x900`.
+- v11 = v10 + Wonder 4:3 view (game 104; loader.c + exec.c): the six docked-size immediates (1920->1440 wide, handheld 1280->960) and the final image's nominal size 1440x1080; the game still renders its whole frame (world + UI) into one 1920x1080 target, which the final composite quad now shows centre-cropped (viewport ox -240: the world is a real 4:3 view, full height) while the UI draws into that target (vs code >= 0x253af0000 and the 2424c9300/2424d5300 blur blit) are scaled 3/4 about the centre, so the 1920 canvas lies inside the 1440 visible columns (a 16:9 band in the 4:3 frame). `LARECOMP_WONDER_NO_43=1` or the file `aspect169` in the data root = 16:9; `LARECOMP_WONDER_UI_SCALE`, `LARECOMP_WONDER_UI_MIN` (hex) for tests.
 
 **Rule:** the runtime is changed only by thawing (`-Pnebulos.thaw=<games>` or removing lines), testing, then retagging a new shared version
-(`shared-v6`): every Switch game must be retested before the new tag is mapped (smoke test = boots to gameplay, same look, similar fps).
+(`shared-v12`): every Switch game must be retested before the new tag is mapped (smoke test = boots to gameplay, same look, similar fps).
 A game-specific fix must be gated by game id so it cannot change another game.
+
+Smoke test of shared-v11 on the Nova, 2026-11-24 (full release build, no thaw): smo 60 fps/14.8k draws, dread 60, sm3dw 60, wonder 60 (title in 4:3; gameplay, map, menus, pause 60 fps in the dev build), las 30, sshd 30; eow not re-run (only game 104 changed); mp4 not installed. (v11-*.png/log.)
+
+Smoke test of shared-v8 on the Nova, 2026-11-24: smo 60 fps/14.7k draws, dread 60, sm3dw 60, wonder 60, las 30, sshd 30 (old stall again; timing-dependent), eow start screen fills 4:3, file select unchanged; mp4 not installed. (v8-*.png/log.)
+
+Smoke test of shared-v7 on the Nova, 2026-11-24: smo 60 fps/14.6k draws, dread 60, sm3dw 60, wonder 60, las 30 (intro), sshd 60 (past its old stall, gameplay), eow rift house renders; mp4 not installed. (v7-*.png / v7-*.log.)
+
+Smoke test of shared-v6 on the Nova, 2026-11-24: smo 60 fps/14.8k draws, dread 60, sm3dw 60, wonder 60, las 30 (intro), sshd 30 (same stall), eow bad spot clean (no sparkle); mp4 not installed. (v6-*.png / v6-*.log in eow-research/shared.)
 
 Smoke test of shared-v5 on the Nova, 2026-11-23 (go.sh in `../eow-research/shared/`, `v5-*.png`, `v5-grid.png`, `v5-*.log`):
 
