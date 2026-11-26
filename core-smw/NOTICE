@@ -1,0 +1,7 @@
+core-smw is built from:
+- smw (https://github.com/snesrev/smw), MIT License, Copyright (c) 2023 snesrev. It uses PPU and DSP code from LakeSnes (MIT, elzo_d) and
+  includes gl_core and stb (public domain / MIT). SmwAssets.kt is a port of its assets/compile_resources.py.
+- SDL2 2.32.10 (https://github.com/libsdl-org/SDL), zlib License, Copyright (c) 1997-2025 Sam Lantinga.
+The full license texts are in the source trees (smw-src/LICENSE.txt, SDL2 LICENSE.txt).
+No game data is shipped as data files: it is built on the device from the user's own ROM. The reimplementation itself is reconstructed from
+Nintendo's code (it holds many of the game's small tables); its MIT label does not change that (the same risk class as the other native-port cores).

@@ -181,3 +181,6 @@ if (want("zelda3")) include(":recomp-common", ":core-zelda3")
 
 // :core-supermetroid (Super Nintendo, Super Metroid Japan/USA ROM): the snesrev/sm decompilation (MIT; ../sm-snes-src, local branch nebulos-local, never pushed), built by CMake from the module.
 if (want("supermetroid")) include(":recomp-common", ":core-supermetroid")
+
+// :core-smw (Super Nintendo, Super Mario World US ROM): smw (snesrev, MIT; ../smw-src, local branch nebulos-local, never pushed), built by CMake from the module.
+if (want("smw")) include(":recomp-common", ":core-smw")

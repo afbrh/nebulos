@@ -1,0 +1,16 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- The Super Mario World game screen (SDL2). Its own process: the game's global state and SDL never share an address space with another core. -->
+        <activity
+            android:name="com.noryan.nebulos.core.smw.SmwActivity"
+            android:process=":smw"
+            android:taskAffinity="com.noryan.nebulos.smw"
+            android:launchMode="singleTask"
+            android:exported="false"
+            android:alwaysRetainTaskState="true"
+            android:screenOrientation="sensorLandscape"
+            android:preferMinimalPostProcessing="true"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
+            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection|density|colorMode|grammaticalGender|fontWeightAdjustment" />
+    </application>
+</manifest>

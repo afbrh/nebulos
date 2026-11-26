@@ -66,5 +66,6 @@
 -keep class com.noryan.nebulos.core.sm64.** { *; }   # incl. the renamed SDL2 Java glue (JNI looks these classes up by name)
 -keep class com.noryan.nebulos.core.zelda3.** { *; }   # incl. the renamed SDL2 Java glue
 -keep class com.noryan.nebulos.core.supermetroid.** { *; }   # incl. the renamed SDL2 Java glue
+-keep class com.noryan.nebulos.core.smw.** { *; }   # incl. the renamed SDL2 Java glue
 
 -keep class com.noryan.nebulos.core.darkchronicle.** { *; }

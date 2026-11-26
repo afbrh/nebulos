@@ -84,3 +84,8 @@ true 4:3 camera but are not available). Game files, driver and saves work as for
 `../sm-snes-src`: Super Metroid decompilation, local branch `nebulos-local` on nickdesaulniers/sm c4b8c21 (itself on snesrev/sm 578f90b); push
 disabled. SDL2 2.32.10 renamed by `sm-snes-src/nebulos/rename_sdl.sh`. Built by Gradle from `core-supermetroid/src/main/cpp`. See
 `core-supermetroid/README-supermetroid.md`.
+
+## smw (core-smw), added 2026-11-26
+
+`../smw-src`: snesrev/smw commit eae20c6, local branch `nebulos-local` (push disabled). SDL2 2.32.10 renamed by `smw-src/nebulos/rename_sdl.sh`.
+Built by Gradle from `core-smw/src/main/cpp`. See `core-smw/README-smw.md`.
