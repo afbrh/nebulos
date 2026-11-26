@@ -13,11 +13,11 @@ How it works
 - Still shared, NOT frozen: the Java glue (`SMORecompAndroidActivity`, compiled from the live tree), `recomp-common` (SDL, vpad) and the core modules.
   A change there can still affect a frozen game; keep such changes backward compatible.
 
-## Current state: ONE shared frozen runtime (2026-11-24, shared-v25)
+## Current state: ONE shared frozen runtime (2026-11-24, shared-v26)
 
-Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v25`**, worktree
-`../smorecomp-frozen/shared-v25`, one library `libsmo_main_shared_v10.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
-Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v24`; the older per-game tags are no longer used.
+Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v26`**, worktree
+`../smorecomp-frozen/shared-v26`, one library `libsmo_main_shared_v10.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
+Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v25`; the older per-game tags are no longer used.
 
 - v2 = v1 + EoW: loading spinner in the 4:3 corner, held incomplete frames, pipeline cache saved while it grows.
 - v3 = v2 + EoW: indirect draws (Castle Town's trees).
@@ -43,14 +43,15 @@ Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v24`; 
 - v23 = v22 + Link's Awakening native 4:3 (game 107, same engine as EoW but different offsets): loader.c patches the window/render-size immediates to 1920x1440 (main+1015a04/10, 1019820/24, 101dbe0/e4, handheld 1015a08/0c, the 4 scene-size blocks 913a10.., the factory 10237d8/dc) and the shared 16:9 aspect constant (rodata 16afba4: camera setups) to 4/3; native.c hooks the camera's fov store (main+10918 -> +0x1e0, 20 deg) so tan(fov/2) x (16/9)/(4/3): same horizontal view, more vertical; exec.c: the scene composite quad (vp 1920x1080 into the 1920x1440 window) stretched to the window's height (the 3D targets stay 16:9-sized, the picture squeezed in them, as in EoW); the UI lays itself out for the 1920x1440 frame (hearts top-left). `LARECOMP_LAS_NO_43=1` or the file `aspect169` = 16:9; `LARECOMP_LAS_RES=<w>x<h>`, `LARECOMP_LAS_FOVK`, `LARECOMP_LAS_NO_COMPOSITE_FIX`.
 - v24 = v23 + SM3DW/Fury small fixes (game 105): the start screens' 'Erased' note and its box are not drawn (found via the previous frame's footer strip); Fury's coin counter 45 units lower (`LARECOMP_SM3DW_BOTTOM_EXTRA_FURY`): ~82 px from the bottom edge (cat icon ~88 from the top); the loading screen's corner icon ~53 px from the bottom.
 - v25 = v24 + SMO HUD fix (game 100): top HUD no longer shifted (it already sits ~45 px from the frame's top; the v22 ramp pushed pieces with |y| > 330 off the frame), bottom: footer pieces (cy < -310) fully, others 60 %, all clamped inside the layout camera's real extents. `LARECOMP_SMO_TOPSHIFT`, `LARECOMP_SMO_SHIFTK`, `LARECOMP_SMO_LOGHUD=<frame>`, `LARECOMP_SMO_LOGSHIFT=<frame>`.
+- v26 = v25 + SMO top-left counter row (coin counter + hat counter, game 100) shifted 150 units inward (`LARECOMP_SMO_LEFTSHIFT`): it was clipped at the frame's left edge; the row is now ~45 px from the left like the top margin.
 
 **Rule:** the runtime is changed only by thawing (`-Pnebulos.thaw=<games>` or removing lines), testing, then retagging a new shared version
-(`shared-v26`), then the full-APK install. Testing depends on what changed (policy since 2026-11-25):
+(`shared-v27`), then the full-APK install. Testing depends on what changed (policy since 2026-11-25):
 - A change confined to a **game-id-gated, off-switchable code path** (it only runs for that game): smoke-test the touched game (look + fps) plus a quick **boot check of the others** (each launches and renders a frame, no crash).
 - A change to **ungated / shared code** (anything that runs for every game): a FULL smoke test of all Switch games (boots to gameplay, same look, similar fps) before the new tag is mapped.
 A game-specific fix must be gated by game id so it cannot change another game.
 
-Smoke test of shared-v25 on the Nova, 2026-11-24 (full release build, no thaw): smo 60 fps/14.8k draws, dread 60, sm3dw 60, wonder 60 (title in 4:3; gameplay, map, menus, pause 60 fps in the dev build), las 30, sshd 30; eow not re-run (only game 104 changed); mp4 not installed. (v11-*.png/log.)
+Smoke test of shared-v26 on the Nova, 2026-11-24 (full release build, no thaw): smo 60 fps/14.8k draws, dread 60, sm3dw 60, wonder 60 (title in 4:3; gameplay, map, menus, pause 60 fps in the dev build), las 30, sshd 30; eow not re-run (only game 104 changed); mp4 not installed. (v11-*.png/log.)
 
 Smoke test of shared-v8 on the Nova, 2026-11-24: smo 60 fps/14.7k draws, dread 60, sm3dw 60, wonder 60, las 30, sshd 30 (old stall again; timing-dependent), eow start screen fills 4:3, file select unchanged; mp4 not installed. (v8-*.png/log.)
 
