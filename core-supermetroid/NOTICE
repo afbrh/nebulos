@@ -1,0 +1,8 @@
+core-supermetroid is built from:
+- sm (https://github.com/snesrev/sm), the Super Metroid decompilation, MIT License, Copyright (c) 2023 snesrev, Copyright (c) 2021 elzo_d,
+  with the fixes of https://github.com/nickdesaulniers/sm (branch gba-port, commit c4b8c21; same MIT license, port by Nick Desaulniers) and the
+  Kraid fix proposed in snesrev/sm pull request 50. It includes gl_core and stb (public domain / MIT).
+- SDL2 2.32.10 (https://github.com/libsdl-org/SDL), zlib License, Copyright (c) 1997-2025 Sam Lantinga.
+The full license texts are in the source trees (sm-snes-src/LICENSE.txt, SDL2 LICENSE.txt).
+No game data is included: the game reads the user's own ROM.
+The decompilation is reconstructed Nintendo code; its MIT label does not change that (the same risk class as the other native-port cores).

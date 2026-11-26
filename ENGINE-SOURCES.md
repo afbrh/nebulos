@@ -78,3 +78,9 @@ true 4:3 camera but are not available). Game files, driver and saves work as for
 
 `../zelda3-src`: snesrev/zelda3 (MIT) commit 45a149d, local branch `nebulos-local` (never pushed; origin is upstream). SDL2 2.32.10 is copied from
 `../sm64-sdl2-orig` and renamed by `zelda3-src/nebulos/rename_sdl.sh`. Built by Gradle from `core-zelda3/src/main/cpp`. See `core-zelda3/README-zelda3.md`.
+
+## sm (core-supermetroid), added 2026-11-26
+
+`../sm-snes-src`: Super Metroid decompilation, local branch `nebulos-local` on nickdesaulniers/sm c4b8c21 (itself on snesrev/sm 578f90b); push
+disabled. SDL2 2.32.10 renamed by `sm-snes-src/nebulos/rename_sdl.sh`. Built by Gradle from `core-supermetroid/src/main/cpp`. See
+`core-supermetroid/README-supermetroid.md`.

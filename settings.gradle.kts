@@ -178,3 +178,6 @@ if (want("eow")) include(":recomp-common", ":core-smo", ":core-eow")
 
 // :core-zelda3 (Super Nintendo, The Legend of Zelda: A Link to the Past US ROM): zelda3 (snesrev, MIT; ../zelda3-src, local branch nebulos-local, never pushed), built by CMake from the module.
 if (want("zelda3")) include(":recomp-common", ":core-zelda3")
+
+// :core-supermetroid (Super Nintendo, Super Metroid Japan/USA ROM): the snesrev/sm decompilation (MIT; ../sm-snes-src, local branch nebulos-local, never pushed), built by CMake from the module.
+if (want("supermetroid")) include(":recomp-common", ":core-supermetroid")
