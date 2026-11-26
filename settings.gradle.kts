@@ -175,3 +175,6 @@ if (want("las")) include(":recomp-common", ":core-smo", ":core-las")
 
 // :core-eow (Switch, The Legend of Zelda: Echoes of Wisdom 1.0.0): the Odyssey runtime (:core-smo) with Echoes of Wisdom as its game, its own process, game files and saves.
 if (want("eow")) include(":recomp-common", ":core-smo", ":core-eow")
+
+// :core-zelda3 (Super Nintendo, The Legend of Zelda: A Link to the Past US ROM): zelda3 (snesrev, MIT; ../zelda3-src, local branch nebulos-local, never pushed), built by CMake from the module.
+if (want("zelda3")) include(":recomp-common", ":core-zelda3")

@@ -73,3 +73,8 @@ game's own, in the app's internal files (`files/totk`), not in `_Nebulos`.
 macOS build fixes. Same prerequisites and layout as core-totk (FFmpeg is shared from `../totkdroid-src/android/deps/ffmpeg`; the static SDL3 is
 `../botwrecomp-src/android/deps/out-static`). Game version supported: 1.6.0 (Eden's installed update; 1.8.2/1.9.0 would unlock 40/60 fps and the
 true 4:3 camera but are not available). Game files, driver and saves work as for core-totk (dump on the internal volume, ~15 GB, ~4 minutes).
+
+## zelda3 (core-zelda3), added 2026-11-26
+
+`../zelda3-src`: snesrev/zelda3 (MIT) commit 45a149d, local branch `nebulos-local` (never pushed; origin is upstream). SDL2 2.32.10 is copied from
+`../sm64-sdl2-orig` and renamed by `zelda3-src/nebulos/rename_sdl.sh`. Built by Gradle from `core-zelda3/src/main/cpp`. See `core-zelda3/README-zelda3.md`.

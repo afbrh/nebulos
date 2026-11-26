@@ -1,0 +1,6 @@
+core-zelda3 is built from:
+- zelda3 (https://github.com/snesrev/zelda3), MIT License, Copyright (c) 2022 snesrev, Copyright (c) 2021 elzo_d.
+  It includes a stripped copy of Opus (BSD, Xiph.Org Foundation and others), gl_core and stb (public domain / MIT).
+- SDL2 2.32.10 (https://github.com/libsdl-org/SDL), zlib License, Copyright (c) 1997-2025 Sam Lantinga.
+The full license texts are in the source trees (zelda3-src/LICENSE.txt, SDL2 LICENSE.txt).
+No game data is included: it is built on the device from the user's own ROM.
