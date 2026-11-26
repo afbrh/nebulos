@@ -13,11 +13,11 @@ How it works
 - Still shared, NOT frozen: the Java glue (`SMORecompAndroidActivity`, compiled from the live tree), `recomp-common` (SDL, vpad) and the core modules.
   A change there can still affect a frozen game; keep such changes backward compatible.
 
-## Current state: ONE shared frozen runtime (2026-11-24, shared-v26)
+## Current state: ONE shared frozen runtime (2026-11-26, shared-v29)
 
-Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v26`**, worktree
-`../smorecomp-frozen/shared-v26`, one library `libsmo_main_shared_v10.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
-Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v25`; the older per-game tags are no longer used.
+Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v29`**, worktree
+`../smorecomp-frozen/shared-v29`, one library `libsmo_main_shared_v10.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
+Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v28`; the older per-game tags are no longer used.
 
 - v2 = v1 + EoW: loading spinner in the 4:3 corner, held incomplete frames, pipeline cache saved while it grows.
 - v3 = v2 + EoW: indirect draws (Castle Town's trees).
@@ -44,9 +44,12 @@ Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v25`; 
 - v24 = v23 + SM3DW/Fury small fixes (game 105): the start screens' 'Erased' note and its box are not drawn (found via the previous frame's footer strip); Fury's coin counter 45 units lower (`LARECOMP_SM3DW_BOTTOM_EXTRA_FURY`): ~82 px from the bottom edge (cat icon ~88 from the top); the loading screen's corner icon ~53 px from the bottom.
 - v25 = v24 + SMO HUD fix (game 100): top HUD no longer shifted (it already sits ~45 px from the frame's top; the v22 ramp pushed pieces with |y| > 330 off the frame), bottom: footer pieces (cy < -310) fully, others 60 %, all clamped inside the layout camera's real extents. `LARECOMP_SMO_TOPSHIFT`, `LARECOMP_SMO_SHIFTK`, `LARECOMP_SMO_LOGHUD=<frame>`, `LARECOMP_SMO_LOGSHIFT=<frame>`.
 - v26 = v25 + SMO top-left counter row (coin counter + hat counter, game 100) shifted 150 units inward (`LARECOMP_SMO_LEFTSHIFT`): it was clipped at the frame's left edge; the row is now ~45 px from the left like the top margin.
+- v27 = v26 + SMO (game 100): (1) the Throw Cap tutorial's guide movie (`PlayGuideMovie*.mp4`) fails to open (`LARECOMP_SMO_GUIDEMOVIE=1` plays it): its player stopped taking decoder output after the first frame and the game froze for good (a busy event loop; reproduced with and without 4:3); (2) the top-right HUD group (life gauge, Menu/Map prompts, compass) shifted 150 units inward (`LARECOMP_SMO_RIGHTSHIFT`): it was entirely off the frame.
+- v28 = v27 + SMO (game 100): the 'Super Mario Odyssey' logo (pause menu, startup screens) goes up to its 16:9 spot at the top left (`LARECOMP_SMO_NO_LOGOFIX`).
+- v29 = v28 + SMO (game 100): renders at 1280x960 (the Nova's screen) instead of 1200x900; `LARECOMP_SMO_RES=1200x900` goes back. Needs the post-process height maximum raised too (main+a583c0).
 
 **Rule:** the runtime is changed only by thawing (`-Pnebulos.thaw=<games>` or removing lines), testing, then retagging a new shared version
-(`shared-v27`), then the full-APK install. Testing depends on what changed (policy since 2026-11-25):
+(`shared-v30`), then the full-APK install. Testing depends on what changed (policy since 2026-11-25):
 - A change confined to a **game-id-gated, off-switchable code path** (it only runs for that game): smoke-test the touched game (look + fps) plus a quick **boot check of the others** (each launches and renders a frame, no crash).
 - A change to **ungated / shared code** (anything that runs for every game): a FULL smoke test of all Switch games (boots to gameplay, same look, similar fps) before the new tag is mapped.
 A game-specific fix must be gated by game id so it cannot change another game.
