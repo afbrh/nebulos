@@ -6,7 +6,10 @@ include(":app", ":nebulos-api")
 // -Pnebulos.cores=eden (or dolphin,eden ...) includes only those cores; without it every core is included. Needed when only some of the
 // sibling *-src checkouts exist. app/build.gradle.kts reads the same property to link the matching modules.
 val wantedCores = providers.gradleProperty("nebulos.cores").orNull?.split(",")?.map { it.trim() }
-fun want(id: String) = wantedCores == null || id in wantedCores
+// Parked cores: the code stays in the tree but they are left out of the app (their games run emulated). Built only when named in
+// -Pnebulos.cores; to bring one back, remove it here and add its id to CoreBootstrap.CORE_IDS.
+val parkedCores = setOf("ico", "sotc")
+fun want(id: String) = if (wantedCores == null) id !in parkedCores else id in wantedCores
 // Each core agent adds its own line here when its module first builds:
 // include(":core-retroarch", ":core-dolphin", ":core-primehack",
 //         ":core-eden", ":core-azahar", ":core-watermelonds", ":core-armsx2")

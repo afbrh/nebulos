@@ -1,5 +1,7 @@
 # :core-ico - ICO (PS2) via ico-pc
 
+**Parked since 2026-11-26** (user's choice): not built into the app, the game runs in ARMSX2. The code, engine source and saves are kept. To restore: remove `ico` from `parkedCores` in `settings.gradle.kts` and add `"ico"` back to `CoreBootstrap.CORE_IDS`.
+
 ico-pc (github.com/nathanialf/ico-pc, MIT) is the ICO decompilation built as a native SDL3 + Vulkan port (not an emulator). One-game core, routed by the
 disc serial (`IcoCore.SERIALS`: USA SCUS-97113, Europe SCES-50760, Japan SCPS-11003, Korea SCPS-56001, Asia SCPS-55001, the 2001 preview/demo SCUS-97158);
 ARMSX2 stays selectable. The user's own disc image is read in place (raw 2352-byte CD images work: `Ps2DiscId` reads them too).

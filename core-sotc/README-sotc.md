@@ -1,5 +1,7 @@
 # :core-sotc — Shadow of the Colossus (PS2, USA SCUS-97472) via Celosia
 
+**Parked since 2026-11-26** (user's choice): not built into the app, the game runs in ARMSX2. The code, engine source and saves are kept. To restore: remove `sotc` from `parkedCores` in `settings.gradle.kts` and add `"sotc"` back to `CoreBootstrap.CORE_IDS`.
+
 [Celosia](https://github.com/HenryKun55/celosia) (GPL-3.0) statically recompiles the game's MIPS code (boot ELF + the three XFF
 modules) to C++ with PS2Recomp and runs it on a native runtime: the CPU is not emulated; the graphics are drawn by a native
 renderer (OpenGL ES 3.2 here), sound and the IOP are host code. Source: `../celosia-src`, local branch `nebulos-android`

@@ -11,7 +11,8 @@ import com.noryan.nebulos.api.CoreRegistry
  */
 object CoreBootstrap {
     private const val TAG = "CoreBootstrap"
-    val CORE_IDS = listOf("retroarch", "dolphin", "primehack", "eden", "lichii", "azahar", "watermelonds", "armsx2", "dusklight", "shipwright", "twoship", "wwhd", "jak", "sotc", "botw", "totk", "darkcloud", "darkchronicle", "ico", "smo", "galaxy", "sunshine", "dread", "mp4", "sshd", "echoes", "prime1", "sm64", "wonder", "sm3dw", "las", "eow")
+    // "ico" and "sotc" are parked (settings.gradle.kts parkedCores): not listed, so their games go to ARMSX2.
+    val CORE_IDS = listOf("retroarch", "dolphin", "primehack", "eden", "lichii", "azahar", "watermelonds", "armsx2", "dusklight", "shipwright", "twoship", "wwhd", "jak", "botw", "totk", "darkcloud", "darkchronicle", "smo", "galaxy", "sunshine", "dread", "mp4", "sshd", "echoes", "prime1", "sm64", "wonder", "sm3dw", "las", "eow")
 
     private val DISPLAY_CASE = mapOf(
         "retroarch" to listOf("RetroArch", "Retroarch"), "primehack" to listOf("PrimeHack", "Primehack"),
