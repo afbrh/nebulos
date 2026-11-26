@@ -13,11 +13,11 @@ How it works
 - Still shared, NOT frozen: the Java glue (`SMORecompAndroidActivity`, compiled from the live tree), `recomp-common` (SDL, vpad) and the core modules.
   A change there can still affect a frozen game; keep such changes backward compatible.
 
-## Current state: ONE shared frozen runtime (2026-11-24, shared-v22)
+## Current state: ONE shared frozen runtime (2026-11-24, shared-v23)
 
-Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v22`**, worktree
-`../smorecomp-frozen/shared-v22`, one library `libsmo_main_shared_v10.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
-Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v21`; the older per-game tags are no longer used.
+Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v23`**, worktree
+`../smorecomp-frozen/shared-v23`, one library `libsmo_main_shared_v10.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
+Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v22`; the older per-game tags are no longer used.
 
 - v2 = v1 + EoW: loading spinner in the 4:3 corner, held incomplete frames, pipeline cache saved while it grows.
 - v3 = v2 + EoW: indirect draws (Castle Town's trees).
@@ -40,14 +40,15 @@ Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v21`; 
 - v20 = v19 fix (game 105): the >=1500 depth-draw HUD threshold was wrong (real per-frame depth draws: start-screen backdrop ~500, map ~170, 3D World course ~270, Fury ~595; no threshold separates them) - back to >=40; Resume/New Game stay put because only edge pieces (|x| > 450 of 640) are HUD-shifted; the start screens' footer (white band, red line, hatching, Back) is not drawn (`LARECOMP_SM3DW_KEEP_FOOTER=1` draws it); loading-screen corner icon (pane, |x|>450, no scene) shifted again.
 - v21 = v20 + Skyward Sword HD native 4:3 (game 103, loader.c): the render size pair 1920x1080 - data at main+16cac94 and the rodata template it is copied from at main+13a916c (handheld 1280x720 at 13a915c) - patched to 1440x1080 (960x720); the game then lays out the world (more vertical view), HUD and menus for 4:3 itself. `LARECOMP_SSHD_NO_43=1` or the file `aspect169` in the data root = 16:9; `LARECOMP_SSHD_RES=<w>x<h>`.
 - v22 = v21 + Super Mario Odyssey native 4:3 (game 100): loader.c patches the docked render size 1600x900 -> 1200x900 (main+51537c/515380/53667c/536680; g_eow_res 1440x1080); native.c reuses the SM3DW sead::PerspectiveProjection hooks (SMO addresses 75fbe0..75fe94, 7607f4; tan x (16/9)/r, aspect r - also for the 16:9 layout camera) so the world gets the taller view and the 1280x720 ui2d layouts a 640x480 half-extent camera; exec.c: full-canvas panes (>=690 units high) stretched 4/3, pieces with |y| > 290 (HUD, footer) moved out to the frame edges (top ones keep 36 units). `LARECOMP_SMO_NO_43=1` / `aspect169` = the old crop, `LARECOMP_SMO_RES`, `LARECOMP_SMO_NO_UISHIFT`, `LARECOMP_SMO_LOGUI`.
+- v23 = v22 + Link's Awakening native 4:3 (game 107, same engine as EoW but different offsets): loader.c patches the window/render-size immediates to 1920x1440 (main+1015a04/10, 1019820/24, 101dbe0/e4, handheld 1015a08/0c, the 4 scene-size blocks 913a10.., the factory 10237d8/dc) and the shared 16:9 aspect constant (rodata 16afba4: camera setups) to 4/3; native.c hooks the camera's fov store (main+10918 -> +0x1e0, 20 deg) so tan(fov/2) x (16/9)/(4/3): same horizontal view, more vertical; exec.c: the scene composite quad (vp 1920x1080 into the 1920x1440 window) stretched to the window's height (the 3D targets stay 16:9-sized, the picture squeezed in them, as in EoW); the UI lays itself out for the 1920x1440 frame (hearts top-left). `LARECOMP_LAS_NO_43=1` or the file `aspect169` = 16:9; `LARECOMP_LAS_RES=<w>x<h>`, `LARECOMP_LAS_FOVK`, `LARECOMP_LAS_NO_COMPOSITE_FIX`.
 
 **Rule:** the runtime is changed only by thawing (`-Pnebulos.thaw=<games>` or removing lines), testing, then retagging a new shared version
-(`shared-v23`), then the full-APK install. Testing depends on what changed (policy since 2026-11-25):
+(`shared-v24`), then the full-APK install. Testing depends on what changed (policy since 2026-11-25):
 - A change confined to a **game-id-gated, off-switchable code path** (it only runs for that game): smoke-test the touched game (look + fps) plus a quick **boot check of the others** (each launches and renders a frame, no crash).
 - A change to **ungated / shared code** (anything that runs for every game): a FULL smoke test of all Switch games (boots to gameplay, same look, similar fps) before the new tag is mapped.
 A game-specific fix must be gated by game id so it cannot change another game.
 
-Smoke test of shared-v22 on the Nova, 2026-11-24 (full release build, no thaw): smo 60 fps/14.8k draws, dread 60, sm3dw 60, wonder 60 (title in 4:3; gameplay, map, menus, pause 60 fps in the dev build), las 30, sshd 30; eow not re-run (only game 104 changed); mp4 not installed. (v11-*.png/log.)
+Smoke test of shared-v23 on the Nova, 2026-11-24 (full release build, no thaw): smo 60 fps/14.8k draws, dread 60, sm3dw 60, wonder 60 (title in 4:3; gameplay, map, menus, pause 60 fps in the dev build), las 30, sshd 30; eow not re-run (only game 104 changed); mp4 not installed. (v11-*.png/log.)
 
 Smoke test of shared-v8 on the Nova, 2026-11-24: smo 60 fps/14.7k draws, dread 60, sm3dw 60, wonder 60, las 30, sshd 30 (old stall again; timing-dependent), eow start screen fills 4:3, file select unchanged; mp4 not installed. (v8-*.png/log.)
 
