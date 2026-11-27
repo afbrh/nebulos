@@ -13,11 +13,11 @@ How it works
 - Still shared, NOT frozen: the Java glue (`SMORecompAndroidActivity`, compiled from the live tree), `recomp-common` (SDL, vpad) and the core modules.
   A change there can still affect a frozen game; keep such changes backward compatible.
 
-## Current state: ONE shared frozen runtime (2026-11-26, shared-v30)
+## Current state: ONE shared frozen runtime (2026-11-26, shared-v31)
 
-Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v30`**, worktree
-`../smorecomp-frozen/shared-v30`, one library `libsmo_main_shared_v30.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
-Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v29`; the older per-game tags are no longer used.
+Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v31`**, worktree
+`../smorecomp-frozen/shared-v31`, one library `libsmo_main_shared_v31.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
+Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v30`; the older per-game tags are no longer used.
 
 - v2 = v1 + EoW: loading spinner in the 4:3 corner, held incomplete frames, pipeline cache saved while it grows.
 - v3 = v2 + EoW: indirect draws (Castle Town's trees).
@@ -48,12 +48,15 @@ Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v29`; 
 - v28 = v27 + SMO (game 100): the 'Super Mario Odyssey' logo (pause menu, startup screens) goes up to its 16:9 spot at the top left (`LARECOMP_SMO_NO_LOGOFIX`).
 - v29 = v28 + SMO (game 100): renders at 1280x960 (the Nova's screen) instead of 1200x900; `LARECOMP_SMO_RES=1200x900` goes back. Needs the post-process height maximum raised too (main+a583c0).
 - v30 = v29 + Metroid Dread (game 101): the title screen's and main menu's backdrop movie (`video/title/titlescreen*.webm`, 1280x720) fills the 4:3 frame, cropped at the sides with the same scale both ways, instead of sitting in a 16:9 band (movie.c flags the open movie; exec.c enlarges its quad's viewport). The logo is part of that movie and grows with it; menus and prompts are unchanged. `LARECOMP_DREAD_NO_TITLE_ZOOM=1` = as v29.
+- v31 = v30 + Metroid Dread (game 101): the game over screen's backdrop (`video/title/gameover*.webm`) fills the 4:3 frame the same way (the flag covers all of `video/title/`). The same off switch.
 
 **Rule:** the runtime is changed only by thawing (`-Pnebulos.thaw=<games>` or removing lines), testing, then retagging a new shared version
-(`shared-v31`), then the full-APK install. Testing depends on what changed (policy since 2026-11-25):
+(`shared-v32`), then the full-APK install. Testing depends on what changed (policy since 2026-11-25):
 - A change confined to a **game-id-gated, off-switchable code path** (it only runs for that game): smoke-test the touched game (look + fps) plus a quick **boot check of the others** (each launches and renders a frame, no crash).
 - A change to **ungated / shared code** (anything that runs for every game): a FULL smoke test of all Switch games (boots to gameplay, same look, similar fps) before the new tag is mapped.
 A game-specific fix must be gated by game id so it cannot change another game.
+
+Test of shared-v31 on the Nova, 2026-11-26 (full release build; gated to Dread): dread File 1 to a real game over (backdrop fills the frame), Quit to Samus Files (fills), 60 fps; Continue from game over checked on the thawed build; boot check smo 60, sm3dw 60, wonder 60, eow 30, las 30, sshd 30, no crash, saves unchanged; mp4 not installed. gameover2_loop.webm not seen in play. (v31-*.png/log.)
 
 Test of shared-v30 on the Nova, 2026-11-26 (full release build; change gated to Dread): dread title, Press A, Samus Files, File 1, Continue to gameplay, 60 fps, backdrop fills the frame with no letterboxed frame in the recorded transitions (recorded on the thawed build; title and menu rechecked on v30); boot check smo 60, sm3dw 60, wonder 60, eow 30, las 30, sshd 30 (opening movie), no crash, saves unchanged; mp4 not installed. (v30-*.png/log.)
 
