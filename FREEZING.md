@@ -13,11 +13,11 @@ How it works
 - Still shared, NOT frozen: the Java glue (`SMORecompAndroidActivity`, compiled from the live tree), `recomp-common` (SDL, vpad) and the core modules.
   A change there can still affect a frozen game; keep such changes backward compatible.
 
-## Current state: ONE shared frozen runtime (2026-11-26, shared-v29)
+## Current state: ONE shared frozen runtime (2026-11-26, shared-v30)
 
-Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v29`**, worktree
-`../smorecomp-frozen/shared-v29`, one library `libsmo_main_shared_v10.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
-Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v28`; the older per-game tags are no longer used.
+Every Switch game (smo, dread, sm3dw, wonder, las, eow, sshd, mp4) loads the same frozen runtime, tag **`shared-v30`**, worktree
+`../smorecomp-frozen/shared-v30`, one library `libsmo_main_shared_v30.so` (no live `libsmo_main.so` in the APK unless a game is thawed).
+Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v29`; the older per-game tags are no longer used.
 
 - v2 = v1 + EoW: loading spinner in the 4:3 corner, held incomplete frames, pipeline cache saved while it grows.
 - v3 = v2 + EoW: indirect draws (Castle Town's trees).
@@ -47,12 +47,15 @@ Earlier versions stay in git with their worktrees: `shared-v1` .. `shared-v28`; 
 - v27 = v26 + SMO (game 100): (1) the Throw Cap tutorial's guide movie (`PlayGuideMovie*.mp4`) fails to open (`LARECOMP_SMO_GUIDEMOVIE=1` plays it): its player stopped taking decoder output after the first frame and the game froze for good (a busy event loop; reproduced with and without 4:3); (2) the top-right HUD group (life gauge, Menu/Map prompts, compass) shifted 150 units inward (`LARECOMP_SMO_RIGHTSHIFT`): it was entirely off the frame.
 - v28 = v27 + SMO (game 100): the 'Super Mario Odyssey' logo (pause menu, startup screens) goes up to its 16:9 spot at the top left (`LARECOMP_SMO_NO_LOGOFIX`).
 - v29 = v28 + SMO (game 100): renders at 1280x960 (the Nova's screen) instead of 1200x900; `LARECOMP_SMO_RES=1200x900` goes back. Needs the post-process height maximum raised too (main+a583c0).
+- v30 = v29 + Metroid Dread (game 101): the title screen's and main menu's backdrop movie (`video/title/titlescreen*.webm`, 1280x720) fills the 4:3 frame, cropped at the sides with the same scale both ways, instead of sitting in a 16:9 band (movie.c flags the open movie; exec.c enlarges its quad's viewport). The logo is part of that movie and grows with it; menus and prompts are unchanged. `LARECOMP_DREAD_NO_TITLE_ZOOM=1` = as v29.
 
 **Rule:** the runtime is changed only by thawing (`-Pnebulos.thaw=<games>` or removing lines), testing, then retagging a new shared version
-(`shared-v30`), then the full-APK install. Testing depends on what changed (policy since 2026-11-25):
+(`shared-v31`), then the full-APK install. Testing depends on what changed (policy since 2026-11-25):
 - A change confined to a **game-id-gated, off-switchable code path** (it only runs for that game): smoke-test the touched game (look + fps) plus a quick **boot check of the others** (each launches and renders a frame, no crash).
 - A change to **ungated / shared code** (anything that runs for every game): a FULL smoke test of all Switch games (boots to gameplay, same look, similar fps) before the new tag is mapped.
 A game-specific fix must be gated by game id so it cannot change another game.
+
+Test of shared-v30 on the Nova, 2026-11-26 (full release build; change gated to Dread): dread title, Press A, Samus Files, File 1, Continue to gameplay, 60 fps, backdrop fills the frame with no letterboxed frame in the recorded transitions (recorded on the thawed build; title and menu rechecked on v30); boot check smo 60, sm3dw 60, wonder 60, eow 30, las 30, sshd 30 (opening movie), no crash, saves unchanged; mp4 not installed. (v30-*.png/log.)
 
 Smoke test of shared-v26 on the Nova, 2026-11-24 (full release build, no thaw): smo 60 fps/14.8k draws, dread 60, sm3dw 60, wonder 60 (title in 4:3; gameplay, map, menus, pause 60 fps in the dev build), las 30, sshd 30; eow not re-run (only game 104 changed); mp4 not installed. (v11-*.png/log.)
 
