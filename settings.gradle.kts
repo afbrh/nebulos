@@ -8,7 +8,7 @@ include(":app", ":nebulos-api")
 val wantedCores = providers.gradleProperty("nebulos.cores").orNull?.split(",")?.map { it.trim() }
 // Parked cores: the code stays in the tree but they are left out of the app (their games run emulated). Built only when named in
 // -Pnebulos.cores; to bring one back, remove it here and add its id to CoreBootstrap.CORE_IDS.
-val parkedCores = setOf("ico", "sotc")
+val parkedCores = setOf("ico", "sotc", "darkchronicle")
 fun want(id: String) = if (wantedCores == null) id !in parkedCores else id in wantedCores
 // Each core agent adds its own line here when its module first builds:
 // include(":core-retroarch", ":core-dolphin", ":core-primehack",

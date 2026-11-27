@@ -1,5 +1,7 @@
 # :core-darkchronicle - Dark Cloud 2 / Dark Chronicle (PS2, PAL SCES_511.90) via ChronicleTwo
 
+**Parked since 2026-11-26** (user's choice): not built into the app, the disc runs in ARMSX2. The code, engine source, saves and extracted game data are kept. To restore: remove `darkchronicle` from `parkedCores` in `settings.gradle.kts` and add `"darkchronicle"` back to `CoreBootstrap.CORE_IDS`.
+
 ChronicleTwo (github.com/TheMoonPeople/ChronicleTwo) is the PAL decompilation of Dark Chronicle plus a native SDL3 + Vulkan port (not an emulator). One-game core,
 routed by the disc serial `SCES-51190`. ChronicleTwo is PAL-only: the NTSC-U disc (`SCUS_972.13`) is not claimed and stays on ARMSX2.
 
